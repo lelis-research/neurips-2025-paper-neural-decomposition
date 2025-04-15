@@ -176,9 +176,10 @@ class Game:
         return str_map
     
     def get_observation(self):
-        one_hot_matrix_state = np.zeros((self._pattern_length, self._pattern_length), dtype=int)
-        for i, v in enumerate(self._state):
-            one_hot_matrix_state[v][i] = 1
+        # one_hot_matrix_state = np.zeros((self._pattern_length, self._pattern_length), dtype=int)
+        one_hot_matrix_state = np.zeros((3), dtype=int)
+        # for i, v in enumerate(self._state):
+        #     one_hot_matrix_state[v][i] = 1
         return np.concatenate((self._matrix_unit.ravel(), one_hot_matrix_state.ravel(), self._matrix_goal.ravel()))
     
     def is_over(self):

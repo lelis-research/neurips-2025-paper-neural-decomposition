@@ -69,7 +69,7 @@ class ComboGym(gym.Env):
         return self._game.is_over()
     
     def get_observation_space(self):
-        return self._rows * self._columns * 2 + 9
+        return len(self.get_observation())
     
     def get_action_space(self):
         return self.action_space.n

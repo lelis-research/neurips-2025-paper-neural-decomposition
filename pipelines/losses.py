@@ -5,7 +5,7 @@ import numpy as np
 from typing import List
 import torch.nn.functional as F
 # from pipelines.test_on_every_cell import Args as EachCellTestArgs
-from agents.policy_guided_agent import PPOAgent
+from agents.recurrent_agent import GruAgent
 from environments.environments_combogrid_gym import ComboGym
 from environments.environments_combogrid import DIRECTIONS, PROBLEM_NAMES as COMBO_PROBLEM_NAMES
 from environments.environments_minigrid import get_training_tasks_simplecross
@@ -36,7 +36,7 @@ def regenerate_trajectories(args, verbose=False, logger=None):
         if verbose:
             logger.info(f"Loading Trajectories from {model_path} ...")
         
-        agent = PPOAgent(env, hidden_size=args.hidden_size)
+        agent = GruAgent(env, hidden_size=args.hidden_size)
         
         agent.load_state_dict(torch.load(model_path))
 
@@ -87,7 +87,7 @@ class LevinLossActorCritic:
                 return False
         return True
 
-    def _run(self, env: ComboGym, mask: list, agent: PPOAgent, numbers_steps: int):
+    def _run(self, env: ComboGym, mask: list, agent: GruAgent, numbers_steps: int):
         """
         This function executes an option, which is given by a mask, an agent, and a number of steps. 
 
@@ -217,7 +217,7 @@ class LevinLossActorCritic:
         log_uniform_probability = math.log(uniform_probability)
         return log_depth - number_decisions * log_uniform_probability
 
-    def print_output_subpolicy_trajectory(self, options: List[PPOAgent], trajectories, logger):
+    def print_output_subpolicy_trajectory(self, options: List[GruAgent], trajectories, logger):
         """
         This function prints the "behavior" of the options encoded in a set of masks. It will show
         when each option is applicable in different states of the different trajectories. Here is 
@@ -293,7 +293,7 @@ class LevinLossActorCritic:
                 logger.info(buffer)
             logger.info(f'Number of Decisions:  {M[len(t)]}')
 
-    def evaluate_on_each_cell(self, options: List[PPOAgent], trajectories: dict, problem_test, args, seed: int, logger=None):
+    def evaluate_on_each_cell(self, options: List[GruAgent], trajectories: dict, problem_test, args, seed: int, logger=None):
         """
         This test is to see for each cell, options will give which sequence of actions
         """

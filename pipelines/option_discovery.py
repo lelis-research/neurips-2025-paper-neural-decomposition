@@ -9,19 +9,19 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import numpy as np
 from typing import List
-from utils import utils
 from dataclasses import dataclass
 import itertools
 import logging
 from typing import Union, List, Tuple
 import concurrent.futures
+import gymnasium as gym
 from pipelines.losses import LevinLossActorCritic, LogitsLossActorCritic
-from agents.policy_guided_agent import PPOAgent
-from environments.environments_combogrid_gym import ComboGym
+from agents.recurrent_agent import GruAgent
+from environments.environments_combogrid_gym import ComboGym, make_env
 from environments.environments_combogrid import SEEDS, PROBLEM_NAMES as COMBO_PROBLEM_NAMES
 from environments.environments_minigrid import get_training_tasks_simplecross
-from utils.utils import timing_decorator
-from utils.utils import timing_decorator
+from utils.utils import *
+
 
 
 @dataclass
@@ -35,25 +35,25 @@ class Args:
     env_seeds: Union[List, str, Tuple] = (0,1,2,3)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
     # model_paths: List[str] = (
-    #     'train_ppoAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
-    #     'train_ppoAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd1',
-    #     'train_ppoAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2'
+    #     'train_GruAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
+    #     'train_GruAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd1',
+    #     'train_GruAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2'
     # )
     # model_paths: List[str] = (
-    #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.0005_clip0.25_ent0.1_envsd0',
-    #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.001_clip0.2_ent0.1_envsd1',
-    #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.001_clip0.2_ent0.1_envsd2'
+    #     'train_GruAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.0005_clip0.25_ent0.1_envsd0',
+    #     'train_GruAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.001_clip0.2_ent0.1_envsd1',
+    #     'train_GruAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.001_clip0.2_ent0.1_envsd2'
     # )
     # model_paths: List[str] = (
-    #     'train_ppoAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
-    #     'train_ppoAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd1',
-    #     'train_ppoAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2',
+    #     'train_GruAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
+    #     'train_GruAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd1',
+    #     'train_GruAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2',
     #     )
     model_paths: List[str] = (
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd0_TL-BR',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd1_TR-BL',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd2_BR-TL',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd3_BL-TR',
+        'combogrid-TL-BR',
+        'combogrid-TR-BL',
+        'combogrid-BR-TL',
+        'combogrid-BL-TR',
     )
 
     # These attributes will be filled in the runtime
@@ -91,14 +91,14 @@ class Args:
     """"""
     input_update_frequency: int = 1
     """"""
-    mask_type: str = "input"
+    mask_type: str = "both"
     """It's one of these: [internal, input, both]"""
     mask_transform_type: str = "softmax"
     """It's either `softmax` or `quantize`"""
     selection_type: str = "local_search"
 
     # Script arguments
-    seed: int = 0
+    seed: int = 1
     """The seed used for reproducibilty of the script"""
     torch_deterministic: bool = True
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
@@ -176,17 +176,22 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     trajectories = {}
     
     for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
-        env = get_single_environment(args, seed=seed)
+        model_path = f'binary/models/{model_directory}-{args.seed}.pt'
+        env = get_single_environment(args, seed)
+        # env = gym.vector.SyncVectorEnv(
+        #     [make_env(problem=problem, rows=args.game_width, columns=args.game_width) for i in range(1)],
+        # )
         
         if verbose:
             logger.info(f"Loading Trajectories from {model_path} ...")
         
-        agent = PPOAgent(env, hidden_size=args.hidden_size)
+        agent = GruAgent(env, h_size=args.hidden_size)
         
-        agent.load_state_dict(torch.load(model_path))
+        agent.load_state_dict(torch.load(model_path, weights_only=True))
 
-        trajectory = agent.run(env, verbose=verbose)
+        agent.eval()
+        env = get_single_environment(args, seed=seed)
+        trajectory, _ = agent.run(env, verbose=verbose)
         trajectories[problem] = trajectory
 
         if verbose:
@@ -195,12 +200,12 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     return trajectories
 
 
-def save_options(options: List[PPOAgent], trajectories: dict, args: Args, logger):
+def save_options(options: List[GruAgent], trajectories: dict, args: Args, logger):
     """
     Save the options (masks, models, and number of iterations) to the specified directory.
 
     Parameters:
-        options (List[PPOAgent]): The models corresponding to the masks.
+        options (List[GruAgent]): The models corresponding to the masks.
         trajectories (Dict[str, Trajectory]): The trajectories corresponding to the these options
         save_dir (str): The directory where the options will be saved.
     """
@@ -224,11 +229,12 @@ def save_options(options: List[PPOAgent], trajectories: dict, args: Args, logger
     # Save each model with its mask and iteration count
     for i, model in enumerate(options):
         
-        model_path = os.path.join(save_dir, f'ppo_model_option_{i}.pth')
+        model_path = os.path.join(save_dir, f'ppo_model_option_{i}.pt')
         torch.save({
             'id': i,
             'model_state_dict': model.state_dict(),
-            'mask': model.mask,
+            'feature_mask': model.feature_mask,
+            'actor_mask': model.actor_mask,
             'n_iterations': model.option_size,
             'problem': model.problem_id,
             'environment_args': vars(args),
@@ -246,7 +252,7 @@ def load_options(args, logger):
         save_dir (str): The directory where the options, and trajectories are saved.
 
     Returns:
-        options (List[PPOAgent]): Loaded models.
+        options (List[GruAgent]): Loaded models.
         loaded_trajectories (List[Trajectory]): Loaded trajectories.
     """
 
@@ -266,7 +272,7 @@ def load_options(args, logger):
 
     for model_file in model_files:
         model_path = os.path.join(save_dir, model_file)
-        checkpoint = torch.load(model_path)
+        checkpoint = torch.load(model_path, weights_only=True)
         
         if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
             if 'environment_args' in checkpoint:
@@ -285,9 +291,9 @@ def load_options(args, logger):
         else:
             raise NotImplementedError
 
-        model = PPOAgent(envs=envs, hidden_size=args.hidden_size)  # Create a new PPOAgent instance with default parameters
+        model = GruAgent(envs=envs, h_size=args.hidden_size)  # Create a new GruAgent instance with default parameters
         model.load_state_dict(checkpoint['model_state_dict'])
-        model.to_option(checkpoint['mask'], checkpoint['n_iterations'], checkpoint['problem'])
+        model.to_option(mask_f=checkpoint['feature_mask'], mask_a=checkpoint['actor_mask'], option_size=checkpoint['n_iterations'], problem_id=checkpoint['problem'])
         model.extra_info = checkpoint['extra_info'] if 'extra_info' in checkpoint else {}
         model.environment_args = checkpoint['environment_args'] if 'environment_args' in checkpoint else {}
 
@@ -304,7 +310,7 @@ def load_options(args, logger):
 
 def hill_climbing_iter(
     i: int, 
-    agent: PPOAgent,
+    agent: GruAgent,
     option_size: int, 
     problem_str: str,
     number_actions: int, 
@@ -386,7 +392,7 @@ def hill_climbing_iter(
             
 
 def hill_climbing(
-        agent: PPOAgent, 
+        agent: GruAgent, 
         problem_str: str,
         number_actions: int, 
         trajectories: dict, 
@@ -502,7 +508,7 @@ def hill_climbing_mask_space_training_data():
     args = process_args()
     
     # Logger configurations
-    logger = utils.get_logger('hill_climbing_logger', args.log_level, args.log_path)
+    logger = get_logger('hill_climbing_logger', args.log_level, args.log_path)
 
     game_width = args.game_width
     number_actions = 3
@@ -517,7 +523,7 @@ def hill_climbing_mask_space_training_data():
     for key, value in vars(args).items():
         buffer += (f"{key}: {value}\n")
     logger.info(buffer)
-    utils.logger_flush(logger)
+    logger_flush(logger)
 
     previous_loss = None
     best_loss = None
@@ -541,8 +547,8 @@ def hill_climbing_mask_space_training_data():
             logger.info(f'Extracting from the agent trained on {problem}, seed={seed}')
             env = get_single_environment(args, seed=seed)
 
-            agent = PPOAgent(env, hidden_size=args.hidden_size)
-            agent.load_state_dict(torch.load(model_path))
+            agent = GruAgent(env, h_size=args.hidden_size)
+            agent.load_state_dict(torch.load(model_path, weights_only=True))
 
             mask, levin_loss, option_size = hill_climbing(agent=agent, 
                                                 problem_str=problem, 
@@ -570,7 +576,7 @@ def hill_climbing_mask_space_training_data():
                     agent.environment_args = {
                         "game_width": game_width
                     }
-            utils.logger_flush(logger)
+            logger_flush(logger)
         logger.debug("\n")
 
         # we recompute the Levin loss after the automaton is selected so that we can use 
@@ -581,7 +587,7 @@ def hill_climbing_mask_space_training_data():
         best_loss = loss.compute_loss(selected_masks, selected_mask_models, "", trajectories, number_actions, selected_option_sizes)
 
         logger.info(f"Levin loss of the current set: {best_loss}")
-        utils.logger_flush(logger)
+        logger_flush(logger)
 
     # remove the last automaton added
     num_options = len(selected_mask_models)
@@ -600,7 +606,7 @@ def hill_climbing_mask_space_training_data():
                  args=args, 
                  logger=logger)
     
-    utils.logger_flush(logger)
+    logger_flush(logger)
 
 
 @timing_decorator
@@ -625,8 +631,8 @@ def hill_climbing_all_segments(args: Args, logger: logging.Logger):
         logger.info(f'Extracting from the agent trained on {problem}, seed={seed}')
         env = get_single_environment(args, seed=seed)
         
-        agent = PPOAgent(env, hidden_size=args.hidden_size)
-        agent.load_state_dict(torch.load(model_path))
+        agent = GruAgent(env, hidden_size=args.hidden_size)
+        agent.load_state_dict(torch.load(model_path, weights_only=True))
 
         t_length = trajectories[problem].get_length()
 
@@ -647,7 +653,7 @@ def hill_climbing_all_segments(args: Args, logger: logging.Logger):
                                                 args=args, 
                                                 logger=logger)
                 all_masks_info.append((mask, problem, option_size, model_path, s))
-            utils.logger_flush(logger)
+            logger_flush(logger)
         
     logger.debug("\n")
 
@@ -670,8 +676,8 @@ def hill_climbing_all_segments(args: Args, logger: logging.Logger):
             logger.info(f'Extracting from the agent trained on problem={problem}, seed={seed}, segment=({segment},{segment+option_size})')
             env = get_single_environment(args, seed=seed)
             
-            agent = PPOAgent(env, hidden_size=args.hidden_size)
-            agent.load_state_dict(torch.load(model_path))
+            agent = GruAgent(env, hidden_size=args.hidden_size)
+            agent.load_state_dict(torch.load(model_path, weights_only=True))
 
             loss_value = levin_loss.compute_loss(masks=selected_masks + [mask], 
                                            agents=selected_mask_models + [agent], 
@@ -695,7 +701,7 @@ def hill_climbing_all_segments(args: Args, logger: logging.Logger):
         best_loss = levin_loss.compute_loss(selected_masks, selected_mask_models, "", trajectories, number_actions, selected_option_sizes)
 
         logger.info(f"Added option #{len(selected_mask_models)}; Levin loss of the current selected set: {best_loss} on all trajectories")
-        utils.logger_flush(logger)
+        logger_flush(logger)
 
     # remove the last automaton added
     num_options = len(selected_mask_models)
@@ -714,10 +720,10 @@ def hill_climbing_all_segments(args: Args, logger: logging.Logger):
                  args=args,  
                  logger=logger)
     
-    utils.logger_flush(logger)
+    logger_flush(logger)
 
     levin_loss.print_output_subpolicy_trajectory(selected_mask_models, trajectories, logger=logger)
-    utils.logger_flush(logger)
+    logger_flush(logger)
 
 
 @timing_decorator
@@ -752,8 +758,8 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
             logger.info(f'Extracting from the agent trained on {problem}, seed={seed}')
             env = get_single_environment(args, seed=seed)
 
-            agent = PPOAgent(env, hidden_size=args.hidden_size)
-            agent.load_state_dict(torch.load(model_path))
+            agent = GruAgent(env, hidden_size=args.hidden_size)
+            agent.load_state_dict(torch.load(model_path, weights_only=True))
 
             for i in range(2, max_length + 1):
                 mask = torch.tensor([-1] * args.hidden_size).view(1,-1)
@@ -765,7 +771,7 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
                     agent.to_option(mask, i, problem)
 
         logger.info(f'Summary of option #{len(selected_mask_models)}: \nBest Mask:{best_mask_model.mask}, best_loss={best_loss}, option_size={best_mask_model.option_size}, option problem={best_mask_model.problem_id}\nPrevious selected loss:{previous_loss}')
-        utils.logger_flush(logger)
+        logger_flush(logger)
         logger.debug("\n")
 
         # we recompute the Levin loss after the automaton is selected so that we can use 
@@ -776,7 +782,7 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
         best_loss = loss.compute_loss(selected_masks, selected_mask_models, "", trajectories, number_actions, selected_option_sizes)
 
         logger.info(f"Levin loss of the current set: {best_loss}")
-        utils.logger_flush(logger)
+        logger_flush(logger)
 
     # remove the last automaton added
     num_options = len(selected_mask_models)
@@ -795,10 +801,10 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
                  args=args, 
                  logger=logger)
 
-    utils.logger_flush(logger)
+    logger_flush(logger)
 
     loss.print_output_subpolicy_trajectory(selected_mask_models, trajectories, logger=logger)
-    utils.logger_flush(logger)
+    logger_flush(logger)
 
 
 class STESoftmax(torch.autograd.Function):
@@ -837,7 +843,7 @@ class STEQuantize(torch.autograd.Function):
 
 
 class LearnOptions:
-    def __init__(self, args: Args, logger: logging.Logger, mask_type: str = "internal", mask_transform_type: str = "softmax", selection_type="local_search"):
+    def __init__(self, args: Args, logger: logging.Logger, mask_type: str = "input", mask_transform_type: str = "softmax", selection_type="local_search"):
         """
         `mask_type` can be either "internal", "input", or "both"
         `mask_transform_type` can be either "softmax" or "quantize"
@@ -875,8 +881,8 @@ class LearnOptions:
     @timing_decorator
     def discover(self):
         """
-        This function performs hill climbing in the space of masks of a ReLU neural network
-        to minimize the Levin loss of a given data set. It uses gumbel_softmax to extract 
+        This function performs hill climbing in the space of masks of a recurrent neural network
+        to minimize the Levin loss of a given data set.
         """
 
         trajectories = regenerate_trajectories(self.args, verbose=True, logger=self.logger)
@@ -892,10 +898,10 @@ class LearnOptions:
             for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
                 if primary_problem == target_problem:
                     continue
-                model_path = f'binary/models/{primary_model_directory}/seed={self.args.seed}/ppo_first_MODEL.pt'
+                model_path = f'binary/models/{primary_model_directory}-{self.args.seed}.pt'
                 primary_env = get_single_environment(self.args, seed=primary_seed)
-                parimary_agent = PPOAgent(primary_env, hidden_size=self.args.hidden_size)
-                parimary_agent.load_state_dict(torch.load(model_path))
+                parimary_agent = GruAgent(primary_env, h_size=self.args.hidden_size)
+                parimary_agent.load_state_dict(torch.load(model_path, weights_only=True))
                 mimicing_agents[primary_problem] = (primary_seed, model_path, parimary_agent)
 
             with concurrent.futures.ProcessPoolExecutor(max_workers=self.args.cpus) as executor:
@@ -904,7 +910,7 @@ class LearnOptions:
                 for length in range(2, t_length + 1):
                     # if length != 3:
                     #     continue
-                    for s in range(0, t_length - length + 1, 3):
+                    for s in range(0, t_length - length + 1):
                         # actions = trajectories[target_problem].slice(s, n=length).get_action_sequence()
                         # if actions not in [[0,0,1], [2,1,0],[1,0,2], [0,1,2]]:
                         #     continue
@@ -921,8 +927,9 @@ class LearnOptions:
                 # Process the results as they complete
                 for future in concurrent.futures.as_completed(futures):
                     try:
-                        mask, init_loss, final_loss = future.result()
-                        option_candidates.append((mask, 
+                        feature_mask, actor_mask, init_loss, final_loss = future.result()
+                        option_candidates.append((feature_mask,
+                                            actor_mask,
                                             future.primary_problem, 
                                             target_problem, 
                                             future.primary_env_seed, 
@@ -933,8 +940,11 @@ class LearnOptions:
                         self.logger.info(f'Progress: segment:{future.s} of length {future.length}, primary_problem={future.primary_problem} done. init_loss={init_loss}, final_loss={final_loss}')
                     except Exception as exc:
                         self.logger.error(f'Segment:{future.s} of length {future.length} with primary_problem={future.primary_problem} generated an exception: {exc}')
-            utils.logger_flush(self.logger)
+            logger_flush(self.logger)
         self.logger.debug("\n")
+
+        with open(f"binary/options/all_options_{self.args.seed}.pkl", "w") as f:
+            pickle.dump(option_candidates, f)
 
         if self.selection_type == "greedy":
             selected_options = self.select_greedy(option_candidates, trajectories)
@@ -956,10 +966,10 @@ class LearnOptions:
                     args=self.args, 
                     logger=self.logger)
 
-        utils.logger_flush(self.logger)
+        logger_flush(self.logger)
 
         self.levin_loss.print_output_subpolicy_trajectory(selected_options, trajectories, logger=self.logger)
-        utils.logger_flush(self.logger)
+        logger_flush(self.logger)
 
     def select_greedy(self, option_candidates, trajectories):
         selected_masks = []
@@ -980,8 +990,8 @@ class LearnOptions:
             for mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment in option_candidates:
                 self.logger.info(f'Evaluating the option trained on the segment {({segment[0]},{segment[0]+option_size})} from problem={target_problem}, env_seed={target_env_seed}, primary_problem={primary_problem}')
                 env = get_single_environment(self.args, seed=primary_env_seed)
-                agent = PPOAgent(env, hidden_size=self.args.hidden_size)
-                agent.load_state_dict(torch.load(model_path))
+                agent = GruAgent(env, hidden_size=self.args.hidden_size)
+                agent.load_state_dict(torch.load(model_path, weights_only=True))
 
                 loss_value = self.levin_loss.compute_loss(masks=selected_masks + [mask], 
                                             agents=selected_options + [agent], 
@@ -1010,7 +1020,7 @@ class LearnOptions:
 
             if previous_loss is None or best_loss < previous_loss:
                 self.logger.info(f"Added option #{len(selected_options)}; Levin loss of the current selected set: {best_loss} on all trajectories")
-            utils.logger_flush(self.logger)
+            logger_flush(self.logger)
 
         # remove the last automaton added
         num_options = len(selected_options)
@@ -1053,8 +1063,8 @@ class LearnOptions:
         for mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment in option_candidates:
             self.logger.info(f'Evaluating the option trained on the segment {({segment[0]},{segment[0]+option_size})} from problem={target_problem}, env_seed={target_env_seed}, primary_problem={primary_problem}')
             env = get_single_environment(self.args, seed=primary_env_seed)
-            agent = PPOAgent(env, hidden_size=self.args.hidden_size)
-            agent.load_state_dict(torch.load(model_path))
+            agent = GruAgent(env, hidden_size=self.args.hidden_size)
+            agent.load_state_dict(torch.load(model_path, weights_only=True))
             agent.to_option(mask, option_size, target_problem)
             agent.extra_info['primary_problem'] = primary_problem
             agent.extra_info['primary_env_seed'] = primary_env_seed
@@ -1119,45 +1129,25 @@ class LearnOptions:
         return list(best_selected_options)
 
 
-    def _train_mask_iter(self, trajectories, problem, s, length, agent: PPOAgent):
+    def _train_mask_iter(self, trajectories, problem, s, length, agent: GruAgent):
         sub_trajectory = {problem: trajectories[problem].slice(s, n=length)}
-        # learn option with this length
-        if self.mask_type != "both":
-            if self.mask_type == "internal" and self.mask_transform_type == "quantize":
-                mask = torch.nn.Parameter(torch.randn(self.args.hidden_size), requires_grad=True)
-                rollout_func = agent.run_with_mask
-            elif self.mask_type == "internal" and self.mask_transform_type == "softmax":
-                mask = torch.nn.Parameter(torch.randn(3, self.args.hidden_size), requires_grad=True)
-                rollout_func = agent.run_with_mask_softmax
-            elif self.mask_type == "input" and self.mask_transform_type == "quantize":
-                mask = torch.nn.Parameter(torch.randn(agent.observation_space_size), requires_grad=True)
-                rollout_func = agent.run_with_input_mask
-            elif self.mask_type == "input" and self.mask_transform_type == "softmax":
-                mask = torch.nn.Parameter(torch.randn(3, agent.observation_space_size), requires_grad=True)
-                rollout_func = agent.run_with_input_mask_softmax
-            return self._train_mask(mask, agent, sub_trajectory, rollout_func)
-        else:
-            if self.mask_transform_type == "quantize":
-                input_mask = torch.nn.Parameter(torch.randn(agent.observation_space_size), requires_grad=True)
-                internal_mask = torch.nn.Parameter(torch.randn(self.args.hidden_size), requires_grad=True)
-                rollout_func = agent.run_with_both_masks
-            elif self.mask_transform_type == "softmax":
-                input_mask = torch.nn.Parameter(torch.randn(3, agent.observation_space_size), requires_grad=True)
-                internal_mask = torch.nn.Parameter(torch.randn(3, self.args.hidden_size), requires_grad=True)
-                rollout_func = agent.run_with_both_masks_softmax
-            return self._train_mask_both(input_mask, internal_mask, agent, sub_trajectory, rollout_func)
+        feature_mask = torch.nn.Parameter(torch.randn(3, agent.observation_space_size), requires_grad=True)
+        actor_mask = torch.nn.Parameter(torch.randn(3, self.args.hidden_size + agent.observation_space_size), requires_grad=True)
+        return self._train_mask_both(feature_mask, actor_mask, agent, sub_trajectory)
 
-    def _train_mask(self, mask, agent: PPOAgent, trajectories: dict, rollout_func):
+
+    def _train_mask_both(self, feature_mask, actor_mask, agent: GruAgent, trajectories: dict):
         # Initialize the masks as trainable parameters with random values
-        # mask = torch.nn.Parameter(torch.randn(self.args.hidden_size), requires_grad=True)
-        optimizer = torch.optim.Adam([mask], lr=self.args.mask_learning_rate)
+        actor_optimizer = torch.optim.Adam([actor_mask], lr=self.args.mask_learning_rate)
+        feature_optimizer = torch.optim.Adam([feature_mask], lr=self.args.mask_learning_rate)
 
         init_loss = None
         best_loss = None
-        best_mask = None
+        best_actor_mask = None
+        best_feature_mask = None
 
         steps = 0
-        # with tqdm(total=self.args.mask_learning_steps, desc="Mask Learning Steps") as pbar:
+        # with tqdm(total=args.mask_learning_steps, desc="Mask Learning Steps") as pbar:
         while steps < self.args.mask_learning_steps:
             # Iterate over trajectories
             for _, trajectory in trajectories.items():
@@ -1169,68 +1159,15 @@ class LearnOptions:
                 actions = trajectory.get_action_sequence()
                 agent.eval()
 
-                # Apply transformations to the mask
-                mask_transformed = self._mask_transform_func(mask)
+                # Apply transformations with requires_grad
 
-                # Generate a rollout with the mask
-                new_trajectory = rollout_func(envs, mask_transformed, trajectory.get_length())
+                actor_mask_probs = torch.softmax(actor_mask, dim=0)
+                actor_mask_discretized = STESoftmax.apply(actor_mask_probs)
 
-                # Calculate the mask loss            
-                # input_probs = torch.nn.functional.log_softmax(torch.stack(new_trajectory.logits), dim=0)
-                # target_probs = torch.nn.functional.softmax(torch.stack(trajectory.logits) , dim=0)
-                # loss_fn = torch.nn.KLDivLoss(reduction='batchmean')
-                # mask_loss = loss_fn(input_probs, target_probs)
-                loss_fn = torch.nn.CrossEntropyLoss()
-                mask_loss = loss_fn(torch.stack(new_trajectory.logits), torch.tensor(actions))
-                if not init_loss:
-                    init_loss = mask_loss.item()
-                    best_loss = init_loss
-                    best_mask = mask_transformed
+                feature_mask_probs = torch.softmax(feature_mask, dim=0)
+                feature_mask_discretized = STESoftmax.apply(feature_mask_probs)
 
-                # Backward pass and optimization
-                if mask_loss.item() < best_loss:
-                    best_loss = mask_loss.item()
-                    best_mask = mask_transformed
-                optimizer.zero_grad()
-                mask_loss.backward()
-                
-                # torch.nn.utils.clip_grad_norm_([mask], max_norm=self.args.max_grad_norm)
-                optimizer.step()
-
-                # Update progress
-                steps += 1
-
-        return best_mask.detach().data, init_loss, best_loss
-
-    def _train_mask_both(self, input_mask, internal_mask, agent: PPOAgent, trajectories: dict, rollout_func):
-        # Initialize the masks as trainable parameters with random values
-        input_optimizer = torch.optim.Adam([input_mask], lr=self.args.mask_learning_rate)
-        internal_optimizer = torch.optim.Adam([internal_mask], lr=self.args.mask_learning_rate)
-
-        init_loss = None
-        best_loss = None
-        best_input_mask = None
-        best_internal_mask = None
-
-        steps = 0
-        # with tqdm(total=self.args.mask_learning_steps, desc="Mask Learning Steps") as pbar:
-        while steps < self.args.mask_learning_steps:
-            # Iterate over trajectories
-            for _, trajectory in trajectories.items():
-                if steps >= self.args.mask_learning_steps:
-                    break
-
-                # Forward pass with mask
-                envs = trajectory.get_state_sequence()
-                actions = trajectory.get_action_sequence()
-                agent.eval()
-
-                # Apply transformations to the mask
-                input_mask_discretized = self._mask_transform_func(input_mask)
-
-                internal_mask_discretized = self._mask_transform_func(internal_mask)
-
-                new_trajectory = rollout_func(envs, input_mask_discretized, internal_mask_discretized, trajectory.get_length())
+                new_trajectory = agent.run_with_input_mask_softmax(envs, mask_a=actor_mask_discretized, mask_f=feature_mask_discretized, max_size_sequence=trajectory.get_length())
 
                 loss_fn = torch.nn.CrossEntropyLoss()
                 mask_loss = loss_fn(torch.stack(new_trajectory.logits), torch.tensor(actions)) 
@@ -1238,30 +1175,29 @@ class LearnOptions:
                 if not init_loss:
                     init_loss = mask_loss.item()
                     best_loss = init_loss
-                    best_input_mask = input_mask_discretized
-                    best_internal_mask = internal_mask_discretized
+                    best_feature_mask = feature_mask_discretized
+                    best_actor_mask = actor_mask_discretized
 
                 # Backward pass and optimization
                 if mask_loss.item() < best_loss:
                     best_loss = mask_loss.item()
-                    best_input_mask = input_mask_discretized
-                    best_internal_mask = internal_mask_discretized
-
-                internal_optimizer.zero_grad()
-                mask_loss.backward(retain_graph=True)  
-                internal_optimizer.step()
-
-                if steps % self.args.input_update_frequency == 0:  
-                    input_optimizer.zero_grad()
-                    mask_loss.backward()  
-                    input_optimizer.step()
+                    best_feature_mask = feature_mask_discretized
+                    best_actor_mask = actor_mask_discretized
                 
-                # torch.nn.utils.clip_grad_norm_([mask], max_norm=self.args.max_grad_norm)
+                actor_optimizer.zero_grad()
+                mask_loss.backward(retain_graph=True)  
+                actor_optimizer.step()
+
+                feature_optimizer.zero_grad()
+                mask_loss.backward()  
+                feature_optimizer.step()
+            
+                # torch.nn.utils.clip_grad_norm_([mask], max_norm=args.max_grad_norm)
 
                 # Update progress
                 steps += 1
 
-        return (best_input_mask.detach().data, best_internal_mask.detach().data), init_loss, mask_loss.item()
+        return best_feature_mask.detach().data, best_actor_mask.detach().data, init_loss, mask_loss.item()
 
 
 def evaluate_all_masks_for_model(masks, agents, num_steps, problem, trajectories, loss_evaluator, args, number_actions):
@@ -1329,8 +1265,8 @@ def evaluate_all_masks_levin_loss(args: Args, logger: logging.Logger):
             logger.info(f'Evaluating Problem: {problem}')
             model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
             env = get_single_environment(args, seed=seed)
-            agent = PPOAgent(envs=env, hidden_size=args.hidden_size)
-            agent.load_state_dict(torch.load(model_path))
+            agent = GruAgent(envs=env, hidden_size=args.hidden_size)
+            agent.load_state_dict(torch.load(model_path, weights_only=True))
 
 
             args_list = [
@@ -1404,17 +1340,17 @@ def evaluate_all_masks_levin_loss(args: Args, logger: logging.Logger):
                  args=args, 
                  logger=logger)
 
-    utils.logger_flush(logger)
+    logger_flush(logger)
 
     loss_evaluator.print_output_subpolicy_trajectory(selected_options, trajectories, logger=logger)
-    utils.logger_flush(logger)
+    logger_flush(logger)
 
 
 def main():
     args = process_args()
 
     # Logger configurations
-    logger, args.log_path = utils.get_logger(args.exp_name, args.log_level, args.log_path)
+    logger, args.log_path = get_logger(args.exp_name, args.log_level, args.log_path)
 
     run_name = f'{args.exp_id}_sd{args.seed}'
     if args.track:
@@ -1436,7 +1372,7 @@ def main():
     for key, value in vars(args).items():
         buffer += (f"{key}: {value}\n")
     logger.info(buffer)
-    utils.logger_flush(logger)
+    logger_flush(logger)
 
     logger.info(f'mask_type="{args.mask_type}", mask_transform_type="{args.mask_transform_type}"')
 
