@@ -28,3 +28,4 @@ wandb
 .vscode
 */.ipynb_checkpoints
 TODOs.txt
+temp.py

@@ -107,7 +107,7 @@ class LevinLossActorCritic:
             if self.mask_transform_type == "quantize":
                 trajectory = agent.run_with_both_masks(env, mask[0], mask[1], numbers_steps)
             elif self.mask_transform_type == "softmax": 
-                trajectory = agent.run_with_both_masks_softmax(env, mask[0], mask[1], numbers_steps)
+                trajectory = agent.run_with_input_mask_softmax(env, mask_f=mask[0], mask_a=mask[1], max_size_sequence=numbers_steps)
 
         actions = []
         for _, action in trajectory.get_trajectory():
@@ -203,7 +203,7 @@ class LevinLossActorCritic:
                             actions = self.cache[(option, j)][1]
                             M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
                     else:
-                        actions = self._run(copy.deepcopy(t[j][0]), option.mask, option, option.option_size)
+                        actions = self._run(copy.deepcopy(t[j][0]), [option.feature_mask, option.actor_mask], option, option.option_size)
                         self.cache[(option, j)] = (False, actions)
                         if self.is_applicable(t, actions, j):
                             M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)

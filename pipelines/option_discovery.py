@@ -1,3 +1,5 @@
+import sys
+sys.path.append("/home/iprnb/scratch/neurips-2025-paper-neural-decomposition")
 import copy
 import os
 import random
@@ -67,7 +69,7 @@ class Args:
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
-    cpus: int = 4
+    cpus: int = int(os.environ.get('SLURM_CPUS_PER_TASK', 1))
     """"The number of CPUTs used in this experiment."""
     
     # hyperparameters
@@ -943,7 +945,7 @@ class LearnOptions:
             logger_flush(self.logger)
         self.logger.debug("\n")
 
-        with open(f"binary/options/all_options_{self.args.seed}.pkl", "w") as f:
+        with open(f"binary/options/all_options_{self.args.seed}.pkl", "wb") as f:
             pickle.dump(option_candidates, f)
 
         if self.selection_type == "greedy":
@@ -1053,6 +1055,7 @@ class LearnOptions:
                 if cost < best_cost:
                     selected_options = neighbour
                     best_cost = cost
+                    print(cost)
             steps += 1
         
         return best_cost, selected_options
@@ -1060,12 +1063,12 @@ class LearnOptions:
     def select_by_local_search(self, option_candidates, trajectories):
         all_options = []
 
-        for mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment in option_candidates:
+        for feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment in option_candidates:
             self.logger.info(f'Evaluating the option trained on the segment {({segment[0]},{segment[0]+option_size})} from problem={target_problem}, env_seed={target_env_seed}, primary_problem={primary_problem}')
             env = get_single_environment(self.args, seed=primary_env_seed)
-            agent = GruAgent(env, hidden_size=self.args.hidden_size)
+            agent = GruAgent(env, h_size=self.args.hidden_size)
             agent.load_state_dict(torch.load(model_path, weights_only=True))
-            agent.to_option(mask, option_size, target_problem)
+            agent.to_option(feature_mask, actor_mask, option_size, target_problem)
             agent.extra_info['primary_problem'] = primary_problem
             agent.extra_info['primary_env_seed'] = primary_env_seed
             agent.extra_info['target_problem'] = target_problem
@@ -1102,6 +1105,7 @@ class LearnOptions:
                         for f in done:
                             try:
                                 best_cost, selected_options = future.result()
+                                print(best_cost)
                                 if best_cost < best_levin_loss_total:
                                     best_levin_loss_total = best_cost
                                     best_selected_options = selected_options
@@ -1380,7 +1384,11 @@ def main():
                                     mask_type=args.mask_type, 
                                     mask_transform_type=args.mask_transform_type, 
                                     selection_type=args.selection_type)
-    module_extractor.discover()
+    # module_extractor.discover()
+    with open("binary/options/all_masks.pkl", 'rb') as f:
+        options = pickle.load(f)
+    trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
+    module_extractor.select_by_local_search(options, trajectories)
 
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()
