@@ -23,7 +23,12 @@ from environments.environments_combogrid_gym import ComboGym, make_env
 from environments.environments_combogrid import SEEDS, PROBLEM_NAMES as COMBO_PROBLEM_NAMES
 from environments.environments_minigrid import get_training_tasks_simplecross
 from utils.utils import *
+import torch.multiprocessing
+torch.multiprocessing.set_sharing_strategy('file_system')
 
+def preprocess_wrapper(args):
+    self_ref, agent_id, chained_trajectory = args
+    return self_ref._preprocess_option(agent_id, chained_trajectory)
 
 
 @dataclass
@@ -263,14 +268,13 @@ def load_options(args, logger):
 
     logger.info(f"Option directory: {save_dir}")
 
-    model_files = sorted([f for f in os.listdir(save_dir) if f.startswith('ppo_model_option_') and f.endswith('.pth')])
+    model_files = sorted([f for f in os.listdir(save_dir) if f.startswith('ppo_model_option_') and f.endswith('.pt')])
     
     logger.info(f"Found options: {model_files}")
 
     n = len(model_files)
     options = [None] * n
 
-    print(model_files)
 
     for model_file in model_files:
         model_path = os.path.join(save_dir, model_file)
@@ -298,6 +302,7 @@ def load_options(args, logger):
         model.to_option(mask_f=checkpoint['feature_mask'], mask_a=checkpoint['actor_mask'], option_size=checkpoint['n_iterations'], problem_id=checkpoint['problem'])
         model.extra_info = checkpoint['extra_info'] if 'extra_info' in checkpoint else {}
         model.environment_args = checkpoint['environment_args'] if 'environment_args' in checkpoint else {}
+        model.eval()
 
         i = checkpoint['id']
         options[i] = model
@@ -1053,7 +1058,9 @@ class LearnOptions:
 
         selected_options = set(random.choices(list(all_options), weights=weights, k=subset_length))
         not_selected_options = all_options - selected_options
-        best_cost, all_possible_sequences = self.levin_loss.compute_loss_cached(list(selected_options), chained_trajectory, joint_problem_name_list, "", self.number_actions, all_possible_sequences, self.logger)
+        target_problems_per_agent = {option_id: self.option_id_to_agent[option_id].extra_info['target_problem'] for option_id in selected_options}
+        print()
+        best_cost, all_possible_sequences = self.levin_loss.compute_loss_cached(list(selected_options), chained_trajectory, joint_problem_name_list, target_problems_per_agent, self.number_actions, all_possible_sequences, self.logger)
         previous_cost = float('Inf')
         steps = 0
         while (best_cost < previous_cost or steps == 0) and steps < max_steps:
@@ -1081,7 +1088,8 @@ class LearnOptions:
                     neighbours.append(neighbour)
 
             for neighbour in neighbours:
-                cost, remaining_sequences = self.levin_loss.compute_loss_cached(list(neighbour), chained_trajectory, joint_problem_name_list, "", self.number_actions, all_possible_sequences, self.logger)
+                target_problems_per_agent = {option_id: self.option_id_to_agent[option_id].extra_info['target_problem'] for option_id in neighbour}
+                cost, remaining_sequences = self.levin_loss.compute_loss_cached(list(neighbour), chained_trajectory, joint_problem_name_list, target_problems_per_agent, self.number_actions, all_possible_sequences, self.logger)
                 if cost < best_cost:
                     selected_options = neighbour
                     best_cost = cost
@@ -1147,20 +1155,22 @@ class LearnOptions:
                 self.option_id_to_agent[id] = agent
                 all_options.append(agent)
 
-        with concurrent.futures.ProcessPoolExecutor(max_workers=self.args.cpus) as executor:
-            for id in self.option_id_to_agent:
-                futures.append(executor.submit(
-                    self._preprocess_option,
-                    id,
-                    chained_trajectory
-                ))
-            results = []
-            for future in futures:
-                result = future.result()  # This will block until that worker is done
-                results.append(result)
-                
-        for key, temp_dict in results:
-            self.option_cache[key] = temp_dict
+        if os.path.exists("binary/options/option_cache.pkl"):
+            with open("binary/options/option_cache.pkl", "rb") as f:
+                self.option_cache = pickle.load(f)
+        else:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=self.args.cpus) as executor:
+                iterable = [(self, id, chained_trajectory) for id in self.option_id_to_agent]
+                results = executor.map(preprocess_wrapper, iterable)
+            for key, temp_dict in results:
+                self.option_cache[key] = temp_dict
+            
+            try:
+                with open("binary/options/option_cache.pkl", "wb") as f:
+                    pickle.dump(self.option_cache, f)
+            except:
+                pass 
+
 
         print("Number of option_candidates", len(all_options))
         # return 
@@ -1188,7 +1198,7 @@ class LearnOptions:
                                 best_levin_loss_total = best_cost
                                 best_selected_options = selected_options
                             completed += 1
-                            self.logger.info(f"Restart {completed} of {restarts}")
+                            self.logger.info(f"Restart {completed} of {restarts}. Restart Loss: {best_cost}, Best Loss: {best_levin_loss_total}")
                             # except Exception as exc:
                             #     self.logger.error(f'Exception: {exc}')
                 future = executor.submit(
@@ -1203,7 +1213,7 @@ class LearnOptions:
                         best_levin_loss_total = best_cost
                         best_selected_options = selected_options
                     completed += 1
-                    self.logger.info(f"Restart {completed} of {restarts}")
+                    self.logger.info(f"Restart {completed} of {restarts}. Restart Loss: {best_cost}, Best Loss: {best_levin_loss_total}")
                 except Exception as exc:
                     self.logger.error(f'Exception: {exc}')
 
@@ -1471,7 +1481,7 @@ def main():
         options = pickle.load(f)
     trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
     agents = module_extractor.select_by_local_search(options, trajectories)
-    save_options(agents, trajectories, args, logger)
+    # save_options(agents, trajectories, args, logger)
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()
     # whole_dec_options_training_data_levin_loss()
