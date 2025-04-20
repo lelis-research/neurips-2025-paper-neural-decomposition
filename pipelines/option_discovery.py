@@ -1046,6 +1046,7 @@ class LearnOptions:
         for length in range(2, t_length + 1):
             for s in range(0, t_length - length + 1):
                 all_possible_sequences.append((s, s+length))
+        all_possible_sequences_copy = copy.deepcopy(all_possible_sequences)
         
         
         transitions = [0 for _ in range(len(all_options))]
@@ -1059,7 +1060,6 @@ class LearnOptions:
         selected_options = set(random.choices(list(all_options), weights=weights, k=subset_length))
         not_selected_options = all_options - selected_options
         target_problems_per_agent = {option_id: self.option_id_to_agent[option_id].extra_info['target_problem'] for option_id in selected_options}
-        print()
         best_cost, all_possible_sequences = self.levin_loss.compute_loss_cached(list(selected_options), chained_trajectory, joint_problem_name_list, target_problems_per_agent, self.number_actions, all_possible_sequences, self.logger)
         previous_cost = float('Inf')
         steps = 0
@@ -1067,6 +1067,9 @@ class LearnOptions:
             previous_cost = best_cost
             not_selected_options = all_options - selected_options
             transitions = [1 for _ in range(len(not_selected_options))]
+            all_possible_sequences = copy.deepcopy(all_possible_sequences_copy)
+            target_problems_per_agent = {option_id: self.option_id_to_agent[option_id].extra_info['target_problem'] for option_id in selected_options}
+            _, all_possible_sequences = self.levin_loss.compute_loss_cached(list(selected_options), chained_trajectory, joint_problem_name_list, target_problems_per_agent, self.number_actions, all_possible_sequences, self.logger)
             for i, o_id in enumerate(not_selected_options):
                 for seq in self.option_cache[o_id]:
                     if seq == "length": continue
@@ -1138,7 +1141,7 @@ class LearnOptions:
             name_list = [problem for _ in range(len(trajectory._sequence))]
             joint_problem_name_list = joint_problem_name_list + name_list
 
-        
+        option_candidates = option_candidates[:10]
         for id, option_specs in enumerate(option_candidates):
                 feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment = option_specs
                 self.logger.info(f'Evaluating the option trained on the segment {({segment[0]},{segment[0]+option_size})} from problem={target_problem}, env_seed={target_env_seed}, primary_problem={primary_problem}')

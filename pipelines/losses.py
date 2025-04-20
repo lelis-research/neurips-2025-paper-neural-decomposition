@@ -254,7 +254,7 @@ class LevinLossActorCritic:
                 if j < len(t):
                     for i in range(len(options)):
 
-                        if options[i].extra_info["primary_problem"] == problem:
+                        if options[i].extra_info["target_problem"] == problem:
                             continue
 
                         actions = self._run(copy.deepcopy(t[j][0]), (options[i].feature_mask, options[i].actor_mask), options[i], options[i].option_size)
