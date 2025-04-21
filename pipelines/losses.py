@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from agents.recurrent_agent import GruAgent
 from environments.environments_combogrid_gym import ComboGym
 from environments.environments_combogrid import DIRECTIONS, PROBLEM_NAMES as COMBO_PROBLEM_NAMES, SEEDS
-from environments.environments_minigrid import get_training_tasks_simplecross
+# from environments.environments_minigrid import get_training_tasks_simplecross
 
 
 def regenerate_trajectories(args, verbose=False, logger=None):
@@ -18,9 +18,10 @@ def regenerate_trajectories(args, verbose=False, logger=None):
     The trajectories are returned as a dictionary, with one entry for each problem. 
     """
     def get_single_environment(args, seed):
-        if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
-            env = get_training_tasks_simplecross(view_size=args.game_width, seed=seed)
-        elif args.env_id == "ComboGrid":
+        # if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
+        #     env = get_training_tasks_simplecross(view_size=args.game_width, seed=seed)
+        # elif args.env_id == "ComboGrid":
+        if args.env_id == "ComboGrid":
             problem = COMBO_PROBLEM_NAMES[seed]
             env = ComboGym(rows=args.game_width, columns=args.game_width, problem=problem)
         else:
@@ -180,7 +181,7 @@ class LevinLossActorCritic:
             joint_problem_name_list = joint_problem_name_list + name_list
         return self.loss(feature_masks, actor_masks, agents, chained_trajectory, number_actions, joint_problem_name_list, problem_str, number_steps)
 
-    def compute_loss_cached(self, options, trajectory, joint_problem_name_list, target_problems_per_agent, number_actions, all_possible_sequences, logger):
+    def compute_loss_cached(self, options, trajectory, problem_name, target_problems_per_agent, number_actions, all_possible_sequences, logger):
             t = trajectory.get_trajectory()
             M = np.arange(len(t) + 1)
 
@@ -191,11 +192,11 @@ class LevinLossActorCritic:
                 if j < len(t):
                     for i in range(len(options)):
                         option_id = options[i]
-                        if target_problems_per_agent[option_id] == joint_problem_name_list[j]:
+                        if target_problems_per_agent[option_id] == problem_name:
                             continue
                         try:
-                            if self.option_cache[option_id][j][0] == True:
-                                actions = self.option_cache[option_id][j][1]
+                            if self.option_cache[option_id][problem_name][j][0] == True:
+                                actions = self.option_cache[option_id][problem_name][j][1]
                                 M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
                                 for i in range(len(actions)):
                                     if (j, j+len(actions)) in all_possible_sequences:
@@ -305,11 +306,11 @@ class LevinLossActorCritic:
                 buffer += "\n"
             logger.info(buffer)
 
-        if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
-            env = get_training_tasks_simplecross(args.game_width, seed=seed)
-            directions = ["R", "D", "L", "U"]
-            game_width = 7
-        elif args.env_id == "ComboGrid":
+        # if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
+        #     env = get_training_tasks_simplecross(args.game_width, seed=seed)
+        #     directions = ["R", "D", "L", "U"]
+        #     game_width = 7
+        if args.env_id == "ComboGrid":
             env = ComboGym(args.game_width, args.game_width, problem_test)
             directions = ["NA"]
             game_width = args.game_width

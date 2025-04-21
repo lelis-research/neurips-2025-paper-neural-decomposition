@@ -21,14 +21,14 @@ from pipelines.losses import LevinLossActorCritic, LogitsLossActorCritic
 from agents.recurrent_agent import GruAgent
 from environments.environments_combogrid_gym import ComboGym, make_env
 from environments.environments_combogrid import SEEDS, PROBLEM_NAMES as COMBO_PROBLEM_NAMES
-from environments.environments_minigrid import get_training_tasks_simplecross
+# from environments.environments_minigrid import get_training_tasks_simplecross
 from utils.utils import *
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 def preprocess_wrapper(args):
-    self_ref, agent_id, chained_trajectory = args
-    return self_ref._preprocess_option(agent_id, chained_trajectory)
+    self_ref, agent_id, trajectories = args
+    return self_ref._preprocess_option(agent_id, trajectories)
 
 
 @dataclass
@@ -122,9 +122,9 @@ class Args:
 
 
 def get_single_environment(args: Args, seed):
-    if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
-        env = get_training_tasks_simplecross(view_size=args.game_width, seed=seed)
-    elif args.env_id == "ComboGrid":
+    # if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
+    #     env = get_training_tasks_simplecross(view_size=args.game_width, seed=seed)
+    if args.env_id == "ComboGrid":
         problem = COMBO_PROBLEM_NAMES[seed]
         env = ComboGym(rows=args.game_width, columns=args.game_width, problem=problem)
     else:
@@ -287,7 +287,7 @@ def load_options(args, logger):
             else:
                 seed = int(checkpoint['problem'][-1])
                 game_width = args.game_width
-            envs = get_training_tasks_simplecross(view_size=game_width, seed=seed)
+            # envs = get_training_tasks_simplecross(view_size=game_width, seed=seed)
         elif args.env_id == "MiniGrid-FourRooms-v0":
             raise NotImplementedError("Environment creation not implemented!")
         elif args.env_id == "ComboGrid":
@@ -1036,46 +1036,59 @@ class LearnOptions:
         selected_options = selected_options[:num_options - 1]
         return selected_options
 
-    def _search_options_subset(self, max_num_options, all_options, chained_trajectory, joint_problem_name_list, max_steps):
-        all_options = set(all_options)
-        max_num_options = min(max_num_options, len(all_options))
-        subset_length = random.choices(range(max_num_options + 1), weights=[1/(i+2) for i in range(max_num_options + 1)], k=1)[0]
-
-        all_possible_sequences = []
-        t_length = len(chained_trajectory.get_trajectory())
-        for length in range(2, t_length + 1):
-            for s in range(0, t_length - length + 1):
-                all_possible_sequences.append((s, s+length))
-        all_possible_sequences_copy = copy.deepcopy(all_possible_sequences)
-        
-        
+    def _compute_sample_weight(self, all_options, all_possible_sequences):
         transitions = [0 for _ in range(len(all_options))]
         for i, o_id in enumerate(all_options):
-            for seq in self.option_cache[o_id]:
-                if seq == "length" : continue
-                if self.option_cache[o_id][seq][0] == True and (seq, seq+self.option_cache[o_id]["length"]) in all_possible_sequences:
-                    transitions[i] += 1
-        weights = [transition/len(all_possible_sequences) for transition in transitions]
+            for problem_name, cache in self.option_cache[o_id].items():
+                # for seq in self.option_cache[o_id]:
+                for seq in cache:
+                    if seq == "length" : continue
+                    if self.option_cache[o_id][problem_name][seq][0] == True and (seq, seq+self.option_cache[o_id][problem_name]["length"]) in all_possible_sequences[problem_name]:
+                        transitions[i] += 1
+        sum_sequences = 0
+        for _, sequence in all_possible_sequences.items():
+            sum_sequences += len(sequence)
+        weights = [transition/sum_sequences for transition in transitions]
+        return weights
+
+    def _search_options_subset(self, max_num_options, all_options, trajectories, max_steps):
+        all_options = set(all_options)
+        max_num_options = min(max_num_options, len(all_options))
+        subset_length = random.choices(range(1, max_num_options), weights=[1/(i+2) for i in range(1, max_num_options)], k=1)[0]
+
+        all_possible_sequences = {}
+        for problem_name, trajectory in trajectories.items():
+            trajectory = trajectory.get_trajectory()
+            all_possible_sequences[problem_name] = []
+            t_length = len(trajectory)
+            for length in range(2, t_length + 1):
+                for s in range(0, t_length - length + 1):
+                    all_possible_sequences[problem_name].append((s, s+length))
+        all_possible_sequences_copy = copy.deepcopy(all_possible_sequences)
+        
+        weights = self._compute_sample_weight(all_options, all_possible_sequences)
 
         selected_options = set(random.choices(list(all_options), weights=weights, k=subset_length))
         not_selected_options = all_options - selected_options
         target_problems_per_agent = {option_id: self.option_id_to_agent[option_id].extra_info['target_problem'] for option_id in selected_options}
-        best_cost, all_possible_sequences = self.levin_loss.compute_loss_cached(list(selected_options), chained_trajectory, joint_problem_name_list, target_problems_per_agent, self.number_actions, all_possible_sequences, self.logger)
+
+        best_cost = 0
+        for problem_name, trajectory in trajectories.items():
+            returned_cost, all_possible_sequences[problem_name] = self.levin_loss.compute_loss_cached(list(selected_options), 
+                                                                                    trajectory, 
+                                                                                    problem_name, 
+                                                                                    target_problems_per_agent, 
+                                                                                    self.number_actions, 
+                                                                                    all_possible_sequences[problem_name], 
+                                                                                    self.logger)
+            best_cost += returned_cost
+        print('Initial Loss: ', best_cost)
         previous_cost = float('Inf')
         steps = 0
         while (best_cost < previous_cost or steps == 0) and steps < max_steps:
             previous_cost = best_cost
             not_selected_options = all_options - selected_options
-            transitions = [1 for _ in range(len(not_selected_options))]
-            all_possible_sequences = copy.deepcopy(all_possible_sequences_copy)
-            target_problems_per_agent = {option_id: self.option_id_to_agent[option_id].extra_info['target_problem'] for option_id in selected_options}
-            _, all_possible_sequences = self.levin_loss.compute_loss_cached(list(selected_options), chained_trajectory, joint_problem_name_list, target_problems_per_agent, self.number_actions, all_possible_sequences, self.logger)
-            for i, o_id in enumerate(not_selected_options):
-                for seq in self.option_cache[o_id]:
-                    if seq == "length": continue
-                    if self.option_cache[o_id][seq][0] == True and (seq, seq+self.option_cache[o_id]["length"]) in all_possible_sequences:
-                        transitions[i] += 1
-            weights = [transition/len(all_possible_sequences) for transition in transitions]
+            weights = self._compute_sample_weight(not_selected_options, all_possible_sequences)
             neighbours = []
             sampled_options = random.choices(list(not_selected_options), weights=weights, k=125)
             for option in sampled_options:
@@ -1092,81 +1105,92 @@ class LearnOptions:
 
             for neighbour in neighbours:
                 target_problems_per_agent = {option_id: self.option_id_to_agent[option_id].extra_info['target_problem'] for option_id in neighbour}
-                cost, remaining_sequences = self.levin_loss.compute_loss_cached(list(neighbour), chained_trajectory, joint_problem_name_list, target_problems_per_agent, self.number_actions, all_possible_sequences, self.logger)
+                cost = 0
+                remaining_sequences = {}
+                for problem_name, trajectory in trajectories.items():
+                    returned_cost, remaining_sequences[problem_name] = self.levin_loss.compute_loss_cached(list(neighbour), 
+                                                                                    trajectory, 
+                                                                                    problem_name, 
+                                                                                    target_problems_per_agent, 
+                                                                                    self.number_actions, 
+                                                                                    copy.deepcopy(all_possible_sequences_copy[problem_name]), # do we need this deepcopy here?  
+                                                                                    self.logger)
+                    cost += returned_cost
+                
                 if cost < best_cost:
+                    print('Loss neighbor: ', cost, neighbour)
                     selected_options = neighbour
                     best_cost = cost
                     all_possible_sequences = remaining_sequences
             steps += 1
-        
+        print('Number of steps: ', steps)
         return best_cost, list(selected_options)
     
-    def _preprocess_option(self, agent_id, chained_trajectories):
-        t = chained_trajectories.get_trajectory()
-        agent = self.option_id_to_agent[agent_id]
-        temp_dict = {"length": int(agent.option_size)}
-        for j in range(len(t) + 1):
-            if j < len(t):
-                # the mask being considered for selection cannot be evaluated on the trajectory
-                # generated by the MLP trained to solve the problem.
-                actions = self.levin_loss._run(copy.deepcopy(t[j][0]), [agent.feature_mask, agent.actor_mask], agent, agent.option_size)
+    def _preprocess_option(self, agent_id, trajectories):
+        print('Evaluating option: ', agent_id)
+        cache_per_problem = {}
+        # t = chained_trajectories.get_trajectory()
+        for problem_name, t in trajectories.items():
+            t = t.get_trajectory()
+            agent = self.option_id_to_agent[agent_id]
+            temp_dict = {"length": int(agent.option_size)}
+            for j in range(len(t) + 1):
+                if j < len(t):
+                    # the mask being considered for selection cannot be evaluated on the trajectory
+                    # generated by the MLP trained to solve the problem.
+                    actions = self.levin_loss._run(copy.deepcopy(t[j][0]), [agent.feature_mask, agent.actor_mask], agent, agent.option_size)
 
-                is_applicable = self.levin_loss.is_applicable(t, actions, j)
+                    is_applicable = self.levin_loss.is_applicable(t, actions, j)
 
-                #option cache update
-                if j not in temp_dict:
-                    temp_dict[j] = (bool(is_applicable), list(actions)) 
+                    #option cache update
+                    if j not in temp_dict:
+                        temp_dict[j] = (bool(is_applicable), list(actions)) 
 
 
-                #sequence cache update
-                # if is_applicable:
-                #     if (j, j+len(actions)) not in sequece_cache:
-                #         sequece_cache(j, j+len(actions)) = {id}
-                #     else:
-                #         sequece_cache(j, j+len(actions)).add(id)
+                    #sequence cache update
+                    # if is_applicable:
+                    #     if (j, j+len(actions)) not in sequece_cache:
+                    #         sequece_cache(j, j+len(actions)) = {id}
+                    #     else:
+                    #         sequece_cache(j, j+len(actions)).add(id)
+            cache_per_problem[problem_name] = temp_dict
 
-        return agent_id, temp_dict
+        return agent_id, cache_per_problem
     
     def select_by_local_search(self, option_candidates, trajectories):
         all_options = []
         futures = []
-        chained_trajectory = None
-        joint_problem_name_list = []
-        for problem, trajectory in trajectories.items():
 
-            if chained_trajectory is None:
-                chained_trajectory = copy.deepcopy(trajectory)
-            else:
-                chained_trajectory.concat(trajectory)
-            name_list = [problem for _ in range(len(trajectory._sequence))]
-            joint_problem_name_list = joint_problem_name_list + name_list
-
-        option_candidates = option_candidates[:10]
+        # option_candidates = option_candidates[:1000]
         for id, option_specs in enumerate(option_candidates):
-                feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment = option_specs
-                self.logger.info(f'Evaluating the option trained on the segment {({segment[0]},{segment[0]+option_size})} from problem={target_problem}, env_seed={target_env_seed}, primary_problem={primary_problem}')
-                env = get_single_environment(self.args, seed=primary_env_seed)
-                agent = GruAgent(env, h_size=self.args.hidden_size)
-                agent.load_state_dict(torch.load(model_path, weights_only=True))
-                agent.to_option(feature_mask, actor_mask, option_size, target_problem)
-                agent.extra_info['primary_problem'] = primary_problem
-                agent.extra_info['primary_env_seed'] = primary_env_seed
-                agent.extra_info['target_problem'] = target_problem
-                agent.extra_info['target_env_seed'] = target_env_seed
-                agent.extra_info['segment'] = segment
-                agent.extra_info['id'] = id
-                self.option_id_to_agent[id] = agent
-                all_options.append(agent)
+            feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment = option_specs
+            # Uncomment the following line to run smaller scale experiments for debugging purposes
+            # Considers only options of length up to 4
+            # if option_size > 4: continue
+            self.logger.info(f'Evaluating the option trained on the segment {({segment[0]},{segment[0]+option_size})} from problem={target_problem}, env_seed={target_env_seed}, primary_problem={primary_problem}')
+            env = get_single_environment(self.args, seed=primary_env_seed)
+            agent = GruAgent(env, h_size=self.args.hidden_size)
+            agent.load_state_dict(torch.load(model_path, weights_only=True))
+            agent.to_option(feature_mask, actor_mask, option_size, target_problem)
+            agent.extra_info['primary_problem'] = primary_problem
+            agent.extra_info['primary_env_seed'] = primary_env_seed
+            agent.extra_info['target_problem'] = target_problem
+            agent.extra_info['target_env_seed'] = target_env_seed
+            agent.extra_info['segment'] = segment
+            agent.extra_info['id'] = id
+            self.option_id_to_agent[id] = agent
+            all_options.append(agent)
+        print('Considering ', len(all_options), ' options.')
 
         if os.path.exists("binary/options/option_cache.pkl"):
             with open("binary/options/option_cache.pkl", "rb") as f:
                 self.option_cache = pickle.load(f)
         else:
             with concurrent.futures.ProcessPoolExecutor(max_workers=self.args.cpus) as executor:
-                iterable = [(self, id, chained_trajectory) for id in self.option_id_to_agent]
+                iterable = [(self, id, trajectories) for id in self.option_id_to_agent]
                 results = executor.map(preprocess_wrapper, iterable)
-            for key, temp_dict in results:
-                self.option_cache[key] = temp_dict
+            for key, cache_per_problem in results:
+                self.option_cache[key] = cache_per_problem
             
             try:
                 with open("binary/options/option_cache.pkl", "wb") as f:
@@ -1182,7 +1206,7 @@ class LearnOptions:
         
         self.levin_loss.option_cache = copy.deepcopy(self.option_cache)
         
-        restarts = 1000
+        restarts = 10
         max_steps = 1000
         max_num_options = 10
         best_selected_options = []
@@ -1205,7 +1229,7 @@ class LearnOptions:
                             # except Exception as exc:
                             #     self.logger.error(f'Exception: {exc}')
                 future = executor.submit(
-                    self._search_options_subset, max_num_options, all_options, chained_trajectory, joint_problem_name_list, max_steps)
+                    self._search_options_subset, max_num_options, all_options, trajectories, max_steps)
                 futures.add(future)
             
             # Process the results as they complete
@@ -1224,6 +1248,8 @@ class LearnOptions:
         best_selected_options_agents = []
         for agent_id in list(best_selected_options):
             best_selected_options_agents.append(copy.deepcopy(self.option_id_to_agent[agent_id]))
+
+        self.levin_loss.print_output_subpolicy_trajectory(best_selected_options_agents, trajectories, self.logger)
 
         return best_selected_options_agents
 
