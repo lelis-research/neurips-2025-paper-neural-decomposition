@@ -1,30 +1,144 @@
-envs
-experiments
-*.pth
-*.log
-binary
-outputs
-*.out
-tmp.py
-__pycache__/*
-outputs
-slurm-logs
-logs*
-runs
-.venv
-__pycache__
-*/__pycache__/*
-agents/__pycache__/*
+# ====================
+# Virtual environments
+# ====================
+envs/
+.venv/
+venv/
+ENV/
+.conda/
+*.env
+*.venv
+
+# ====================
+# Python bytecode & caches
+# ====================
+__pycache__/
 **/__pycache__/
-agents/__pycache__/*
-environments/__pycache__
-models/__pycache__
-pipelines/__pycache__
-scripts/__pycache__
-training/__pycache__
-older_logs
-**.pyc
-wandb
-.vscode
-*/.ipynb_checkpoints
+*.py[cod]
+*$py.class
+
+# ====================
+# Build / packaging
+# ====================
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+pip-wheel-metadata/
+__pypackages__/
+
+# ====================
+# Installer logs
+# ====================
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ====================
+# Test / coverage reports
+# ====================
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache/
+pytest_cache/
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# ====================
+# IDE / Editor
+# ====================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# ====================
+# Notebook checkpoints
+# ====================
+.ipynb_checkpoints/
+
+# ====================
+# Data, models & results
+# ====================
+data/
+datasets/
+envs/
+outputs/
+runs/
+results/
+older_logs/
+
+*.pth
+*.pt
+*.h5
+*.ckpt
+*.npz
+*.npy
+binary/
+
+# ====================
+# Logs
+# ====================
+*.log
+*.out
+logs*/
+slurm-logs/
+slurm-*.out
+slurm-*.err
+wandb/
+
+# ====================
+# Temporary / misc
+# ====================
+tmp.py
 TODOs.txt
+
+# ====================
+# OS files
+# ====================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ====================
+# C extensions / compiled
+# ====================
+*.so
+*.dylib
+*.dll
+*.pyd
+
+# ====================
+# Documentation
+# ====================
+docs/_build/
+
+# ====================
+# Coverage / profiling
+# ====================
+coverage/
+profile/
+
+# ====================
+# Mypy / linters
+# ====================
+.mypy_cache/
+.pyre/
+
+# ====================
+# Jupyter lab/workspaces
+# ====================
+.jupyter/
+
+# ====================
+# Misc
+# ====================
+.envrc
