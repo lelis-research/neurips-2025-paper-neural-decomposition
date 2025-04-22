@@ -86,7 +86,7 @@ class Args:
     """"""
 
     # hill climbing arguments
-    number_restarts: int = 400
+    number_restarts: int = 2000
     """number of hill climbing restarts for finding one option"""
 
     # mask learning
@@ -143,7 +143,7 @@ def process_args() -> Args:
 
     # setting the experiment id
     if args.exp_id == "":
-        args.exp_id = f'{args.exp_name}_{args.env_id}' + \
+        args.exp_id = f'{args.exp_name}_CrossVal_AvgLoss_{args.env_id}' + \
         f'_gw{args.game_width}_h{args.hidden_size}_l1{args.l1_lambda}' + \
         f'_r{args.number_restarts}_envsd{",".join(map(str, args.env_seeds))}'
         if 'mask_type' in vars(args):
@@ -1037,7 +1037,7 @@ class LearnOptions:
         return selected_options
 
     def _compute_sample_weight(self, all_options, all_possible_sequences):
-        transitions = [0 for _ in range(len(all_options))]
+        transitions = [0.1 for _ in range(len(all_options))]
         for i, o_id in enumerate(all_options):
             for problem_name, cache in self.option_cache[o_id].items():
                 # for seq in self.option_cache[o_id]:
@@ -1049,12 +1049,17 @@ class LearnOptions:
         for _, sequence in all_possible_sequences.items():
             sum_sequences += len(sequence)
         weights = [transition/sum_sequences for transition in transitions]
+        weights = np.array(weights)
+        weights /= weights.sum()
         return weights
 
-    def _search_options_subset(self, max_num_options, all_options, trajectories, max_steps):
+    def _search_options_subset(self, max_num_options, all_options, trajectories, max_steps, worker_id):
+        random_generator = np.random.default_rng([worker_id, self.args.seed])
         all_options = set(all_options)
         max_num_options = min(max_num_options, len(all_options))
-        subset_length = random.choices(range(1, max_num_options), weights=[1/(i+2) for i in range(1, max_num_options)], k=1)[0]
+        init_weights = np.array([1/(i*3+2) for i in range(1, max_num_options)])
+        init_weights /= init_weights.sum()
+        subset_length = random_generator.choice(range(1, max_num_options), p=init_weights, replace=False)
 
         all_possible_sequences = {}
         for problem_name, trajectory in trajectories.items():
@@ -1068,7 +1073,7 @@ class LearnOptions:
         
         weights = self._compute_sample_weight(all_options, all_possible_sequences)
 
-        selected_options = set(random.choices(list(all_options), weights=weights, k=subset_length))
+        selected_options = set(random_generator.choice(list(all_options), p=weights, size=subset_length, replace=False).tolist())
         not_selected_options = all_options - selected_options
         target_problems_per_agent = {option_id: self.option_id_to_agent[option_id].extra_info['target_problem'] for option_id in selected_options}
 
@@ -1090,7 +1095,8 @@ class LearnOptions:
             not_selected_options = all_options - selected_options
             weights = self._compute_sample_weight(not_selected_options, all_possible_sequences)
             neighbours = []
-            sampled_options = random.choices(list(not_selected_options), weights=weights, k=125)
+            sample_size = min(125, len(not_selected_options))
+            sampled_options = random_generator.choice(list(not_selected_options), p=weights, size=sample_size, replace=False).tolist()
             for option in sampled_options:
                 if len(selected_options) < max_num_options:
                     neighbour = selected_options | {option}
@@ -1113,12 +1119,11 @@ class LearnOptions:
                                                                                     problem_name, 
                                                                                     target_problems_per_agent, 
                                                                                     self.number_actions, 
-                                                                                    copy.deepcopy(all_possible_sequences_copy[problem_name]), # do we need this deepcopy here?  
+                                                                                    copy.deepcopy(all_possible_sequences_copy[problem_name]),
                                                                                     self.logger)
                     cost += returned_cost
                 
                 if cost < best_cost:
-                    print('Loss neighbor: ', cost, neighbour)
                     selected_options = neighbour
                     best_cost = cost
                     all_possible_sequences = remaining_sequences
@@ -1161,7 +1166,7 @@ class LearnOptions:
         all_options = []
         futures = []
 
-        # option_candidates = option_candidates[:1000]
+        option_candidates = option_candidates[:10]
         for id, option_specs in enumerate(option_candidates):
             feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment = option_specs
             # Uncomment the following line to run smaller scale experiments for debugging purposes
@@ -1186,7 +1191,7 @@ class LearnOptions:
             with open("binary/options/option_cache.pkl", "rb") as f:
                 self.option_cache = pickle.load(f)
         else:
-            with concurrent.futures.ProcessPoolExecutor(max_workers=self.args.cpus) as executor:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=min(self.args.cpus, 16)) as executor:
                 iterable = [(self, id, trajectories) for id in self.option_id_to_agent]
                 results = executor.map(preprocess_wrapper, iterable)
             for key, cache_per_problem in results:
@@ -1206,7 +1211,7 @@ class LearnOptions:
         
         self.levin_loss.option_cache = copy.deepcopy(self.option_cache)
         
-        restarts = 10
+        restarts = self.args.number_restarts
         max_steps = 1000
         max_num_options = 10
         best_selected_options = []
@@ -1229,7 +1234,7 @@ class LearnOptions:
                             # except Exception as exc:
                             #     self.logger.error(f'Exception: {exc}')
                 future = executor.submit(
-                    self._search_options_subset, max_num_options, all_options, trajectories, max_steps)
+                    self._search_options_subset, max_num_options, all_options, trajectories, max_steps, i)
                 futures.add(future)
             
             # Process the results as they complete
@@ -1510,7 +1515,7 @@ def main():
         options = pickle.load(f)
     trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
     agents = module_extractor.select_by_local_search(options, trajectories)
-    # save_options(agents, trajectories, args, logger)
+    save_options(agents, trajectories, args, logger)
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()
     # whole_dec_options_training_data_levin_loss()
