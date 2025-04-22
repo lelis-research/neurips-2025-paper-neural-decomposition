@@ -12,6 +12,16 @@ class StepRewardWrapper(RewardWrapper):
     
     def reward(self, reward):
         return reward + self.step_reward
+
+class ClipReward(RewardWrapper):
+    def __init__(self, env, min_reward=-10, max_reward=10):
+        super().__init__(env)
+        self.min_reward = min_reward
+        self.max_reward = max_reward
+    
+    def reward(self, reward):
+        return np.clip(reward, self.min_reward, self.max_reward)
+    
     
 class RecordRewardWrapper(gym.Wrapper):
     def step(self, action):
@@ -25,7 +35,7 @@ WRAPPING_TO_WRAPPER = {
     "NormalizeObs": NormalizeObservation,
     "ClipObs": TransformObservation,
     "NormalizeReward": NormalizeReward,
-    "ClipReward": TransformReward,
+    "ClipReward": ClipReward,
     "RecordReward": RecordRewardWrapper,
     "ClipAction": ClipAction,
     "StepReward":StepRewardWrapper,

@@ -8,6 +8,9 @@ from Environments.MuJoCu.GetEnvironment import MUJOCO_ENV_LST
 from Environments.Car.GetEnvironment import CAR_ENV_LST
 
 def default_env_wrappers(env_name):
+    def clip_reward(reward):
+        return np.clip(reward, -10, 10)
+
     if env_name in MUJOCO_ENV_LST:
         env_wrappers= [ 
             "CombineGoals", "ClipAction", 
@@ -32,8 +35,7 @@ def default_env_wrappers(env_name):
 
     elif env_name in CAR_ENV_LST:
         env_wrappers= ["RecordReward", "ClipAction", "NormalizeReward", "ClipReward"]
-        wrapping_params = [{}, {}, {},
-                           {"func": lambda reward: np.clip(reward, -10, 10)}]
+        wrapping_params = [{}, {}, {},{}]
     
     else:
         raise ValueError("No default wrappers for this environment!")
@@ -43,20 +45,17 @@ def default_env_wrappers(env_name):
 @dataclass
 class arguments:
     # ----- experiment settings -----
-    mode                                         = ["tune"] # train, test, plot, tune
+    mode                                         = ["train"] # train, test, plot, tune
     res_dir:                  str                = "Results"
 
     # ----- tune experiment settings -----
     num_trials:               int                = 200    
     steps_per_trial:          int                = 500_000
     param_ranges                                 = {
-                                                        "entropy_coef":      [0.0, 0.5],
-                                                        "critic_coef":       [0.0, 0.5],
                                                         "clip_ratio":        [0.0, 0.5],
                                                         "step_size":         (1e-5, 1e-3),
                                                         "num_minibatches":   (16,   128),
                                                         "rollout_steps":     (100,   10000),
-                                                        "epochs":            (5,   20),
                                                     }
     tuning_env_name:        str                = "car-train"
     tuning_env_params                          = {}#{"continuing_task": False}
@@ -71,8 +70,8 @@ class arguments:
     save_results:             bool               = True
     nametag:                  str                = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    training_env_name:        str                = "car-train"
-    training_env_params                          = {} #{"continuing_task": False}
+    training_env_name:        str                = "Maze_1_Sparse"
+    training_env_params                          = {"continuing_task": False}
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
     training_render_mode:     str                = None #human, None
