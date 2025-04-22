@@ -8,9 +8,6 @@ from Environments.MuJoCu.GetEnvironment import MUJOCO_ENV_LST
 from Environments.Car.GetEnvironment import CAR_ENV_LST
 
 def default_env_wrappers(env_name):
-    def clip_reward(reward):
-        return np.clip(reward, -10, 10)
-
     if env_name in MUJOCO_ENV_LST:
         env_wrappers= [ 
             "CombineGoals", "ClipAction", 
