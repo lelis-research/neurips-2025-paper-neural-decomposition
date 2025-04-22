@@ -13,7 +13,7 @@ def default_env_wrappers(env_name):
             "CombineGoals", "ClipAction", 
             # "NormalizeObs",
             # "ClipObs",
-            "StepReward"
+            # "StepReward"
             # "RecordReward", "NormalizeReward",
             # "ClipReward", 
             ]
@@ -42,12 +42,12 @@ def default_env_wrappers(env_name):
 @dataclass
 class arguments:
     # ----- experiment settings -----
-    mode                                         = ["train"] # train, test, plot, tune
+    mode                                         = [ "train"] # train, test, plot, tune
     res_dir:                  str                = "Results"
 
     # ----- tune experiment settings -----
     num_trials:               int                = 200    
-    steps_per_trial:          int                = 500_000
+    steps_per_trial:          int                = 200_000
     param_ranges                                 = {
                                                         "clip_ratio":        [0.0, 0.5],
                                                         "step_size":         (1e-5, 1e-3),
@@ -61,17 +61,18 @@ class arguments:
 
 
     # ----- train experiment settings -----
-    seeds                                        = [100, 200, 300]
-    exp_total_steps:          int                = 200_000
+    seeds                                        = [1000, 2000, 3000]
+    exp_total_steps:          int                = 300_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
     nametag:                  str                = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    training_env_name:        str                = "Maze_1_Sparse"
+    training_env_name:        str                = "Maze_1_Dense"
     training_env_params                          = {"continuing_task": False}
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
-    training_render_mode:     str                = None #human, None
+    training_render_mode:     str                = "rgb_array_list" #human, None, rgb_array_list
+    save_frame_freq:          int                = 100
     
     # ----- test experiment settings -----
     test_agent_path:          str                = "car-train_200_200000_20250421_184957"
@@ -103,6 +104,7 @@ class arguments:
     max_grad_norm:            float              = 0.5
 
     # ----- plot setting -----
-    pattern:                  str                = "car-train_*_200000_*"
+    pattern:                  str                = "Maze_1_Dense_*_500000_*"
     smoothing_window_size:    int                = 5
     interpolation_resolution: int                = 100_000
+

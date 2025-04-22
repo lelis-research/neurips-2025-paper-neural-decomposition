@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob
 import pickle
-
+import imageio
+import os
 
 
 def plot_results(runs_metrics, window_size=500, interpolation_resolution=100_000,
@@ -88,6 +89,37 @@ def plot_results(runs_metrics, window_size=500, interpolation_resolution=100_000
     
     return fig, ax
 
+def generate_video(folders, episode, fps=30):
+    """
+    Given the loaded metrics (list of runs → list of episode dicts),
+    write out a GIF of the frames for `run_index`-th run and `episode`-th episode.
+
+    Args:
+        run_metrics (List[List[dict]]): output of load_results(), i.e.
+            run_metrics[run][episode]["frames"] is a List[np.ndarray].
+        episode (int): which episode (index) to visualize.
+        run_index (int): which run (index) to pick. Default 0.
+        out_dir (str): directory to write the .gif into.
+        fps (int): frames per second for the GIF.
+
+    Returns:
+        str: path to the written GIF file.
+    """
+    
+    for folder in folders:
+        with open(f"{folder}/res.pkl", "rb") as f:
+            run = pickle.load(f)
+
+        frames = run[episode].get("frames", None)
+        if frames is None:
+            raise KeyError(f"No 'frames' key in run_metrics[{episode}]")
+
+        # ensure output dir exists
+        gif_path = os.path.join(folder, f"ep{episode}.gif")
+
+        # write out
+        imageio.mimsave(gif_path, frames, fps=fps)
+        print(f"Saved episode {episode} to {gif_path}")
 
 def load_results(args):
     # Create a file pattern based on environment name and max_steps.
@@ -103,6 +135,6 @@ def load_results(args):
             run_result = pickle.load(f)
             runs_metrics.append(run_result)
         print(f"Loaded {dir}/res.pkl")
-    return runs_metrics
+    return runs_metrics, folders
     
 

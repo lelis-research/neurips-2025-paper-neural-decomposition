@@ -4,6 +4,7 @@ import os
 import random
 import pickle
 import multiprocessing
+from torch.utils.tensorboard import SummaryWriter
 
 from Agents.PPOAgent import PPOAgent
 from Agents.RandomAgent import RandomAgent
@@ -36,7 +37,7 @@ def train_single_seed(seed, args):
                      device=torch.device("cpu"),
                      **agent_kwargs
                      )
-
+    writer = None
     if args.save_results:
         if args.exp_total_steps > 0 and args.exp_total_episodes == 0: 
             exp_dir = os.path.join(args.res_dir, f"{args.training_env_name}_{seed}_{args.exp_total_steps}_{args.nametag}")
@@ -49,11 +50,12 @@ def train_single_seed(seed, args):
             os.makedirs(exp_dir)
         else:
             raise ValueError(f"Experiment directory {exp_dir} already exists. Please choose a different name or remove the existing directory.")
+        writer = SummaryWriter(log_dir=exp_dir)
     
     if args.exp_total_steps > 0 and args.exp_total_episodes == 0:
-        result = agent_environment_step_loop(env, agent, args.exp_total_steps)
+        result = agent_environment_step_loop(env, agent, args.exp_total_steps, writer=writer, save_frame_freq=args.save_frame_freq)
     elif args.exp_total_episodes > 0 and args.exp_total_steps == 0:
-        result = agent_environment_episode_loop(env, agent, args.exp_total_episodes)
+        result = agent_environment_episode_loop(env, agent, args.exp_total_episodes, writer=writer, save_frame_freq=args.save_frame_freq)
     else:
         raise ValueError("Both steps and episodes are greater than 0")
 

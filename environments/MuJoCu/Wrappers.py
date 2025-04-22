@@ -19,10 +19,10 @@ class CombineGoalsWrapper(ObservationWrapper):
         assert isinstance(original_space, gym.spaces.Dict)
 
         obs_dim = original_space["observation"].shape[0]
-        goal_dim = original_space["achieved_goal"].shape[0]
-        desired_dim = original_space["desired_goal"].shape[0]
-        
-        total_dim = obs_dim + goal_dim + desired_dim
+        goal_dim = original_space["desired_goal"].shape[0]
+        # achieved_dim = original_space["achieved_goal"].shape[0]
+
+        total_dim = obs_dim + goal_dim #+ achieved_dim
         
         self.observation_space = gym.spaces.Box(
             low=-np.inf, high=np.inf, shape=(total_dim,), dtype=np.float64
@@ -30,8 +30,8 @@ class CombineGoalsWrapper(ObservationWrapper):
     def observation(self, observation):
         return np.concatenate([
             observation["observation"],
-            observation["achieved_goal"],
             observation["desired_goal"],
+            # observation["achieved_goal"],
         ], axis=0)
 
 class StepRewardWrapper(RewardWrapper):

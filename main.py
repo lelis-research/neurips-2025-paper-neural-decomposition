@@ -1,6 +1,6 @@
 from config import arguments
 from Scripts.train_agent import train_parallel_seeds
-from Scripts.plot import load_results, plot_results
+from Scripts.plot import load_results, plot_results, generate_video
 from Scripts.test_agent import test_agent
 from Scripts.tune_params import tune_ppo
 import os
@@ -22,10 +22,10 @@ if __name__ == "__main__":
             
 
     if "plot" in args.mode:
-        results = load_results(args)
+        results, folders = load_results(args)
         plot_results(results, 
                         window_size=args.smoothing_window_size, 
                         interpolation_resolution=args.interpolation_resolution,
-                        nametag=f"{args.pattern}") 
+                        nametag=f"{args.pattern}")
         
         
