@@ -10,20 +10,18 @@ from Environments.Car.GetEnvironment import CAR_ENV_LST
 def default_env_wrappers(env_name):
     if env_name in MUJOCO_ENV_LST:
         env_wrappers= [ 
-            "CombineGoals", "ClipAction", 
-            # "NormalizeObs",
-            # "ClipObs",
-            # "StepReward"
-            # "RecordReward", "NormalizeReward",
-            # "ClipReward", 
+            "CombineGoals", 
+            "ClipAction", 
+            "RecordReward",
+            "StepReward",
+            "SuccessBonus",
             ]
         wrapping_params = [
-        {}, {}, 
-        # {},
-        # {"func": lambda obs: np.clip(obs, -10, 10)}, 
-        {},
-        # {}, {},
-        # {"func": lambda reward: np.clip(reward, -10, 10)},
+        {}, 
+        {}, 
+        {}, 
+        {}, 
+        {}
         ]
 
     elif env_name in MINIGRID_ENV_LST:
@@ -31,8 +29,18 @@ def default_env_wrappers(env_name):
         wrapping_params = [{"agent_view_size": 5}, {}, {"step_reward": -1}]
 
     elif env_name in CAR_ENV_LST:
-        env_wrappers= ["RecordReward", "ClipAction", "NormalizeReward", "ClipReward"]
-        wrapping_params = [{}, {}, {},{}]
+        env_wrappers= ["RecordReward", 
+                       "ClipAction", 
+                       "NormalizeReward",
+                       "ClipReward",
+                    #    "StepReward",
+                       ]
+        wrapping_params = [{}, 
+                           {}, 
+                           {},
+                           {},
+                        #    {},
+                           ]
     
     else:
         raise ValueError("No default wrappers for this environment!")
@@ -47,7 +55,7 @@ class arguments:
 
     # ----- tune experiment settings -----
     num_trials:               int                = 200    
-    steps_per_trial:          int                = 200_000
+    steps_per_trial:          int                = 1_000_000
     param_ranges                                 = {
                                                         "clip_ratio":        [0.0, 0.5],
                                                         "step_size":         (1e-5, 1e-3),
@@ -61,18 +69,18 @@ class arguments:
 
 
     # ----- train experiment settings -----
-    seeds                                        = [1000, 2000, 3000]
-    exp_total_steps:          int                = 300_000
+    seeds                                        = [1000]
+    exp_total_steps:          int                = 1_000_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
     nametag:                  str                = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    training_env_name:        str                = "Maze_1_Dense"
-    training_env_params                          = {"continuing_task": False}
+    training_env_name:        str                = "car-train"
+    training_env_params                          = {}#{"continuing_task": False}
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
-    training_render_mode:     str                = "rgb_array_list" #human, None, rgb_array_list
-    save_frame_freq:          int                = 100
+    training_render_mode:     str                = "rgb_array" #human, None, rgb_array_list, rgb_array
+    save_frame_freq:          int                = 200
     
     # ----- test experiment settings -----
     test_agent_path:          str                = "car-train_200_200000_20250421_184957"
@@ -90,7 +98,7 @@ class arguments:
     lamda:                    float              = 0.95
 
     epochs:                   int                = 10
-    total_steps:              int                = 200_000
+    total_steps:              int                = 1_000_000
     rollout_steps:            int                = 2048
     num_minibatches:          int                = 32
     

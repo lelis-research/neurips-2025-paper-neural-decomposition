@@ -18,9 +18,9 @@ class CarEnv(gym.Env):
     """
     A Gymnasium environment wrapper for the CarReversePP simulation.
     """
-    metadata = {'render_modes': ['human', 'rgb_array'], 'render_fps': 50}
+    metadata = {'render_modes': ['human', 'rgb_array_list', 'rgb_array'], 'render_fps': 50}
 
-    def __init__(self, n_steps=5000, render_mode=None, test_mode=False, last_state_in_obs=True):
+    def __init__(self, n_steps=4000, render_mode=None, test_mode=False, last_state_in_obs=True):
         super().__init__()
         self.sim = CarReversePP(n_steps=n_steps)
         self.render_mode = render_mode
@@ -44,14 +44,33 @@ class CarEnv(gym.Env):
         prev_state = np.copy(self.state)
         self.state = self.sim.simulate(self.state, action, self.sim.dt)
 
-        goal_err = np.sum(self.sim.check_goal(self.state))
-        safe_err = self.sim.check_safe(self.state)
+        # goal_err = np.sum(self.sim.check_goal(self.state))
+        # safe_err = self.sim.check_safe(self.state)
+        
+        err_x, err_y, err_ang = self.sim.check_goal(self.state)
 
-        reward = - goal_err #- 10 * (safe_err > 0)
+        # reward = - (err_x + err_y) #- 10 * (safe_err > 0)
+        reward = -1
+        terminated = False
+        
+        if err_x <= 0.01 and err_y <= 0.01: #and err_ang <= 0.01:
+            print("Yay !")
+            # if err_ang <= 0.01:
+            #     print("Succeed !!")
+            #     reward += 50
+            #     terminated = True
+            reward += 20
+            terminated = True
+        
+        elif self.sim.check_collision(self.state) > 0.05 or self.sim.check_boundaries(self.state) > 0.05:
+            print("Completely Broken !")
+            terminated = True
+            reward = self.n_steps * (-1)
+            
+        # elif self.sim.check_collision(self.state) > 0 or self.sim.check_boundaries(self.state) > 0:
+        #     reward -= 10
+        
         truncated = self.counter >= self.n_steps
-        terminated = goal_err < 0.1
-        if terminated:
-            print("yay")
         
         # safe_error > 0.05 --- goal_error < 0.01
      
@@ -61,8 +80,11 @@ class CarEnv(gym.Env):
             observation = self.sim.get_features(self.state)
         
         if self.render_mode == 'human':
-            self.render()
-            
+            self.sim.render(self.state, 'human')
+        
+        elif self.render_mode == 'rgb_array_list':
+            self.frames.append(self.sim.render(self.state, 'rgb_array'))
+
         return observation, reward, terminated, truncated, {}
 
     def reset(self, seed=None, options=None):
@@ -78,15 +100,26 @@ class CarEnv(gym.Env):
             self.sim.set_inp_limits(train_limit)
         
         self.state = self.sim.sample_init_state()
+        self.frames = []
+
+        if self.render_mode == 'human':
+            self.sim.render(self.state, 'human')
+        
+        elif self.render_mode == 'rgb_array_list':
+            self.frames.append(self.sim.render(self.state, 'rgb_array'))
 
         if self.last_state_in_obs:
-            return np.concatenate([self.sim.get_features(self.state), self.sim.get_features(self.state)]), {}
+            observation = np.concatenate([self.sim.get_features(self.state), self.sim.get_features(self.state)])
+        else:
+            observation = self.sim.get_features(self.state)
         
-        return self.state, {}
+        return observation, {}
 
     def render(self):
-        if self.render_mode in ('human', 'rgb_array'):
-            return self.sim.render(self.state, self.render_mode)
+        if self.render_mode in ('human', 'rgb_array_list'):
+            return self.frames
+        elif self.render_mode == "rgb_array":
+            return self.sim.render(self.state, 'rgb_array')
         return None
 
     def close(self):

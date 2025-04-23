@@ -9,6 +9,11 @@ class RandomAgent:
               
     def act(self, observation, greedy=False):
         action = self.action_space.sample()
+        action = 1, 5
+        if observation[0] < -1:
+            action = 1, -3
+        action = 5, 0
+        
         return action
 
     def update(self, next_observation, reward, terminated, truncated):

@@ -37,6 +37,9 @@ def train_single_seed(seed, args):
                      device=torch.device("cpu"),
                      **agent_kwargs
                      )
+    # agent = RandomAgent(env.observation_space, 
+    #                     env.action_space,
+    #                     )
     writer = None
     if args.save_results:
         if args.exp_total_steps > 0 and args.exp_total_episodes == 0: 

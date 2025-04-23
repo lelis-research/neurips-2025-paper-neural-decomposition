@@ -168,7 +168,7 @@ class CarReversePP(System):
         by = d
         e2 = check_collision_box(x, y, ang, bx, by, 'u', self.width, self.height)
         # if e2 > 0: print("== Collision with front car")
-
+        
 
         return e1 + e2
 
@@ -213,8 +213,8 @@ class CarReversePP(System):
             error_y += dist - self.height - y
 
         error = error_x + error_y + error_ang   # not used
-
-        return [error_x, 5.0 * error_ang]
+        return error_x, error_y, 5.0*error_ang
+        # return [error_x, 5.0 * error_ang]
  
 
     
@@ -245,108 +245,101 @@ class CarReversePP(System):
 
 
     def render(self, state, mode='human'):
-        if self.screen is None and mode in ('human', 'rgb_array'):
-            pygame.init()
-            self.screen = pygame.display.set_mode((600, 600))
-            pygame.display.set_caption("Car Parking Simulation")
-            self.font = pygame.font.Font(None, 24)
+        W, H = 600, 600
+        vshift = -5 * (W / self.world_size)
         
-        if self.screen is not None:
-            # Clear screen
-            self.screen.fill((255, 255, 255))
-            
-            # Process Pygame events
+        # 1) Decide which surface to draw onto
+        if mode == 'human':
+            # initialize real window once
+            if self.screen is None:
+                pygame.init()
+                self.screen = pygame.display.set_mode((W, H))
+                pygame.display.set_caption("Car Parking Simulation")
+                self.font = pygame.font.Font(None, 24)
+            surface = self.screen
+
+            # process events so window stays responsive
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.reset_render()
-            
-            # Draw elements
-            scale = 600 / self.world_size
-            vshift = -5 * scale
 
-            # Get plot limits from original code
-            x_lim, y_lim = (-4, 2.2), (-5, 20)
+        elif mode == 'rgb_array':
+            # draw off‑screen
+            surface = pygame.Surface((W, H))
+        else:
+            # unsupported mode
+            return None
 
-            # Draw bounding box
-            left = x_lim[0] * scale + 300
-            right = x_lim[1] * scale + 300
-            top = y_lim[1] * scale + 300 + vshift
-            bottom = y_lim[0] * scale + 300 + vshift
+        # 2) Clear & draw everything onto `surface`
+        surface.fill((255, 255, 255))
+        
+        # bounding box limits
+        x_lim, y_lim = (-4, 2.2), (-5, 20)
+        scale = W / self.world_size
+        left   = x_lim[0]*scale + W//2
+        right  = x_lim[1]*scale + W//2
+        top    = y_lim[1]*scale + W//2 + vshift
+        bottom = y_lim[0]*scale + W//2 + vshift
+        
+        # draw box
+        pygame.draw.polygon(surface, (0,0,0), [
+            (left, top), (right, top), (right, bottom), (left, bottom)
+        ], 2)
 
-            # Draw main bounding box
-            pygame.draw.lines(self.screen, (0,0,0), True, [
-                (left, top),
-                (right, top),
-                (right, bottom),
-                (left, bottom)
-            ], 2)
-
-            # Add axis labels
+        # axis ticks & labels (only when human, else you can skip labels for speed)
+        if mode == 'human':
+            # x‑axis
             for x in [0.0, -2.5]:
-                x_pos = x * scale + 300
-                text = self.font.render(f"{x:.1f}", True, (0,0,0))
-                self.screen.blit(text, (x_pos - 10, bottom - 25))
-                tick_length = 5
-                pygame.draw.line(self.screen, (0, 0, 0), (x_pos, bottom), (x_pos, bottom - tick_length), 2)
-                
-            for y in [0.0, 5.0, 10.0, 15.0]:
-                y_pos = y * scale + 300 + vshift
-                text = self.font.render(f"{y:.0f}", True, (0, 0, 0))
-                self.screen.blit(text, (left - 40, y_pos - 10))
-                tick_length = 5
-                pygame.draw.line(self.screen, (0, 0, 0), (left - tick_length, y_pos), (left, y_pos), 2)
+                x_px = x*scale + W//2
+                txt = self.font.render(f"{x:.1f}", True, (0,0,0))
+                surface.blit(txt, (x_px-10, bottom+5))
+                pygame.draw.line(surface, (0,0,0),
+                                 (x_px, bottom), (x_px, bottom-5), 2)
+            # y‑axis
+            for y in [0.0,5.0,10.0,15.0]:
+                y_px = y*scale + W//2 + vshift
+                txt = self.font.render(f"{y:.0f}", True, (0,0,0))
+                surface.blit(txt, (left-30, y_px-10))
+                pygame.draw.line(surface, (0,0,0),
+                                 (left-5, y_px), (left, y_px), 2)
 
-            # Draw obstacle cars
-            pygame.draw.rect(
-                self.screen, (0, 0, 200),
+        # obstacle cars
+        def draw_box(cx, cy):
+            pygame.draw.rect(surface,
+                (0,0,200),
                 pygame.Rect(
-                    (self.x_lane_2 - self.width/2) * scale + 300 - 5,
-                    300 + vshift - self.height/2 * scale,
-                    self.width * scale,
-                    self.height * scale
+                    (cx-self.width/2)*scale + W//2,
+                    (cy-self.height/2)*scale + W//2 + vshift,
+                    self.width*scale,
+                    self.height*scale
                 )
             )
 
-            pygame.draw.rect(
-                self.screen, (0, 0, 200),
-                pygame.Rect(
-                    (self.x_lane_2 - self.width/2) * scale + 300 - 5,
-                    (state[3] - self.height/2) * scale + 300 + vshift,
-                    self.width * scale,
-                    self.height * scale
-                )
-            )
+        draw_box(self.x_lane_2, 0.0)
+        draw_box(self.x_lane_2, state[3])  # state[3] is dist
 
-            # Draw main car (blue)
-            vertices = get_all_vertices(state[0], state[1], state[2], self.width, self.height)
-            scaled_vertices = [
-                (v[0] * scale + 300, v[1] * scale + 300 + vshift) 
-                for v in vertices
-            ]
-            pygame.draw.polygon(self.screen, (100, 100, 255), scaled_vertices)
+        # main car
+        verts = get_all_vertices(state[0], state[1], state[2],
+                                 self.width, self.height)
+        poly = [ (x*scale + W//2, y*scale + W//2 + vshift) for x,y in verts ]
+        pygame.draw.polygon(surface, (100,100,255), poly)
 
-            if len(self.path) > 1:
-                scale = 600 / self.world_size
-                vshift = -5 * scale
-                
-                for i in range(1, len(self.path)):
-                    x1, y1, v1 = self.path[i-1]
-                    x2, y2, v2 = self.path[i]
-                    
-                    # Convert to screen coordinates
-                    p1 = (x1 * scale + 300, y1 * scale + 300 + vshift)
-                    p2 = (x2 * scale + 300, y2 * scale + 300 + vshift)
-                    
-                    # Choose color based on velocity
-                    color = (0, 255, 0) if v1 > 0 else (255, 0, 0)  # Green/Red
-                    pygame.draw.line(self.screen, color, p1, p2, 2)
+        # optional path history
+        if len(self.path) > 1:
+            for (x1,y1,_), (x2,y2,_) in zip(self.path, self.path[1:]):
+                p1 = (x1*scale + W//2, y1*scale + W//2 + vshift)
+                p2 = (x2*scale + W//2, y2*scale + W//2 + vshift)
+                color = (0,255,0) if y1>0 else (255,0,0)
+                pygame.draw.line(surface, color, p1, p2, 2)
 
+        # 3) Flip only for human
+        if mode == 'human':
             pygame.display.flip()
+            return None
 
-        if mode == 'rgb_array':
-            # return pygame.surfarray.array3d(self.screen) if self.screen else None
-            return np.transpose(pygame.surfarray.array3d(self.screen), (1, 0, 2)) if self.screen else None
-        return None
+        # 4) For rgb_array, grab and return pixel array
+        arr = pygame.surfarray.array3d(surface)   # shape (W,H,3)
+        return np.transpose(arr, (1, 0, 2))
     
     def reset_render(self):
         if self.screen is not None:

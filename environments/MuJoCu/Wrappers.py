@@ -42,6 +42,17 @@ class StepRewardWrapper(RewardWrapper):
     def reward(self, reward):
         return reward + self.step_reward
     
+class SuccessBonus(gym.Wrapper):
+    def __init__(self, env, bonus=+5.0):
+        super().__init__(env)
+        self.bonus = bonus
+
+    def step(self, action):
+        obs, r, terminated, truncated, info = super().step(action)
+        if terminated and info.get("success", False):
+            r += self.bonus
+        return obs, r, terminated, truncated, info
+    
 # Dictionary mapping string keys to corresponding wrapper classes.
 WRAPPING_TO_WRAPPER = {
     "CombineGoals": CombineGoalsWrapper,
@@ -51,6 +62,7 @@ WRAPPING_TO_WRAPPER = {
     "ClipReward": TransformReward,
     "RecordReward": RecordRewardWrapper,
     "ClipAction": ClipAction,
-    "StepReward":StepRewardWrapper,
+    "StepReward": StepRewardWrapper,
+    "SuccessBonus": SuccessBonus,
 }
 
