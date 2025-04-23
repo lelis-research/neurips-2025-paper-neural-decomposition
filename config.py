@@ -31,8 +31,8 @@ def default_env_wrappers(env_name):
     elif env_name in CAR_ENV_LST:
         env_wrappers= ["RecordReward", 
                        "ClipAction", 
-                       "NormalizeReward",
-                       "ClipReward",
+                    #    "NormalizeReward",
+                    #    "ClipReward",
                     #    "StepReward",
                        ]
         wrapping_params = [{}, 
@@ -55,7 +55,7 @@ class arguments:
 
     # ----- tune experiment settings -----
     num_trials:               int                = 200    
-    steps_per_trial:          int                = 1_000_000
+    steps_per_trial:          int                = 2_000_000
     param_ranges                                 = {
                                                         "clip_ratio":        [0.0, 0.5],
                                                         "step_size":         (1e-5, 1e-3),
@@ -69,8 +69,8 @@ class arguments:
 
 
     # ----- train experiment settings -----
-    seeds                                        = [1000]
-    exp_total_steps:          int                = 1_000_000
+    seeds                                        = [1000, 2000]
+    exp_total_steps:          int                = 2_000_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
     nametag:                  str                = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -98,7 +98,7 @@ class arguments:
     lamda:                    float              = 0.95
 
     epochs:                   int                = 10
-    total_steps:              int                = 1_000_000
+    total_steps:              int                = 2_000_000
     rollout_steps:            int                = 2048
     num_minibatches:          int                = 32
     

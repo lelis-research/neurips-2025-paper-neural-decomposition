@@ -49,26 +49,25 @@ class CarEnv(gym.Env):
         
         err_x, err_y, err_ang = self.sim.check_goal(self.state)
 
-        # reward = - (err_x + err_y) #- 10 * (safe_err > 0)
-        reward = -1
+        reward = - (err_x + err_y) #- 10 * (safe_err > 0)
+        # reward = -1
         terminated = False
         
         if err_x <= 0.01 and err_y <= 0.01: #and err_ang <= 0.01:
             print("Yay !")
-            # if err_ang <= 0.01:
-            #     print("Succeed !!")
-            #     reward += 50
-            #     terminated = True
-            reward += 20
-            terminated = True
+            if err_ang <= 0.01:
+                print("Succeed !!")
+                reward += 50
+                terminated = True
+            reward += 10
         
         elif self.sim.check_collision(self.state) > 0.05 or self.sim.check_boundaries(self.state) > 0.05:
             print("Completely Broken !")
             terminated = True
             reward = self.n_steps * (-1)
             
-        # elif self.sim.check_collision(self.state) > 0 or self.sim.check_boundaries(self.state) > 0:
-        #     reward -= 10
+        elif self.sim.check_collision(self.state) > 0 or self.sim.check_boundaries(self.state) > 0:
+            reward -= 10
         
         truncated = self.counter >= self.n_steps
         
