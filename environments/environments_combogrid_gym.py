@@ -7,8 +7,8 @@ from typing import List, Any
 from gymnasium.envs.registration import register
 
 class ComboGym(gym.Env):
-    def __init__(self, rows=3, columns=3, problem="TL-BR", options=None):
-        self._game = Game(rows, columns, problem)
+    def __init__(self, rows=3, columns=3, problem="TL-BR", options=None, max_length=500, visitation_bonus=False):
+        self._game = Game(rows, columns, problem, visitation_bonus=visitation_bonus)
         self._rows = rows
         self._columns = columns
         self._problem = problem
@@ -17,6 +17,7 @@ class ComboGym(gym.Env):
         self.n_discrete_actions = 3
         self.action_space = gym.spaces.Discrete(self.n_discrete_actions)
         self.n_steps = 0
+        self.max_length = max_length
         
         if options is not None:
             self.setup_options(options)
@@ -36,32 +37,43 @@ class ComboGym(gym.Env):
     def reset(self, init_loc=None, init_dir=None, seed=0, options=None):
         self._game.reset(init_loc)
         self.n_steps = 0
+        self.info = {'n_steps': 0, "goals": 0}
         return self.get_observation(), {}
     
     def step(self, action:int):
         truncated = False
         def process_action(action: int):
             nonlocal truncated
-            self._game.apply_action(action)
+            visitation_reward = self._game.apply_action(action)
+            # info["actions"].append(action)
+            # info["observations"].append(self.get_observation())
             self.n_steps += 1
-            terminated = self._game.is_over()
-            reward = 0 if terminated else -1 
-            if self.n_steps == 500:
+            terminated, reached_goal = self._game.is_over()
+            if reached_goal:
+                self.info["goals"] += 1
+            reward = 1 if reached_goal else -1 
+            reward += visitation_reward
+            if self.n_steps == self.max_length:
                 truncated = True
             return self.get_observation(), reward, terminated, truncated, {}
     
         if self.options and action >= self.n_discrete_actions:
             reward_sum = 0
             option = self.options[action - self.n_discrete_actions]
+            gru_state = option.init_hidden().squeeze(0)
             for _ in range(option.option_size):
-                option_action, _ = option.get_action_with_mask(torch.tensor(self.get_observation(), dtype=torch.float32).view(1, -1))
+                option_action, _, gru_state = option._get_action_with_input_mask_softmax(x_tensor=torch.tensor(self.get_observation(), dtype=torch.float32).view(1, -1), gru_state=gru_state)
                 obs, reward, terminated, truncated, _ = process_action(option_action)
                 reward_sum += reward
                 if terminated or truncated:
-                    return obs, reward_sum, terminated, truncated, {}
-            return obs, reward_sum, terminated, truncated, {}
+                    self.info['n_steps'] = self.n_steps
+                    return obs, reward_sum, terminated, truncated, self.info
+            self.info['n_steps'] = self.n_steps
+            return obs, reward_sum, terminated, truncated, self.info
         else:
-            return process_action(action)
+            obs, reward, terminated, truncated, _ = process_action(action)
+            self.info['n_steps'] = self.n_steps
+            return obs, reward, terminated, truncated, self.info
     
     def is_over(self, loc=None):
         if loc:

@@ -10,7 +10,7 @@ from environments.environments_combogrid_gym import ComboGym
 @dataclass
 class Args:
     # exp_id: str = "extract_learnOption_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3"
-    exp_id: str = "extract_learnOption_CrossVal_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeboth_mskTransformsoftmax_selectTypelocal_search"
+    exp_id: str = "extract_learnOption_CrossVal_AvgLoss_ComboGrid_gw5_h64_l10_r2000_envsd0,1,2,3_mskTypeboth_mskTransformsoftmax_selectTypelocal_search"
     """The ID of the finished experiment"""
     seed: int = 1
     """run seed"""
@@ -31,14 +31,14 @@ def main(args):
     loss = LevinLossActorCritic(logger, "both", "softmax")
 
     options, trajectories = load_options(args, logger)
-    for option in options:
-        print(option.extra_info["target_problem"])
+    for i,option in enumerate(options):
+        print(f"option {i}",option.feature_mask,"\n", option.actor_mask)
     feature_mask = [agent.feature_mask for agent in options]
     actor_masks = [agent.actor_mask for agent in options]
     option_sizes = [agent.option_size for agent in options]
     target_problems = [option.extra_info["target_problem"] for option in options]
-    best_loss = loss.compute_loss(feature_mask, actor_masks, options, "TL-BR", trajectories, 3, option_sizes)
-    print("Best loss with option 4:", best_loss)
+    best_loss = loss.compute_loss(feature_mask, actor_masks, options,"", trajectories, 3, option_sizes)
+    print("Best loss:", best_loss)
     # feature_mask.pop(4)
     # actor_masks.pop(4)
     # option_sizes.pop(4)

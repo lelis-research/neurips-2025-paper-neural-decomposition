@@ -8,16 +8,16 @@ import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 from utils import utils
-from agents.policy_guided_agent import PPOAgent
+from agents.recurrent_agent import GruAgent
 
 
-def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, device, logger=None, writer=None, sparse_init=False):
+def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, device, logger=None, writer=None):
     hidden_size = args.hidden_size
     l1_lambda = args.l1_lambda
     if not seed:
         seed = args.env_seed
     
-    agent = PPOAgent(envs, hidden_size=hidden_size, sparse_init=sparse_init).to(device)
+    agent = GruAgent(envs, h_size=hidden_size, greedy=False).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -32,9 +32,10 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
     global_step = 0
     start_time = time.time()
     next_obs, _ = envs.reset(seed=[seed for _ in range(args.num_envs)])
-
+    next_rnn_state = torch.zeros(agent.gru.num_layers, args.num_envs, agent.gru.hidden_size).to(device)
     next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
+    initial_rnn_state = next_rnn_state.clone()
 
     for iteration in range(1, args.num_iterations + 1):
         # Annealing the rate if instructed to do so.
@@ -50,7 +51,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
-                action, logprob, _, value, _ = agent.get_action_and_value(next_obs, deterministic=False)
+                action, logprob, _, value, next_rnn_state, _ = agent.get_action_and_value(next_obs, next_rnn_state, next_done)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -60,7 +61,6 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
-
 
             # if "final_info" in infos:
             #     for info in infos["final_info"]:
@@ -73,29 +73,40 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             if "final_info" in infos:
                 returns = []
                 lengths = []
-                for info in infos["final_info"]:
-                    if info and "episode" in info:  # Check if the episode data is available
-                        returns.append(info["episode"]["r"])  # Collect episodic returns
-                        lengths.append(info["episode"]["l"])  # Collect episodic lengths
+                goals = []
+                for i, info in enumerate(infos["final_info"]["n_steps"]): # Check if the episode data is available
+                    if info != 0: # Collect episodic lengths
+                        lengths.append(info) 
+                    if infos["final_info"]["episode"]["r"][i] != 0: # Collect episodic returns
+                        returns.append(infos["final_info"]["episode"]["r"][i])  
+                    if infos["final_info"]["goals"][i] != 0:
+                        goals.append(infos["final_info"]["goals"][i])
+                        
 
                 # Log the average episodic return and length, if any episodes ended
                 if returns:
                     avg_return = sum(returns) / len(returns)
                     avg_length = sum(lengths) / len(lengths)
+                    if (len(goals) != 0):
+                        avg_goal = sum(goals) / len(goals)
+                    else:
+                        avg_goal = 0
                     if args.track:
                         wandb.log({
                             "Charts/episodic_return_avg": avg_return, 
-                            "Charts/episodic_length_avg": avg_length
+                            "Charts/episodic_length_avg": avg_length,
+                            "Charts/episodic_goal_avg": avg_goal,
                         }, step=global_step)
                     if writer:
                         writer.add_scalar("Charts/episodic_return", avg_return, global_step)
                         writer.add_scalar("Charts/episodic_length", avg_length, global_step)
-                    logger.info(f"global_step={global_step}, episodic_return={avg_return}, episodic_length={avg_length}")
+                        writer.add_scalar("Charts/episodic_goal", avg_goal, global_step)
+                    logger.info(f"global_step={global_step}, episodic_return={avg_return}, episodic_length={avg_length}, episodic_goal={avg_goal}")
             
 
         # bootstrap value if not done
         with torch.no_grad():
-            next_value = agent.get_value(next_obs).reshape(1, -1)
+            next_value = agent.get_value(next_obs, next_rnn_state, next_done).reshape(1, -1)
             advantages = torch.zeros_like(rewards).to(device)
             lastgaelam = 0
             for t in reversed(range(args.num_steps)):
@@ -109,24 +120,36 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                 advantages[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
             returns = advantages + values
 
-        # flatten the batch
+          # flatten the batch
         b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
+        b_dones = dones.reshape(-1)
         b_advantages = advantages.reshape(-1)
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
 
         # Optimizing the policy and value network
-        b_inds = np.arange(args.batch_size)
+        assert args.num_envs % args.num_minibatches == 0
+        envsperbatch = args.num_envs // args.num_minibatches
+        envinds = np.arange(args.num_envs)
+        flatinds = np.arange(args.batch_size).reshape(args.num_steps, args.num_envs)
         clipfracs = []
+        gradients = []
         for epoch in range(args.update_epochs):
-            np.random.shuffle(b_inds)
-            for start in range(0, args.batch_size, args.minibatch_size):
-                end = start + args.minibatch_size
-                mb_inds = b_inds[start:end]
+            np.random.shuffle(envinds)
+            for start in range(0, args.num_envs, envsperbatch):
+                end = start + envsperbatch
+                mbenvinds = envinds[start:end]
+                mb_inds = flatinds[:, mbenvinds].ravel()  # be really careful about the index
 
-                _, newlogprob, entropy, newvalue, _ = agent.get_action_and_value(b_obs[mb_inds], b_actions.long()[mb_inds], deterministic=False)
+                _, newlogprob, entropy, newvalue, _, _ = agent.get_action_and_value(
+                    b_obs[mb_inds],
+                    initial_rnn_state[:, mbenvinds],
+                    b_dones[mb_inds],
+                    b_actions.long()[mb_inds],
+                )
+
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -140,14 +163,17 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                 if args.norm_adv:
                     mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
 
+                #L1 loss
+                # l1_loss = _l1_norm(model=agent.gru, lambda_l1=args.l1_lambda)
+
                 # Policy loss
                 pg_loss1 = -mb_advantages * ratio
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
-                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
+                pg_loss = torch.max(pg_loss1, pg_loss2).mean() #+ l1_loss
 
                 # Value loss
                 newvalue = newvalue.view(-1)
-                if args.clip_vloss:
+                if args.clip_vloss == 1:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
                     v_clipped = b_values[mb_inds] + torch.clamp(
                         newvalue - b_values[mb_inds],
@@ -161,17 +187,14 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
                 entropy_loss = entropy.mean()
-
-                l1_reg = torch.tensor(0.).to(device)
-                for param in agent.actor.parameters():
-                    l1_reg += torch.norm(param, 1)
-
-                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef + l1_lambda * l1_reg
+                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
 
                 optimizer.zero_grad()
                 loss.backward()
                 nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                 optimizer.step()
+                for p in agent.parameters():
+                    gradients += [p.grad.norm()]
 
             if args.target_kl is not None and approx_kl > args.target_kl:
                 break
@@ -189,7 +212,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             writer.add_scalar("losses/old_approx_kl", old_approx_kl.item(), global_step)
             writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
             writer.add_scalar("losses/clipfrac", np.mean(clipfracs), global_step)
-            writer.add_scalar("losses/l1_reg", l1_reg.item(), global_step)
+            # writer.add_scalar("losses/l1_reg", l1_reg.item(), global_step)
             writer.add_scalar("losses/explained_variance", explained_var, global_step)
             writer.add_scalar("Charts/SPS", int(global_step / (time.time() - start_time)), global_step)
 
@@ -202,7 +225,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                 "losses/old_approx_kl": old_approx_kl.item(),
                 "losses/approx_kl": approx_kl.item(),
                 "losses/clipfrac": np.mean(clipfracs),
-                "losses/l1_reg": l1_reg.item(),
+                # "losses/l1_reg": l1_reg.item(),
                 "losses/explained_variance": explained_var,
                 "Charts/SPS": int(global_step / (time.time() - start_time))
             }, step=global_step)

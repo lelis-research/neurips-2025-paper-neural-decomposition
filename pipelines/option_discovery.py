@@ -251,7 +251,7 @@ def save_options(options: List[GruAgent], trajectories: dict, args: Args, logger
     logger.info(f"Options saved to {save_dir}")
 
 
-def load_options(args, logger):
+def load_options(args, logger, folder=None):
     """
     Load the saved options (masks, models, and number of iterations) from the specified directory.
 
@@ -264,7 +264,10 @@ def load_options(args, logger):
     """
 
     # Load the models and iterations
-    save_dir = f"binary/options/{args.exp_id}/seed={args.seed}"
+    if folder:
+        save_dir = f"binary/options/{folder}/seed={args.seed}"
+    else:
+        save_dir = f"binary/options/{args.exp_id}/seed={args.seed}"
 
     logger.info(f"Option directory: {save_dir}")
 

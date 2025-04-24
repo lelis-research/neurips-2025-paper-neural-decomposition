@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import gc
+import copy
 
 
 SEEDS = {
@@ -18,7 +19,7 @@ SEEDS = {
     "TR-ML": 10,
     "BR-ML": 11,
 
-    "BL-MR-ML-BM-TM": 12,
+    "MM-MR-ML-BM-TM": 12,
     "BL-MR-BM": 13
 }
 
@@ -34,6 +35,7 @@ class Problem:
         self.rows = rows
         self.columns = columns
         self.initial, self.goals = self._parse_problem(problem_str)
+        self.goals_episode = copy.deepcopy(self.goals)
         self.reset()
 
     def _parse_problem(self, problem_str):
@@ -64,7 +66,7 @@ class Problem:
         
         return (row, col)
     
-    def update_goal(self) -> bool:
+    def update_goal(self, agent_pos) -> bool:
         """
         Updates the goal coordinations.
 
@@ -74,16 +76,13 @@ class Problem:
             bool: True if all goals have been reached, False otherwise.
         """
 
-        if self.goal_idx == len(self.goals) - 1:
+        self.goals_episode.remove(agent_pos)
+        if len(self.goals_episode) == 0:
             return True
-        
-        self.goal_idx += 1
-        self.goal = self.goals[self.goal_idx]
         return False
     
     def reset(self):
-        self.goal_idx = 0
-        self.goal = self.goals[self.goal_idx]
+        self.goals_episode = copy.deepcopy(self.goals)
 
     def is_goal(self, loc):
         return any([(loc[0] == goal[0]) and (loc[1]==goal[1]) for goal in self.goals])
@@ -95,9 +94,12 @@ class Game:
     The (0, 0) in the matrices show top and left and it goes to the bottom and right as 
     the indices increases.
     """
-    def __init__(self, rows, columns, problem_str, init_x=None, init_y=None):
+    def __init__(self, rows, columns, problem_str, init_x=None, init_y=None, visitation_bonus=False):
         self._rows = rows
         self._columns = columns
+        self._visitation_bonus = visitation_bonus
+        if self._visitation_bonus:
+            self._state_visitation_count = {}
 
         self.problem = Problem(rows, columns, problem_str)
         self._matrix_structure = np.zeros((rows, columns))
@@ -133,10 +135,19 @@ class Game:
         self.set_goal()   
         gc.collect()
 
+        if self._visitation_bonus:
+            for r in range(self._rows):
+                for c in range(self._columns):
+                    one_hot_matrix_state = np.zeros((self._rows, self._columns), dtype=int)
+                    one_hot_matrix_state[r][c] = 1
+                    self._state_visitation_count[tuple(one_hot_matrix_state.ravel())] = 0
+            
+            self._state_visitation_count[copy.deepcopy(tuple(self._matrix_unit.ravel()))] += 1
+
     def set_goal(self):
         self._matrix_goal = np.zeros((self._rows, self._columns))
-        goal = self.problem.goal
-        self._matrix_goal[goal[0]][goal[1]] = 1
+        for goal in self.problem.goals_episode:
+            self._matrix_goal[goal[0]][goal[1]] = 1
 
     def __repr__(self) -> str:
         str_map = ""
@@ -184,10 +195,10 @@ class Game:
     
     def is_over(self):
         if self._matrix_goal[self._x][self._y] == 1:
-            done = self.problem.update_goal()
-            self.set_goal()
-            return done
-        return False
+            done = self.problem.update_goal((self._x, self._y))
+            self._matrix_goal[self._x][self._y] = 0
+            return done, True
+        return False, False
     
     def get_actions(self):
         return [0, 1, 2]
@@ -231,7 +242,14 @@ class Game:
                         self._y += 1
                         self._matrix_unit[self._x][self._y] = 1
             self._state = []
-
+        rew = 0
+        if self._visitation_bonus:
+            self._state_visitation_count[copy.deepcopy(tuple(self._matrix_unit.ravel()))] += 1
+            rew = self.get_exploration_bonus()
+        return rew
+    def get_exploration_bonus(self):
+        return 0.001 / (self._state_visitation_count[copy.deepcopy(tuple(self._matrix_unit.ravel()))] ** 0.5)
+    
 class basic_actions:
     def __init__(self, action):
         self.action = action

@@ -272,8 +272,8 @@ class GruAgent(nn.Module):
 
     def _masked_input_forward_softmax(self, x, gru_state, mask_f=None, mask_g=None, mask_a=None):
         #TODO Fix the mask if nothing is given
-        if mask_f == None: mask_f = [0, 0, 1]
-        if mask_g == None: mask_g = [0, 0, 1]
+        if mask_f == None: mask_f = self.feature_mask
+        if mask_g == None: mask_g = self.actor_mask
         if mask_a == None: mask_a = [0, 0, 1]
 
         x_masked = self._masked_input_softmax(x, mask_f)
