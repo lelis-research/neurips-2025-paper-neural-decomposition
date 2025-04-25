@@ -3,6 +3,7 @@ from Scripts.train_agent import train_parallel_seeds
 from Scripts.plot import load_results, plot_results, generate_video
 from Scripts.test_agent import test_agent
 from Scripts.tune_params import tune_ppo
+from Scripts.learn_options import train_options
 import os
 
 if __name__ == "__main__":
@@ -27,5 +28,9 @@ if __name__ == "__main__":
                         window_size=args.smoothing_window_size, 
                         interpolation_resolution=args.interpolation_resolution,
                         nametag=f"{args.pattern}")
+    
+    if "option" in args.mode:
+        train_options(args)
+
         
         
