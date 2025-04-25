@@ -74,6 +74,7 @@ envs/
 outputs/
 runs/
 results/
+Results/
 older_logs/
 
 *.pth
