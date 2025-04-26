@@ -99,6 +99,7 @@ class GruAgent(nn.Module):
         self.environment_args = None
         self.extra_info = None
         self.observation_space_size = observation_space_size
+        self.option_cache = {}
 
         if feature_extractor:
             self.network = nn.Sequential(
@@ -337,6 +338,17 @@ class GruAgent(nn.Module):
         a = torch.argmax(prob_actions).item()
         return a, logits, next_gru_state
     
+    def _get_action_with_input_mask_softmax_cahced(self, x_tensor, gru_state, mask_f=None, mask_g=None, mask_a=None):
+        x_array = x_tensor.detach().cpu().numpy().tobytes()
+        gru_array = gru_state.detach().cpu().numpy().tobytes()
+        if (x_array, gru_array) in self.option_cache:
+            prob_actions, logits, next_gru_state = self.option_cache[(x_array, gru_array)]
+        else:
+            prob_actions, logits, next_gru_state = self._masked_input_forward_softmax(x_tensor, gru_state, mask_f, mask_g, mask_a)
+            self.option_cache[(x_array, gru_array)] = (prob_actions, logits, next_gru_state)
+        a = torch.argmax(prob_actions).item()
+        return a, logits, next_gru_state
+    
     def run_with_input_mask_softmax(self, envs, mask_f=None, mask_g=None, mask_a=None, max_size_sequence=30):
         """
         Runs the model with provided masks on provided environments.
@@ -358,7 +370,7 @@ class GruAgent(nn.Module):
         dones = torch.zeros(1)
         if isinstance(envs, list):
             env = envs[length]
-            while not env.is_over():
+            while not env.is_over()[0]:
                 env = envs[length]
                 x_tensor = torch.tensor(env.get_observation(), dtype=torch.float32).view(1, -1)
                 a, logits, gru_state = self._get_action_with_input_mask_softmax(x_tensor, gru_state, mask_f, mask_g, mask_a)
@@ -369,7 +381,7 @@ class GruAgent(nn.Module):
                 if length >= max_size_sequence:
                     return trajectory
         else:
-            while not envs.is_over():
+            while not envs.is_over()[0]:
                 x_tensor = torch.tensor(envs.get_observation(), dtype=torch.float32).view(1, -1)
 
                 a, logits, gru_state = self._get_action_with_input_mask_softmax(x_tensor, gru_state, mask_f, mask_g, mask_a)

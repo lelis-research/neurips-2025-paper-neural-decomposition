@@ -1,6 +1,7 @@
 import os
 import sys
 sys.path.append("C:\\Users\\Parnian\\Projects\\neurips-2025-paper-neural-decomposition")
+sys.path.append("/home/iprnb/scratch/neurips-2025-paper-neural-decomposition")
 import random
 import time
 import torch

@@ -62,6 +62,7 @@ class LevinLossActorCritic:
         assert self.mask_type in ["internal", "input", "both"]
         assert self.mask_transform_type in ["quantize", "softmax"]
         self.option_cache = {}
+        self.option_id_to_agent = []
 
     def remove_cache(self):
         """
@@ -195,6 +196,12 @@ class LevinLossActorCritic:
                         if target_problems_per_agent[option_id] == problem_name:
                             continue
                         try:
+                            if j not in self.option_cache[option_id][problem_name]:
+                                agent = self.option_id_to_agent[option_id]
+                                actions = self._run(copy.deepcopy(t[j][0]), [agent.feature_mask, agent.actor_mask], agent, agent.option_size)
+                                is_applicable = self.is_applicable(t, actions, j)
+                                self.option_cache[option_id][problem_name][j] = (is_applicable, actions)
+                                print(self.option_cache)
                             if self.option_cache[option_id][problem_name][j][0] == True:
                                 actions = self.option_cache[option_id][problem_name][j][1]
                                 M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
