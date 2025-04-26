@@ -93,7 +93,7 @@ class GruAgent(nn.Module):
         self.quantized = quantized
         # Option attributes
         self.feature_mask = None
-        self.action_mask = None
+        self.actor_mask = None
         self.option_size = None
         self.problem_id = None
         self.environment_args = None

@@ -109,7 +109,7 @@ class Args:
     selection_type: str = "local_search"
 
     # Script arguments
-    seed: int = 1
+    seed: int = 3
     """The seed used for reproducibilty of the script"""
     torch_deterministic: bool = True
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
@@ -1173,15 +1173,15 @@ class LearnOptions:
         all_options = []
         futures = []
         option_data = []
-        # option_candidates = option_candidates[:100]
+        # option_candidates = option_candidates[:10]
         for id, option_specs in enumerate(option_candidates):
             feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment = option_specs
             option_data.append((id, feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment))
 
         print('Considering ', len(option_data), ' options.')
 
-        if os.path.exists("binary/options/option_cache.pkl"):
-            with open("binary/options/option_cache.pkl", "rb") as f:
+        if os.path.exists(f"binary/options/option_cache_{self.args.seed}.pkl"):
+            with open(f"binary/options/option_cache_{self.args.seed}.pkl", "rb") as f:
                 self.option_cache = pickle.load(f)
         else:
             if self.args.preprocess_cache:
@@ -1191,10 +1191,12 @@ class LearnOptions:
                     results = executor.map(preprocess_wrapper, iterable)
                 for key, cache_per_problem in results:
                     self.option_cache[key] = cache_per_problem
-                
+                del results
+                gc.collect()
+                print(self.option_cache)
                 try:
-                    # with open("binary/options/option_cache.pkl", "wb") as f:
-                    #     pickle.dump(self.option_cache, f)
+                    with open(f"binary/options/option_cache_{self.args.seed}.pkl", "wb") as f:
+                        pickle.dump(self.option_cache, f)
                     pass
                 except:
                     pass 
@@ -1526,12 +1528,12 @@ def main():
                                     mask_type=args.mask_type, 
                                     mask_transform_type=args.mask_transform_type, 
                                     selection_type=args.selection_type)
-    # module_extractor.discover()
-    with open("binary/options/all_masks.pkl", 'rb') as f:
-        options = pickle.load(f)
-    trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
-    agents = module_extractor.select_by_local_search(options, trajectories)
-    save_options(agents, trajectories, args, logger)
+    module_extractor.discover()
+    # with open("binary/options/all_masks.pkl", 'rb') as f:
+    #     options = pickle.load(f)
+    # trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
+    # agents = module_extractor.select_by_local_search(options, trajectories)
+    # save_options(agents, trajectories, args, logger)
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()
     # whole_dec_options_training_data_levin_loss()
