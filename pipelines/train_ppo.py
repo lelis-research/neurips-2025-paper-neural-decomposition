@@ -25,9 +25,9 @@ class Args:
     """The ID of the finished experiment; to be filled in run time"""
     exp_name: str = "train_ppoAgent"
     """the name of this experiment"""
-    env_id: str = "ComboGrid"
+    env_id: str = "SimpleCrossing"
     """the id of the environment corresponding to the trained agent
-    choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0, MiniGrid-FourRooms-v0]
+    choices from [ComboGrid, SimpleCrossing, FourRooms]
     """
     # env_seeds: Union[List[int], str] = (0,1,2) # SimpleCrossing
     # env_seeds: int = 12 # ComboGrid
@@ -56,9 +56,9 @@ class Args:
     # hyperparameter arguments
     game_width: int = 5
     """the length of the combo/mini-grid square"""
-    max_episode_length: int = 35
+    max_episode_length: int = 1000
     """"""
-    visitation_bonus: int = 1
+    visitation_bonus: int = 0
     """"""
     use_options: int = 0
     """"""
@@ -67,11 +67,14 @@ class Args:
     l1_lambda: float = 0
     """"""
     number_actions: int = 3
+    """"""
+    view_size: int = 5
+    """the size of the agent's view in the mini-grid environment"""
 
     # Specific arguments
     total_timesteps: int = 1_500_000
     """total timesteps for testinging"""
-    learning_rate: float = 0.00075 # ComboGrid
+    learning_rate: float = 0.0008 # ComboGrid
     # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 5e-05) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (5e-05,) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (0.0005, 0.001, 0.001) # SimpleCrossing
@@ -92,14 +95,14 @@ class Args:
     """the K epochs to update the policy for testinging"""
     norm_adv: bool = True
     """Toggles advantages normalization for testinging"""
-    clip_coef: float = 0.02 # ComboGrid
+    clip_coef: float = 0.2 # ComboGrid
     # clip_coef: Union[List[float], float] = (0.15, 0.1, 0.2) # Vanilla RL FourRooms
     # clip_coef: Union[List[float], float] = (0.2,) # Vanilla RL FourRooms
     # clip_coef: Union[List[float], float] = (0.25, 0.2, 0.2) # SimpleCrossing
     """the surrogate clipping coefficient"""
     clip_vloss: bool = False
     """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
-    ent_coef: float = 0.01 # ComboGrid
+    ent_coef: float = 0.1 # ComboGrid
     # ent_coef: Union[List[float], float] = (0.05, 0.2, 0.0) # Vanilla RL FourRooms
     # ent_coef: Union[List[float], float] = (0.1, 0.1, 0.1) # SimpleCrossing
     """coefficient of the entropy"""
@@ -117,9 +120,9 @@ class Args:
     """the mini-batch size (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
-    env_seed: int = 1
+    env_seed: int = 3
     """the seed of the environment (set in runtime)"""
-    seed: int = 14
+    seed: int = 1
     """experiment randomness seed (set in runtime)"""
     problem: str = ""
     """"""
@@ -144,7 +147,7 @@ def main(args: Args):
 
     options = None
     if args.use_options == 1:
-        option_folder = "extract_learnOption_CrossVal_AvgLoss_ComboGrid_gw5_h64_l10_r2000_envsd0,1,2,3_mskTypeboth_mskTransformsoftmax_selectTypelocal_search"
+        option_folder = f"selected_options_{args.env_id}"
         options, _ = load_options(args, logger, folder=option_folder)
 
     if args.track:
@@ -192,9 +195,9 @@ def main(args: Args):
     visitation_bonus = True if args.visitation_bonus == 1 else False
 
     # Environment creation
-    if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
+    if args.env_id == "SimpleCrossing":
         envs = gym.vector.SyncVectorEnv( 
-            [make_env_simple_crossing(view_size=args.game_width, seed=args.env_seed) for _ in range(args.num_envs)],
+            [make_env_simple_crossing(max_episode_steps=args.max_episode_length, view_size=args.view_size, seed=args.env_seed, visitation_bonus=args.visitation_bonus, options=options) for _ in range(args.num_envs)],
             autoreset_mode=gym.vector.AutoresetMode.SAME_STEP
             )
     elif "ComboGrid" in args.env_id:
@@ -203,15 +206,15 @@ def main(args: Args):
             [make_env_combogrid(rows=args.game_width, columns=args.game_width, problem=problem, max_length=args.max_episode_length, visitation_bonus=visitation_bonus, options=options) for _ in range(args.num_envs)],
             autoreset_mode=gym.vector.AutoresetMode.SAME_STEP
         )    
-    elif args.env_id == "MiniGrid-FourRooms-v0":
+    elif args.env_id == "FourRooms":
         envs = gym.vector.SyncVectorEnv( 
-            [make_env_four_rooms(view_size=args.game_width, seed=args.env_seed) for _ in range(args.num_envs)],
+            [make_env_four_rooms(max_episode_steps=args.max_episode_length, view_size=args.view_size, seed=args.env_seed, visitation_bonus=args.visitation_bonus, options=options) for _ in range(args.num_envs)],
             autoreset_mode=gym.vector.AutoresetMode.SAME_STEP
             )
     else:
         raise NotImplementedError
     
-    model_path = f'binary/models_sweep_{args.env_id}/seed={args.seed}/{args.exp_id}.pt'
+    model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}/seed={args.seed}/{args.exp_id}.pt'
 
     train_ppo(envs=envs, 
               seed=args.env_seed, 
@@ -246,6 +249,5 @@ if __name__ == "__main__":
     args.num_iterations = args.total_timesteps // args.batch_size
     if args.env_id == "ComboGrid":
         args.problem = COMBOGRID_PROBLEMS[args.env_seed]
-        print(args.problem )
     main(args)
     

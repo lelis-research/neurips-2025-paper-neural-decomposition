@@ -1,4 +1,7 @@
 # docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/ppo/#ppopy
+import sys
+sys.path.append("C:\\Users\\Parnian\\Projects\\neurips-2025-paper-neural-decomposition")
+sys.path.append("/home/iprnb/scratch/neurips-2025-paper-neural-decomposition")
 import time
 import os
 import torch
@@ -13,6 +16,7 @@ from agents.recurrent_agent import GruAgent
 
 def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, device, logger=None, writer=None):
     hidden_size = args.hidden_size
+    temp_saved = False
     l1_lambda = args.l1_lambda
     if not seed:
         seed = args.env_seed
@@ -79,7 +83,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                         lengths.append(info) 
                     if infos["final_info"]["episode"]["r"][i] != 0: # Collect episodic returns
                         returns.append(infos["final_info"]["episode"]["r"][i])  
-                    if infos["final_info"]["goals"][i] != 0:
+                    if 'goals' in infos["final_info"] and infos["final_info"]["goals"][i] != 0:
                         goals.append(infos["final_info"]["goals"][i])
                         
 
@@ -234,6 +238,11 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             logger.info(f"Global steps: {global_step}")
             logger.info(f"SPS: {int(global_step / (time.time() - start_time))}")
             utils.logger_flush(logger)
+        
+        if global_step >= args.total_timesteps//2 and temp_saved == False:
+            os.makedirs(os.path.dirname(model_file_name), exist_ok=True)
+            torch.save(agent.state_dict(), model_file_name)
+            temp_saved = True
 
     envs.close()
     # writer.close()
