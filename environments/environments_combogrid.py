@@ -248,7 +248,7 @@ class Game:
             rew = self.get_exploration_bonus()
         return rew
     def get_exploration_bonus(self):
-        return 0.001 / (self._state_visitation_count[copy.deepcopy(tuple(self._matrix_unit.ravel()))] ** 0.5)
+        return 0.1 / (self._state_visitation_count[copy.deepcopy(tuple(self._matrix_unit.ravel()))] ** 0.5)
     
 class basic_actions:
     def __init__(self, action):

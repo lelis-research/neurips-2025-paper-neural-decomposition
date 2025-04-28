@@ -54,7 +54,7 @@ class ComboGym(gym.Env):
             if self.options:
                 reward = 10 if reached_goal else 0
             else:
-                reward = -1 if reached_goal else 1
+                reward = 1 if reached_goal else -1
             reward += visitation_reward
             if self.n_steps == self.max_length:
                 truncated = True

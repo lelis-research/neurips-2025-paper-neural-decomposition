@@ -94,9 +94,9 @@ class Args:
     """number of hill climbing restarts for finding one option"""
 
     # mask learning
-    mask_learning_rate: float = 0.001
+    mask_learning_rate: float = 0.005
     """"""
-    mask_learning_steps: int = 2_000
+    mask_learning_steps: int = 3_000
     """"""
     max_grad_norm: float = 1.0
     """"""
@@ -970,12 +970,12 @@ class LearnOptions:
             raise ValueError(f"Invalid selection type: {self.selection_type}")
 
         # printing selected options
-        self.logger.info("Selected options:")
-        for i in range(len(selected_options)):
-            self.logger.info(f"Option #{i}:\n" + 
-                        f"mask={selected_options[i].mask}\n" +
-                        f"size={selected_options[i].option_size}\n" +
-                        f"problem={selected_options[i].problem_id}")
+        # self.logger.info("Selected options:")
+        # for i in range(len(selected_options)):
+        #     self.logger.info(f"Option #{i}:\n" + 
+        #                 f"mask={selected_options[i].mask}\n" +
+        #                 f"size={selected_options[i].option_size}\n" +
+        #                 f"problem={selected_options[i].problem_id}")
 
         save_options(options=selected_options, 
                     trajectories=trajectories,
@@ -984,8 +984,8 @@ class LearnOptions:
 
         logger_flush(self.logger)
 
-        self.levin_loss.print_output_subpolicy_trajectory(selected_options, trajectories, logger=self.logger)
-        logger_flush(self.logger)
+        # self.levin_loss.print_output_subpolicy_trajectory(selected_options, trajectories, logger=self.logger)
+        # logger_flush(self.logger)
 
     def select_greedy(self, option_candidates, trajectories):
         selected_masks = []
@@ -1094,7 +1094,6 @@ class LearnOptions:
                                                                                     all_possible_sequences[problem_name], 
                                                                                     self.logger)
             best_cost += returned_cost
-        print('Initial Loss: ', best_cost)
         previous_cost = float('Inf')
         steps = 0
         while (best_cost < previous_cost or steps == 0) and steps < max_steps:
@@ -1135,11 +1134,21 @@ class LearnOptions:
                     best_cost = cost
                     all_possible_sequences = remaining_sequences
             steps += 1
-        print('Number of steps: ', steps)
         return best_cost, list(selected_options)
     
     def _preprocess_option(self, agent_id, trajectories, feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment):
-        print('Evaluating option: ', agent_id)
+        """ 
+        option cache:
+        Dict{
+            option #N: Dict{
+                    problem_name: Dict{
+                        length: int
+                        j(index of the sequence): (is_applicable: bool, actions: list)
+                        }
+                    } 
+            }
+        """
+        self.logger.info(f'Preprocessing option {agent_id}')
         env = get_single_environment(self.args, seed=primary_env_seed)
         agent = GruAgent(env, h_size=self.args.hidden_size)
         agent.load_state_dict(torch.load(model_path, weights_only=True))
@@ -1178,7 +1187,6 @@ class LearnOptions:
             feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment = option_specs
             option_data.append((id, feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment))
 
-        print('Considering ', len(option_data), ' options.')
 
         if os.path.exists(f"binary/options/option_cache_{self.args.seed}.pkl"):
             with open(f"binary/options/option_cache_{self.args.seed}.pkl", "rb") as f:
@@ -1193,11 +1201,9 @@ class LearnOptions:
                     self.option_cache[key] = cache_per_problem
                 del results
                 gc.collect()
-                print(self.option_cache)
                 try:
                     with open(f"binary/options/option_cache_{self.args.seed}.pkl", "wb") as f:
                         pickle.dump(self.option_cache, f)
-                    pass
                 except:
                     pass 
             else:
@@ -1221,8 +1227,7 @@ class LearnOptions:
             agent.extra_info['id'] = id
             self.option_id_to_agent[id] = agent
 
-        print("Number of option_candidates", len(all_options))
-        # return 
+        self.logger.info(f"Number of option_candidates: {len(all_options)}")
 
         all_options = list(self.option_id_to_agent.keys())
         

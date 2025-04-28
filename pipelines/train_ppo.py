@@ -40,7 +40,7 @@ class Args:
     """if toggled, cuda will be enabled by default"""
     torch_deterministic: bool = True
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
-    track: bool = True
+    track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
     track_tensorboard: bool = False
     """if toggled, this experiment will be tracked with Tensorboard SummaryWriter"""
@@ -56,11 +56,11 @@ class Args:
     # hyperparameter arguments
     game_width: int = 5
     """the length of the combo/mini-grid square"""
-    max_episode_length: int = 100
+    max_episode_length: int = 35
     """"""
-    visitation_bonus: int = 0
+    visitation_bonus: int = 1
     """"""
-    use_options: int = 1
+    use_options: int = 0
     """"""
     hidden_size: int = 64
     """"""
@@ -71,7 +71,7 @@ class Args:
     # Specific arguments
     total_timesteps: int = 1_500_000
     """total timesteps for testinging"""
-    learning_rate: float = 2.5e-4 # ComboGrid
+    learning_rate: float = 0.00075 # ComboGrid
     # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 5e-05) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (5e-05,) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (0.0005, 0.001, 0.001) # SimpleCrossing
@@ -92,14 +92,14 @@ class Args:
     """the K epochs to update the policy for testinging"""
     norm_adv: bool = True
     """Toggles advantages normalization for testinging"""
-    clip_coef: float = 0.2 # ComboGrid
+    clip_coef: float = 0.02 # ComboGrid
     # clip_coef: Union[List[float], float] = (0.15, 0.1, 0.2) # Vanilla RL FourRooms
     # clip_coef: Union[List[float], float] = (0.2,) # Vanilla RL FourRooms
     # clip_coef: Union[List[float], float] = (0.25, 0.2, 0.2) # SimpleCrossing
     """the surrogate clipping coefficient"""
     clip_vloss: bool = False
     """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
-    ent_coef: float = 0.02 # ComboGrid
+    ent_coef: float = 0.01 # ComboGrid
     # ent_coef: Union[List[float], float] = (0.05, 0.2, 0.0) # Vanilla RL FourRooms
     # ent_coef: Union[List[float], float] = (0.1, 0.1, 0.1) # SimpleCrossing
     """coefficient of the entropy"""
@@ -117,9 +117,9 @@ class Args:
     """the mini-batch size (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
-    env_seed: int = 12
+    env_seed: int = 1
     """the seed of the environment (set in runtime)"""
-    seed: int = 1
+    seed: int = 14
     """experiment randomness seed (set in runtime)"""
     problem: str = ""
     """"""
@@ -211,7 +211,7 @@ def main(args: Args):
     else:
         raise NotImplementedError
     
-    model_path = f'binary/models/{args.exp_id}/seed={args.seed}/ppo_first_MODEL.pt'
+    model_path = f'binary/models_sweep_{args.env_id}/seed={args.seed}/{args.exp_id}.pt'
 
     train_ppo(envs=envs, 
               seed=args.env_seed, 
