@@ -8,6 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from Agents.PPOAgent import PPOAgent
 from Agents.RandomAgent import RandomAgent
+# from Agents.RandomAgentRNN import RandomAgent
 from Environments.GetEnvironment import get_env
 from Experiments.EnvAgentLoops import agent_environment_step_loop, agent_environment_episode_loop
 
@@ -37,8 +38,11 @@ def train_single_seed(seed, args):
                      device=torch.device("cpu"),
                      **agent_kwargs
                      )
+    
     # agent = RandomAgent(env.observation_space, 
     #                     env.action_space,
+    #                     device=torch.device("cpu"),
+    #                     **agent_kwargs
     #                     )
     writer = None
     if args.save_results:
@@ -56,9 +60,9 @@ def train_single_seed(seed, args):
         writer = SummaryWriter(log_dir=exp_dir)
     
     if args.exp_total_steps > 0 and args.exp_total_episodes == 0:
-        result = agent_environment_step_loop(env, agent, args.exp_total_steps, writer=writer, save_frame_freq=args.save_frame_freq)
+        result, best_agent = agent_environment_step_loop(env, agent, args.exp_total_steps, writer=writer, save_frame_freq=args.save_frame_freq)
     elif args.exp_total_episodes > 0 and args.exp_total_steps == 0:
-        result = agent_environment_episode_loop(env, agent, args.exp_total_episodes, writer=writer, save_frame_freq=args.save_frame_freq)
+        result, best_agent = agent_environment_episode_loop(env, agent, args.exp_total_episodes, writer=writer, save_frame_freq=args.save_frame_freq)
     else:
         raise ValueError("Both steps and episodes are greater than 0")
 
@@ -66,6 +70,7 @@ def train_single_seed(seed, args):
         with open(os.path.join(exp_dir, "res.pkl"), "wb") as f:
             pickle.dump(result, f)
         agent.save(os.path.join(exp_dir, "final.pt"))
+        best_agent.save(os.path.join(exp_dir, "best.pt"))
     env.close()
     return result
 

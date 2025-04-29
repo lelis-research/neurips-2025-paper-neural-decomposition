@@ -20,7 +20,7 @@ class CarEnv(gym.Env):
     """
     metadata = {'render_modes': ['human', 'rgb_array_list', 'rgb_array'], 'render_fps': 50}
 
-    def __init__(self, n_steps=4000, render_mode=None, test_mode=False, last_state_in_obs=True):
+    def __init__(self, n_steps=2000, render_mode=None, test_mode=False, last_state_in_obs=False):
         super().__init__()
         self.sim = CarReversePP(n_steps=n_steps)
         self.render_mode = render_mode
@@ -37,7 +37,7 @@ class CarEnv(gym.Env):
             self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(5,), dtype=np.float64)
 
         self.action_space = gym.spaces.Box(low=-5.0, high=5.0, shape=(2,), dtype=np.float64)
-
+        self.err_counter = 0
     def step(self, action):
         self.counter += 1
 
@@ -49,24 +49,17 @@ class CarEnv(gym.Env):
         
         err_x, err_y, err_ang = self.sim.check_goal(self.state)
 
-        reward = - (err_x) 
-        terminated = False
-        
-        if err_x <= 0.01 and err_y <= 0.01: #and err_ang <= 0.01:
-            print("Yay !")
-            reward += 1
-            if err_ang <= 0.05:
-                print("Succeed !!")
-                reward += 10
-                terminated = True
-            
-        elif self.sim.check_collision(self.state) > 0.05 or self.sim.check_boundaries(self.state) > 0.05:
-            print("Completely Broken !")
+        if self.sim.check_collision(self.state) > 0.05 or self.sim.check_boundaries(self.state) > 0.05:
+            reward = -2 * self.n_steps
             terminated = True
-            reward = self.n_steps * (-1)
-            
-        elif self.sim.check_collision(self.state) > 0 or self.sim.check_boundaries(self.state) > 0:
-            reward -= 10
+        elif err_x <= 0.01 and err_y <= 0.01 and err_ang <= 0.01:
+            reward = 2 * self.n_steps
+            terminated = True
+            print("Goal Reached!")
+        else:
+            reward = -err_x
+            terminated = False
+        
         
         truncated = self.counter >= self.n_steps
         
@@ -89,6 +82,7 @@ class CarEnv(gym.Env):
         super().reset(seed=seed)
         self.sim.reset_render()
         self.counter = 0
+        self.err_counter = 0
 
         if self.test_mode:
             test_limit = (11, 12)

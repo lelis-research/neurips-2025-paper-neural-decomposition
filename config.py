@@ -30,13 +30,13 @@ def default_env_wrappers(env_name):
 
     elif env_name in CAR_ENV_LST:
         env_wrappers= ["RecordReward", 
-                       "ClipAction", 
-                    #    "NormalizeReward",
-                    #    "ClipReward",
+                    #    "ClipAction", 
+                       "NormalizeReward",
+                       "ClipReward",
                     #    "StepReward",
                        ]
         wrapping_params = [{}, 
-                           {}, 
+                        #    {}, 
                            {},
                            {},
                         #    {},
@@ -50,12 +50,12 @@ def default_env_wrappers(env_name):
 @dataclass
 class arguments:
     # ----- experiment settings -----
-    mode                                         = [ "option"] # train, test, plot, tune, option
+    mode                                         = ["train"] # train, test, plot, tune, option
     res_dir:                  str                = "Results"
 
     # ----- tune experiment settings -----
     num_trials:               int                = 200    
-    steps_per_trial:          int                = 2_000_000
+    steps_per_trial:          int                = 200_000
     param_ranges                                 = {
                                                         "clip_ratio":        [0.0, 0.5],
                                                         "step_size":         (1e-5, 1e-3),
@@ -69,27 +69,27 @@ class arguments:
 
 
     # ----- train experiment settings -----
-    seeds                                        = [1000, 2000]
-    exp_total_steps:          int                = 200_000
+    seeds                                        = [1000]
+    exp_total_steps:          int                = 1_000_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
-    nametag:                  str                = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    nametag:                  str                = "Normalized_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    training_env_name:        str                = "Maze_4_Sparse"
-    training_env_params                          = {"continuing_task": False}
+    training_env_name:        str                = "car-test"
+    training_env_params                          = {}#{"continuing_task": False}
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
-    training_render_mode:     str                = "rgb_array" #human, None, rgb_array_list, rgb_array
-    save_frame_freq:          int                = 200
+    training_render_mode:     str                = None #human, None, rgb_array_list, rgb_array
+    save_frame_freq:          int                = 100
     
     # ----- test experiment settings -----
-    test_agent_path:          str                = "Maze_1_Sparse_1000_200000_20250423_161200"
-    test_episodes:            int                = 3
+    test_agent_path:          str                = "car-train_1000_1000000_Normalized_20250428_235713"
+    test_episodes:            int                = 10
     test_seed:                int                = 0 
     save_test:                bool               = False
 
-    test_env_name:            str                = "Maze_4_Sparse"
-    test_env_params                              = {"continuing_task": False}
+    test_env_name:            str                = "car-train"
+    test_env_params                              = {} #{"continuing_task": False}
     test_env_wrappers                            = default_env_wrappers(test_env_name)[0]
     test_wrapping_params                         = default_env_wrappers(test_env_name)[1]
 
@@ -98,13 +98,13 @@ class arguments:
     lamda:                    float              = 0.95
 
     epochs:                   int                = 10
-    total_steps:              int                = 200_000
-    rollout_steps:            int                = 2048
+    total_steps:              int                = 1_000_000
+    rollout_steps:            int                = 8192
     num_minibatches:          int                = 32
     
     flag_anneal_step_size:    bool               = True
     step_size:                float              = 3e-4
-    entropy_coef:             float              = 0.0
+    entropy_coef:             float              = 0.002
     critic_coef:              float              = 0.5
     clip_ratio:               float              = 0.2
     flag_clip_vloss:          bool               = True

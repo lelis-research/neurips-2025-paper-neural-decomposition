@@ -1,11 +1,36 @@
 from Networks.ActorCriticDiscrete import ActorCriticDiscrete
 from Networks.ActorCriticContinuous import ActorCriticContinuous
-
+from Networks.ActorCriticMultiDiscrete import ActorCriticMultiDiscrete
 import torch
 import torch.optim as optim
 import torch.nn as nn
 import numpy as np
 import gymnasium as gym
+from torch.distributions import Categorical
+
+def discrete_to_continuous(action):
+    if action == 0:
+        action = np.array([-1., 0.])
+    elif action == 1:
+        action = np.array([1., 5.])
+    elif action == 2:
+        action = np.array([1., -3.])
+    else:
+        raise ValueError("Invalid action")  
+    return action
+
+def multidiscrete_to_continuous(action):
+    a = np.asarray(action, dtype=np.int32)
+    if a.shape[-1] != 2:
+        raise ValueError(f"Expected action of length 2, got shape {a.shape}")
+    
+    low, high = -5.0, 5.0
+    bins = 10
+    # step so that 0→-5.0 and 9→+5.0, evenly spaced
+    step = (high - low) / (bins - 1)
+    
+    cont = low + a * step
+    return cont
 
 class PPOAgent:
     def __init__(self, observation_space, action_space, **kwargs):
@@ -33,12 +58,19 @@ class PPOAgent:
         self.flag_norm_adv = kwargs.get("flag_norm_adv", True) # Normalizing Advantages
         self.max_grad_norm = kwargs.get("max_grad_norm", 0.5) # Clipping Gradients
 
+        # self.kl_target = kwargs.get("kl_target", 1.0)
+
+        # action_space = gym.spaces.Discrete(3)
+        action_space = gym.spaces.MultiDiscrete([10, 10])
+
         self.observation_space = observation_space
         self.action_space = action_space
         self.device = kwargs['device']
 
         if isinstance(action_space, gym.spaces.Discrete):
             self.actor_critic = ActorCriticDiscrete(observation_space, action_space).to(self.device)
+        elif isinstance(action_space, gym.spaces.MultiDiscrete):
+            self.actor_critic = ActorCriticMultiDiscrete(observation_space, action_space).to(self.device)
         else:
             self.actor_critic = ActorCriticContinuous(observation_space, action_space).to(self.device)
 
@@ -49,6 +81,7 @@ class PPOAgent:
 
         self.update_counter = 0
         
+        self.ep_counter = 0
               
     def act(self, observation, greedy=False):
         """
@@ -58,18 +91,24 @@ class PPOAgent:
         state = torch.tensor(observation, device=self.device, dtype=torch.float32).unsqueeze(0)
         with torch.no_grad():
             action, log_prob, _ = self.actor_critic.get_action(state, greedy=greedy)
-   
+
         self.prev_state = state
         self.last_log_prob = log_prob
         self.prev_action = action
         
-        return action.squeeze(0).detach().cpu().numpy()
-
+        if isinstance(self.action_space, gym.spaces.Discrete):
+            return discrete_to_continuous(action.squeeze(0).detach().cpu().numpy())
+        elif isinstance(self.action_space, gym.spaces.MultiDiscrete):
+            return multidiscrete_to_continuous(action.squeeze(0).detach().cpu().numpy())
+        else:
+            return action.squeeze(0).detach().cpu().numpy()
+    
     def update(self, next_observation, reward, terminated, truncated):
         """
         Called at each step: store the transition and, if the buffer is full,
         perform a PPO update using a batch of transitions.
         """
+
         next_state = torch.tensor(next_observation, dtype=torch.float32).unsqueeze(0)
         self.memory.append({
             'state': self.prev_state,    # tensor shape (1, obs_dim)
@@ -80,11 +119,13 @@ class PPOAgent:
             'reward': reward, # scalar
             'done': terminated # boolean
         })
+        if terminated or truncated:
+            self.ep_counter += 1
 
         if len(self.memory) >= self.rollout_steps:
             self.ppo_update()
             self.memory = []  # Clear the buffer after update
-    
+
     def ppo_update(self):
         """
         Compute advantage estimates using GAE, and perform PPO updates over the collected batch.
@@ -109,7 +150,7 @@ class PPOAgent:
         actions = torch.cat(actions, dim=0).to(self.device)          # shape (T, act_dim)
         old_log_probs = torch.stack(log_probs).squeeze().to(self.device)  # shape (T,)
         next_states = torch.cat(next_states, dim=0).to(self.device) # shape (T, obs_dim)
-        
+     
         with torch.no_grad():
             prev_state_values = self.actor_critic.get_value(states) # shape (T, 1)
             next_state_values = self.actor_critic.get_value(next_states) # shape (T, 1)
@@ -134,10 +175,23 @@ class PPOAgent:
         if self.flag_norm_adv:
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
+        
+        # with torch.no_grad():
+        #     old_logits_full, _, _ = self.actor_critic.get_action(states)
+        #     old_dist_full = Categorical(logits=old_logits_full)
+
         # PPO update over multiple epochs.
         indices = np.arange(T)
         for epoch in range(self.epochs):
             np.random.shuffle(indices)
+            
+            # new_logits_full, _, _ = self.actor_critic.get_action(states)
+            # new_dist_full = Categorical(logits=new_logits_full)
+            # kl_full = torch.distributions.kl_divergence(old_dist_full, new_dist_full).mean().item()
+            # if epoch > 0 and kl_full > self.kl_target:
+            #     print(f"Early stopping at epoch {epoch} due to KL divergence: {kl_full:.4f} > {self.kl_target:.4f}")
+            #     break
+
             for start in range(0, T, self.minibatch_size):
                 end = start + self.minibatch_size
                 mb_idx = indices[start:end]
@@ -177,7 +231,8 @@ class PPOAgent:
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
                 self.optimizer.step()
-    
+
+        
     def save(self, file_path):
         checkpoint = {
             "gamma": self.gamma,

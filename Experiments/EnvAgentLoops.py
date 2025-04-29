@@ -2,6 +2,7 @@ import os
 import numpy as np
 import imageio
 import torch
+import copy
 
 def agent_environment_step_loop(env, agent, total_steps, training=True, writer=None, save_frame_freq=1):
     """
@@ -12,6 +13,7 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
     timestep = 0
     episode_counter = 1
     results = []
+    best_ep, best_agent = -np.inf, None
     while timestep < total_steps:
         observation, info = env.reset()
         episode_return_org = 0.0
@@ -60,7 +62,11 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
                     writer.add_video(
                         f"Video/Episode_{episode_counter}_Terminated_{terminated}", vid, timestep, fps=24
                     )  
-      
+        
+        if episode_return_org > best_ep:
+            best_ep = episode_return_org
+            best_agent = copy.deepcopy(agent)
+
         results.append({
             "episode_return": episode_return_org,
             "episode_length": episode_length,
@@ -68,7 +74,7 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
         print(f"Episode: {episode_counter} Timestep: {timestep} Return Org: {episode_return_org:.2f} Return Wrapped: {episode_return_wrapped:.2f}")
         episode_counter += 1  
 
-    return results
+    return results, best_agent
 
 def agent_environment_episode_loop(env, agent, total_episodes, training=True, writer=None, save_frame_freq=1):
     """
@@ -78,6 +84,8 @@ def agent_environment_episode_loop(env, agent, total_episodes, training=True, wr
     greedy = False if training else True
     timestep = 0
     results = []
+    best_ep, best_agent = -np.inf, None
+
     for episode_counter in range(1, total_episodes+1):
         observation, info = env.reset()
         episode_return_org = 0.0
@@ -122,11 +130,15 @@ def agent_environment_episode_loop(env, agent, total_episodes, training=True, wr
                     writer.add_video(
                         f"Video/Episode_{episode_counter}_Terminated_{terminated}", vid, timestep, fps=24
                     )  
-            
+
+        if episode_return_org > best_ep:
+            best_ep = episode_return_org
+            best_agent = copy.deepcopy(agent)
+
         results.append({
             "episode_return": episode_return_org,
             "episode_length": episode_length,
         })
         print(f"Episode: {episode_counter} Timestep: {timestep} Return Org: {episode_return_org:.2f} Return Wrapped: {episode_return_wrapped:.2f}")
 
-    return results
+    return results, best_agent

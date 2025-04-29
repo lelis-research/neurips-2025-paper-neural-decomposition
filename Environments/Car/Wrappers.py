@@ -14,7 +14,7 @@ class StepRewardWrapper(RewardWrapper):
         return reward + self.step_reward
 
 class ClipReward(RewardWrapper):
-    def __init__(self, env, min_reward=-10, max_reward=10):
+    def __init__(self, env, min_reward=-100, max_reward=100):
         super().__init__(env)
         self.min_reward = min_reward
         self.max_reward = max_reward
