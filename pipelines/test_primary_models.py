@@ -11,7 +11,7 @@ sys.path.append("C:\\Users\\Parnian\\Projects\\neurips-2025-paper-neural-decompo
 from environments.environments_combogrid import PROBLEM_NAMES
 from agents.recurrent_agent import GruAgent
 from pipelines.option_discovery import get_single_environment
-from environments.environments_minigrid import get_simplecross_env
+from environments.environments_minigrid import get_simplecross_env, make_env_simple_crossing
 from pipelines.train_ppo import Args
 from utils import utils
 
@@ -40,9 +40,10 @@ def main():
     for directory_path in directory_paths:
         models = find_pytorch_models(directory_path)
         logger.info(f"Found {len(models)} PyTorch models in {directory_path}.")
-        # env_seed = int(directory_path.strip().split("_")[-1])
-        env_seed = 3
-        best_model = None
+        env_seed = int(directory_path.strip().split("_")[-1])
+        # env_seed = 3
+        best_model_per_seed = {} 
+        
         best_seed = None
         best_length = float('inf')
         for model in models:
@@ -58,7 +59,9 @@ def main():
             if args.env_id == "ComboGrid":
                 env = get_single_environment(seed=env_seed, args=args)
             elif args.env_id == "SimpleCrossing":
-                env = get_simplecross_env(seed=env_seed, view_size=args.view_size, max_episode_steps=args.max_episode_length)
+                env = get_single_environment(seed=env_seed, args=args)
+                # env = gym.vector.SyncVectorEnv([
+                #     make_env_simple_crossing(seed=env_seed, view_size=args.view_size, max_episode_steps=args.max_episode_length, visitation_bonus=0) for i in range(1)])
             agent = GruAgent(env, h_size=args.hidden_size)
             agent.load_state_dict(torch.load(model, weights_only=True))
             agent.eval()
@@ -67,27 +70,29 @@ def main():
             next_rnn_state = agent.init_hidden()
             next_done = torch.zeros(1)
             o, _ = env.reset()
-            length_cap = 100
+            length_cap = 35
             current_length = 0
             done = False
 
             while not done:
                 o = torch.tensor(o, dtype=torch.float32)
                 a, _, _, _, next_rnn_state, _ = agent.get_action_and_value(o, next_rnn_state, next_done)
-                next_o, _, terminal, truncated, _ = env.step(a.item())
+                next_o, _, terminal, truncated, _ = env.step(a)
                 current_length += 1
                 if (length_cap is not None and current_length > length_cap) or \
                     terminal or truncated:
                     done = True
                 o = next_o  
             if terminal:
-                if best_model is None or current_length < best_length:
-                    best_model = model
-                    best_length = current_length
-                    best_seed = seed
-        if best_model is not None:
-            logger.info(f"Best model for seed {best_seed} and env {PROBLEM_NAMES[env_seed] if args.env_id == "ComboGrid" else env_seed} is {best_model} with length {best_length}.")
-            best_models.append((best_model, env_seed, best_seed))
+                if seed not in best_model_per_seed: 
+                    best_model_per_seed[seed] = {"length": float("inf"), 'model': None}
+                if best_model_per_seed[seed]['model'] is None or current_length < best_model_per_seed[seed]['length']:
+                    best_model_per_seed[seed]['model'] = model
+                    best_model_per_seed[seed]['length'] = current_length
+        if len(best_model_per_seed) != 0:
+            for best_seed in best_model_per_seed:
+                logger.info(f"Best model for seed {best_seed} and env {PROBLEM_NAMES[env_seed] if args.env_id == "ComboGrid" else env_seed} is {best_model_per_seed[best_seed]['model']} with length {best_model_per_seed[best_seed]['length']}.")
+                best_models.append((best_model_per_seed[best_seed]['model'], env_seed, best_seed))
 
     separator = os.path.sep
     # Copy the best models to the binary/models directory

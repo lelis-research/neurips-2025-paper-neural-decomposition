@@ -7,6 +7,7 @@ from gymnasium.vector import SyncVectorEnv
 from torch.distributions.categorical import Categorical
 
 from environments.environments_combogrid_gym import ComboGym
+from environments.environments_minigrid import MiniGridWrap
 
 device = torch.device("cuda" if torch.cuda.is_available()  else "cpu")
 
@@ -80,6 +81,10 @@ class GruAgent(nn.Module):
     def __init__(self, envs, h_size=64, feature_extractor=False, greedy=True, quantized=0, actor_layer_size=64, critic_layer_size=64):
         super().__init__()
         if isinstance(envs, ComboGym):
+            observation_space_size = envs.get_observation_space()
+            action_space_size = envs.get_action_space()
+        elif isinstance(envs.unwrapped, MiniGridWrap):
+            envs = envs.unwrapped
             observation_space_size = envs.get_observation_space()
             action_space_size = envs.get_action_space()
         elif isinstance(envs, SyncVectorEnv):
@@ -320,7 +325,7 @@ class GruAgent(nn.Module):
             if verbose:
                 print(env, a)
 
-            next_o, _, terminal, truncated, _ = env.step(a.item())
+            next_o, _, terminal, truncated, _ = env.step(a)
             
             current_length += 1
             if (length_cap is not None and current_length > length_cap) or \

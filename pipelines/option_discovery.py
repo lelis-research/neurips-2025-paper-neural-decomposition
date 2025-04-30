@@ -23,7 +23,7 @@ from pipelines.losses import LevinLossActorCritic, LogitsLossActorCritic
 from agents.recurrent_agent import GruAgent
 from environments.environments_combogrid_gym import ComboGym, make_env
 from environments.environments_combogrid import SEEDS, PROBLEM_NAMES as COMBO_PROBLEM_NAMES
-# from environments.environments_minigrid import get_training_tasks_simplecross
+from environments.environments_minigrid import get_simplecross_env, make_env_simple_crossing
 from utils.utils import *
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -41,7 +41,8 @@ class Args:
     # exp_name: str = "extract_learnOptions_randomInit_discreteMasks"
     # exp_name: str = "extract_learnOptions_randomInit_pitisFunction"
     """the name of this experiment"""
-    env_seeds: Union[List, str, Tuple] = (0,1,2,3)
+    # env_seeds: Union[List, str, Tuple] = (0,1,2,3)
+    env_seeds: Union[List, str, Tuple] = (1,3,5,15)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
     # model_paths: List[str] = (
     #     'train_GruAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
@@ -53,17 +54,18 @@ class Args:
     #     'train_GruAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.001_clip0.2_ent0.1_envsd1',
     #     'train_GruAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.001_clip0.2_ent0.1_envsd2'
     # )
-    # model_paths: List[str] = (
-    #     'train_GruAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
-    #     'train_GruAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd1',
-    #     'train_GruAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2',
-    #     )
     model_paths: List[str] = (
-        'combogrid-TL-BR',
-        'combogrid-TR-BL',
-        'combogrid-BR-TL',
-        'combogrid-BL-TR',
-    )
+        'simplecrossing-1',
+        'simplecrossing-3',
+        'simplecrossing-5',
+        'simplecrossing-15',
+        )
+    # model_paths: List[str] = (
+    #     'combogrid-TL-BR',
+    #     'combogrid-TR-BL',
+    #     'combogrid-BR-TL',
+    #     'combogrid-BL-TR',
+    # )
 
     # These attributes will be filled in the runtime
     exp_id: str = ""
@@ -72,9 +74,9 @@ class Args:
     """the name of the problems the agents were trained on; To be filled in runtime"""
 
     # Algorithm specific arguments
-    env_id: str = "ComboGrid"
+    env_id: str = "SimpleCrossing"
     """the id of the environment corresponding to the trained agent
-    choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
+    choices from [ComboGrid, SimpleCrossing, FourRooms]
     """
     cpus: int = int(os.environ.get('SLURM_CPUS_PER_TASK', 1))
     """"The number of CPUTs used in this experiment."""
@@ -84,6 +86,10 @@ class Args:
     """the length of the combo/mini grid square"""
     hidden_size: int = 64
     """"""
+    view_size: int = 5
+    """the size of the agent's view in the mini-grid environment"""
+    max_episode_length: int = 1000
+    """the maximum length of an episode"""
     l1_lambda: float = 0
     """"""
     preprocess_cache: bool = True
@@ -126,9 +132,11 @@ class Args:
 
 
 def get_single_environment(args: Args, seed):
-    # if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
-    #     env = get_training_tasks_simplecross(view_size=args.game_width, seed=seed)
-    if args.env_id == "ComboGrid":
+    if args.env_id == "SimpleCrossing":
+        env = get_simplecross_env(max_episode_steps=args.max_episode_length, view_size=args.view_size, seed=seed, visitation_bonus=0)
+        # env = gym.vector.SyncVectorEnv([
+        #             make_env_simple_crossing(seed=seed, view_size=args.view_size, max_episode_steps=args.max_episode_length, visitation_bonus=0) for i in range(1)])    
+    elif args.env_id == "ComboGrid":
         problem = COMBO_PROBLEM_NAMES[seed]
         env = ComboGym(rows=args.game_width, columns=args.game_width, problem=problem)
     else:
@@ -171,7 +179,7 @@ def process_args() -> Args:
     
     if args.env_id == "ComboGrid":
         args.problems = [COMBO_PROBLEM_NAMES[seed] for seed in args.env_seeds]
-    elif args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
+    elif args.env_id == "SimpleCrossing":
         args.problems = [args.env_id + f"_{seed}" for seed in args.env_seeds]
         
     return args
@@ -187,7 +195,7 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     trajectories = {}
     
     for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{model_directory}-{args.seed}.pt'
+        model_path = f'binary/models/{args.env_id}/seed={args.seed}/{model_directory}-{args.seed}.pt'
         env = get_single_environment(args, seed)
         # env = gym.vector.SyncVectorEnv(
         #     [make_env(problem=problem, rows=args.game_width, columns=args.game_width) for i in range(1)],
@@ -914,7 +922,7 @@ class LearnOptions:
             for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
                 if primary_problem == target_problem:
                     continue
-                model_path = f'binary/models/{primary_model_directory}-{self.args.seed}.pt'
+                model_path = f'binary/models/{self.args.env_id}/seed={self.args.seed}/{primary_model_directory}-{self.args.seed}.pt'
                 primary_env = get_single_environment(self.args, seed=primary_seed)
                 parimary_agent = GruAgent(primary_env, h_size=self.args.hidden_size)
                 parimary_agent.load_state_dict(torch.load(model_path, weights_only=True))

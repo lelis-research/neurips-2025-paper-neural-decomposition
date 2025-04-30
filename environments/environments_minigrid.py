@@ -27,7 +27,7 @@ class MiniGridWrap(gym.Env):
         seed=None,
         n_discrete_actions=3,
         view_size=5,
-        show_direction=True,
+        show_direction=False,
         options=None,
     ):
         super(MiniGridWrap, self).__init__()
@@ -62,6 +62,7 @@ class MiniGridWrap(gym.Env):
         #     self.goal_position[0] % self.env.width,
         # )
         self.agent_pos = self.env.unwrapped.agent_pos
+        self.is_over_bool = False
 
     def setup_options(self, options):
         self.action_space = gym.spaces.Discrete(self.action_space.n + len(options))
@@ -124,13 +125,19 @@ class MiniGridWrap(gym.Env):
             self.n_steps += 1
             _, reward, terminated, truncated, _ = self.env.step(action)
             reward = custom_reward(terminated, self.goal_reward, self.step_reward)
+            if terminated or truncated:
+                self.is_over_bool = True
         return self.get_observation(), reward, terminated, truncated, {"n_steps": self.n_steps}
 
+    def is_over(self, loc=None):
+        return self.is_over_bool, False
+    
     def reset(self, init_loc=None, init_dir:str=None, seed=None, options=None):
         if seed is not None:
             self.seed_ = seed
         self.env.reset(seed=self.seed_)
         self.n_steps = 0
+        self.is_over_bool = False
         # self.goal_position = [
         #     x for x, y in enumerate(self.env.unwrapped.grid.grid) if isinstance(y, Goal)
         # ]
@@ -175,11 +182,12 @@ def get_simplecross_env(*args, **kwargs):
                 seed=kwargs['seed'],
                 n_discrete_actions=3,
                 view_size=kwargs['view_size'],
+                show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
                 options=None if 'options' not in kwargs else kwargs['options'])
     env.reset(seed=kwargs['seed'])
-    if kwargs['visitation_bonus'] == 1:
+    if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
         env = PositionBonus(env, scale=0.001)
-    env = gym.wrappers.RecordEpisodeStatistics(env)
+    # env = gym.wrappers.RecordEpisodeStatistics(env)
     return env
 
 
@@ -189,6 +197,7 @@ def get_fourrooms_env(*args, **kwargs):
                 seed=kwargs['seed'],
                 n_discrete_actions=3,
                 view_size=kwargs['view_size'],
+                show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
                 options=None if 'options' not in kwargs else kwargs['options'])
     env.reset(seed=kwargs['seed'])
     if kwargs['visitation_bonus'] == 1:
