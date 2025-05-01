@@ -106,6 +106,10 @@ class GruAgent(nn.Module):
         self.observation_space_size = observation_space_size
         self.option_cache = {}
 
+        # Mapping from model output index → env action for UnlockEnv
+        self.index_to_action = torch.tensor([0, 1, 2, 3, 5])  # logits[0] = action 0, logits[1] = action 1, ..., logits[4] = action 5
+        self.action_to_index = {a: i for i, a in enumerate(self.index_to_action.tolist())}  # if needed for reverse lookup
+
         if feature_extractor:
             self.network = nn.Sequential(
                 layer_init(nn.Linear(np.array(observation_space_size).prod(), 64)),
@@ -198,10 +202,14 @@ class GruAgent(nn.Module):
         probs = Categorical(logits=logits)
         if action is None:
             if self.greedy:
-                action = torch.tensor([torch.argmax(logits[i]).item() for i in range(len(logits))])
+                indicies = torch.tensor([torch.argmax(logits[i]).item() for i in range(len(logits))])
             else:
-                action = probs.sample()
-        return action, probs.log_prob(action), probs.entropy(), self.critic(concatenated), gru_state, logits
+                indicies = probs.sample()
+            action = torch.tensor([self.index_to_action[i] for i in indicies])
+        else:
+            indicies = torch.tensor([self.action_to_index[i.item()] for i in action])
+            
+        return action, probs.log_prob(indicies), probs.entropy(), self.critic(concatenated), gru_state, logits
 
     #TODO: Used in other codes, will edit it to work for synced envs too
     def init_hidden(self):

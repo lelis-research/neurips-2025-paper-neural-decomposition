@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from torch.utils.tensorboard import SummaryWriter
 from environments.environments_combogrid_gym import make_env as make_env_combogrid
 from environments.environments_combogrid import PROBLEM_NAMES as COMBOGRID_PROBLEMS
-from environments.environments_minigrid import make_env_simple_crossing, make_env_four_rooms
+from environments.environments_minigrid import make_env_simple_crossing, make_env_four_rooms, make_env_unlock
 from training.train_ppo_agent import train_ppo
 from option_discovery import load_options
 
@@ -25,9 +25,9 @@ class Args:
     """The ID of the finished experiment; to be filled in run time"""
     exp_name: str = "train_ppoAgent"
     """the name of this experiment"""
-    env_id: str = "ComboGrid"
+    env_id: str = "Unlock"
     """the id of the environment corresponding to the trained agent
-    choices from [ComboGrid, SimpleCrossing, FourRooms]
+    choices from [ComboGrid, SimpleCrossing, FourRooms, Unlock]
     """
     # env_seeds: Union[List[int], str] = (0,1,2) # SimpleCrossing
     # env_seeds: int = 12 # ComboGrid
@@ -81,7 +81,7 @@ class Args:
     """the learning rate of the optimize for testinging"""
     num_envs: int = 8
     """the number of parallel game environments for testinging"""
-    num_steps: int = max_episode_length * 2
+    num_steps: int = 128
     """the number of steps to run in each environment per policy rollout for testinging"""
     anneal_lr: bool = True
     """Toggle learning rate annealing for policy and value networks for testinging"""
@@ -120,7 +120,7 @@ class Args:
     """the mini-batch size (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
-    env_seed: int = 3
+    env_seed: int = 1
     """the seed of the environment (set in runtime)"""
     seed: int = 1
     """experiment randomness seed (set in runtime)"""
@@ -211,6 +211,11 @@ def main(args: Args):
             [make_env_four_rooms(max_episode_steps=args.max_episode_length, view_size=args.view_size, seed=args.env_seed, visitation_bonus=args.visitation_bonus, options=options) for _ in range(args.num_envs)],
             autoreset_mode=gym.vector.AutoresetMode.SAME_STEP
             )
+    elif args.env_id == "Unlock":
+        envs = gym.vector.SyncVectorEnv(
+            [make_env_unlock(max_episode_steps=args.max_episode_length, view_size=args.view_size, seed=args.env_seed, visitation_bonus=args.visitation_bonus, n_discrete_actions=args.number_actions) for _ in range(args.num_envs)],
+            autoreset_mode=gym.vector.AutoresetMode.SAME_STEP
+        )
     else:
         raise NotImplementedError
     
@@ -231,6 +236,7 @@ def main(args: Args):
 if __name__ == "__main__":
     args = tyro.cli(Args)
 
+
     # Setting the experiment id
     if args.exp_id == "":
         args.exp_id = f'{args.exp_name}_{args.env_id}_option{args.use_options}' + \
@@ -240,6 +246,9 @@ if __name__ == "__main__":
     
     
     # Parameter specification for each problem
+    args.number_actions = 5 if args.env_id == "Unlock" else 3
+    args.num_steps = args.max_episode_length * 2
+    args.view_size = 5 if (args.env_id == "SimpleCrossing" or args.env_id == "Fourrooms") else 3
     lrs = args.learning_rate
     clip_coef = args.clip_coef
     ent_coef = args.ent_coef
