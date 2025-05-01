@@ -228,7 +228,7 @@ def save_options(options: List[GruAgent], trajectories: dict, args: Args, logger
         trajectories (Dict[str, Trajectory]): The trajectories corresponding to the these options
         save_dir (str): The directory where the options will be saved.
     """
-    save_dir = f"binary/options/{args.exp_id}/seed={args.seed}"
+    save_dir = f"binary/options/selected_options/{args.env_id}/seed={args.seed}"
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     else:
@@ -279,7 +279,7 @@ def load_options(args, logger, folder=None):
     if folder:
         save_dir = f"binary/options/{folder}/seed={args.seed}"
     else:
-        save_dir = f"binary/options/{args.exp_id}/seed={args.seed}"
+        save_dir = f"binary/options/selected_options/{args.env_id}/seed={args.seed}"
 
     logger.info(f"Option directory: {save_dir}")
 
@@ -295,7 +295,7 @@ def load_options(args, logger, folder=None):
         model_path = os.path.join(save_dir, model_file)
         checkpoint = torch.load(model_path, weights_only=True)
         
-        if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
+        if args.env_id == "SimpleCrossing":
             if 'environment_args' in checkpoint:
                 seed = int(checkpoint['environment_args']['seed'])
                 game_width = int(checkpoint['environment_args']['game_width'])
@@ -303,7 +303,7 @@ def load_options(args, logger, folder=None):
                 seed = int(checkpoint['problem'][-1])
                 game_width = args.game_width
             # envs = get_training_tasks_simplecross(view_size=game_width, seed=seed)
-        elif args.env_id == "MiniGrid-FourRooms-v0":
+        elif args.env_id == "FourRooms":
             raise NotImplementedError("Environment creation not implemented!")
         elif args.env_id == "ComboGrid":
             game_width = int(checkpoint['environment_args']['game_width'])
@@ -328,424 +328,6 @@ def load_options(args, logger, folder=None):
         loaded_trajectory = pickle.load(f)
 
     return options, loaded_trajectory
-
-
-def hill_climbing_iter(
-    i: int, 
-    agent: GruAgent,
-    option_size: int, 
-    problem_str: str,
-    number_actions: int, 
-    mask_values: List, 
-    trajectories: dict, 
-    selected_masks: List, 
-    selected_mask_models: List, 
-    selected_option_sizes: List, 
-    initial_loss: float, 
-    args: Args, 
-    loss: LevinLossActorCritic
-):
-    # Initialize the value depending on whether it's the last restart or not
-    if i == args.number_restarts:
-        mask_seq = [-1 for _ in range(args.hidden_size)]
-    else:
-        mask_seq = random.choices(mask_values, k=args.hidden_size)
-    
-    # Initialize the current mask
-    current_mask = torch.tensor(mask_seq, dtype=torch.int8).view(1, -1)
-    init_mask = current_mask
-    applicable = False
-
-    # Compute initial loss
-    best_value = loss.compute_loss(
-        selected_masks + [current_mask], 
-        selected_mask_models + [agent], 
-        problem_str, 
-        trajectories, 
-        number_actions, 
-        number_steps=selected_option_sizes + [option_size]
-    )
-
-    # Check against default loss
-    if best_value < initial_loss:
-        applicable = True
-
-    n_steps = 0
-    while True:
-        made_progress = False
-        # Iterate through each element of the current mask
-        for j in range(len(current_mask[0])):
-            modifiable_current_mask = copy.deepcopy(current_mask)
-            # Try each possible value for the current position
-            for v in mask_values:
-                if v == current_mask[0][j]:
-                    continue
-                
-                modifiable_current_mask[0][j] = v
-                eval_value = loss.compute_loss(
-                    selected_masks + [modifiable_current_mask], 
-                    selected_mask_models + [agent], 
-                    problem_str, 
-                    trajectories, 
-                    number_actions, 
-                    number_steps=selected_option_sizes + [option_size]
-                )
-
-                if eval_value < initial_loss:
-                    applicable = True
-
-                # Update the best value and mask if improvement is found
-                if 'best_mask' not in locals() or eval_value < best_value:
-                    best_value = eval_value
-                    best_mask = copy.deepcopy(modifiable_current_mask)
-                    made_progress = True
-
-            # Update current mask to the best found so far
-            current_mask = copy.deepcopy(best_mask)
-
-        # Break the loop if no progress was made in the current iteration
-        if not made_progress:
-            break
-
-        n_steps += 1
-
-    # Optionally return the best mask and the best value if needed
-    return i, best_value, current_mask, init_mask, n_steps, applicable
-            
-
-def hill_climbing(
-        agent: GruAgent, 
-        problem_str: str,
-        number_actions: int, 
-        trajectories: dict, 
-        selected_masks: List, 
-        selected_masks_models: List, 
-        selected_option_sizes: List, 
-        possible_option_sizes: List, 
-        loss: LevinLossActorCritic, 
-        args: Args, 
-        logger):
-    """
-    Performs Hill Climbing in the mask space for a given agent. Note that when computing the loss of a mask (option), 
-    we pass the name of the problem in which the mask is used. That way, we do not evaluate an option on the problem in 
-    which the option's model was trained. 
-
-    Larger number of restarts will result in computationally more expensive searches, with the possibility of finding 
-    a mask that better optimizes the Levin loss. 
-    """
-
-    best_mask = None
-    mask_values = [-1, 0, 1]
-    best_overall = None
-    best_option_sizes = None
-    best_value_overall = None
-    
-    def _update_best(i, best_value, best_mask, n_steps, init_mask, applicable, n_applicable, option_size):
-        nonlocal best_overall, best_value_overall, best_option_sizes
-        if applicable:
-            n_applicable[i] = 1
-        if i == args.number_restarts:
-            logger.info(f'restart #{i}, Resulting Mask from the original Model: {best_mask}, Loss: {best_value}, using {option_size} iterations.')
-        if best_overall is None or best_value < best_value_overall:
-            best_overall = copy.deepcopy(best_mask)
-            best_value_overall = best_value
-            best_option_sizes = option_size
-
-            logger.info(f'restart #{i}, Best Mask Overall: {best_overall}, Best Loss: {best_value_overall}, Best number of iterations: {best_option_sizes}')
-            logger.info(f'restart #{i}, {n_steps} steps taken.\n Starting mask: {init_mask}\n Resulted Mask: {best_mask}')
-
-    default_loss = loss.compute_loss(selected_masks, selected_masks_models, problem_str, trajectories, number_actions, number_steps=selected_option_sizes)
-    
-    for option_size in possible_option_sizes:
-        logger.info(f'Selecting option #{len(selected_masks_models)} - option size {option_size}')
-        n_applicable = [0] * (args.number_restarts + 1)
-
-        if args.cpus == 1: 
-            for i in range(args.number_restarts + 1):
-                _, best_value, best_mask, init_mask, n_steps, applicable = hill_climbing_iter(i=i, 
-                                                    agent=agent,
-                                                    problem_str=problem_str,
-                                                    option_size=option_size,
-                                                    number_actions=number_actions,
-                                                    mask_values=mask_values,
-                                                    trajectories=trajectories,
-                                                    selected_masks=selected_masks,
-                                                    selected_mask_models=selected_masks_models,
-                                                    selected_option_sizes=selected_option_sizes,
-                                                    initial_loss=default_loss,
-                                                    args=args,
-                                                    loss=loss)
-                _update_best(i=i, 
-                             best_value=best_value, 
-                             best_mask=best_mask,
-                             n_steps=n_steps,
-                             init_mask=init_mask,
-                             applicable=applicable,
-                             n_applicable=n_applicable,
-                             option_size=option_size)
-                
-                if i % 100 == 0:
-                    logger.info(f'Progress: {i}/{args.number_restarts}')
-        else:
-            # Use ProcessPoolExecutor to run the hill climbing iterations in parallel
-            with concurrent.futures.ProcessPoolExecutor(max_workers=args.cpus) as executor:
-                # Submit tasks to the executor with all required arguments
-                futures = [
-                    executor.submit(
-                        hill_climbing_iter, i, agent, option_size, problem_str, number_actions, 
-                        mask_values, trajectories, selected_masks, selected_masks_models, 
-                        selected_option_sizes, default_loss, args, loss
-                    )
-                    for i in range(args.number_restarts + 1)
-                ]
-
-                # Process the results as they complete
-                for future in concurrent.futures.as_completed(futures):
-                    try:
-                        i, best_value, best_mask, init_mask, n_steps, applicable = future.result()
-                        _update_best(i=i, 
-                                    best_value=best_value, 
-                                    best_mask=best_mask,
-                                    n_steps=n_steps, 
-                                    init_mask=init_mask, 
-                                    applicable=applicable,
-                                    n_applicable=n_applicable, 
-                                    option_size=option_size)
-                        if i % 100 == 0:
-                            logger.info(f'Progress: {i}/{args.number_restarts}')
-                    except Exception as exc:
-                        logger.error(f'restart #{i} generated an exception: {exc}')
-
-        logger.info(f'Out of {args.number_restarts}, {sum(n_applicable)} options where applicable with size={option_size} .')
-    
-    return best_overall, best_value_overall, best_option_sizes
-
-
-@timing_decorator
-def hill_climbing_mask_space_training_data():
-    """
-    This function performs hill climbing in the space of masks of a ReLU neural network
-    to minimize the Levin loss of a given data set. 
-    """
-    args = process_args()
-    
-    # Logger configurations
-    logger = get_logger('hill_climbing_logger', args.log_level, args.log_path)
-
-    game_width = args.game_width
-    number_actions = 3
-
-    trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
-    max_length = max([len(t.get_trajectory()) for t in trajectories.values()])
-    option_length = list(range(2, max_length + 1))
-    # option_length = list(range(2, 5))
-    args.exp_id += f'_olen{",".join(map(str, option_length))}'
-
-    buffer = "Parameters:\n"
-    for key, value in vars(args).items():
-        buffer += (f"{key}: {value}\n")
-    logger.info(buffer)
-    logger_flush(logger)
-
-    previous_loss = None
-    best_loss = None
-
-    # loss = LogitsLossActorCritic(logger)
-    loss = LevinLossActorCritic(logger)
-
-    selected_masks = []
-    selected_mask_models = []
-    selected_option_sizes = []
-
-    # the greedy loop of selecting options (masks)
-    while previous_loss is None or best_loss < previous_loss:
-        previous_loss = best_loss
-
-        best_loss = None
-        best_mask_model = None
-
-        for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-            model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
-            logger.info(f'Extracting from the agent trained on {problem}, seed={seed}')
-            env = get_single_environment(args, seed=seed)
-
-            agent = GruAgent(env, h_size=args.hidden_size)
-            agent.load_state_dict(torch.load(model_path, weights_only=True))
-
-            mask, levin_loss, option_size = hill_climbing(agent=agent, 
-                                                problem_str=problem, 
-                                                number_actions=number_actions, 
-                                                trajectories=trajectories, 
-                                                selected_masks=selected_masks, 
-                                                selected_masks_models=selected_mask_models, 
-                                                selected_option_sizes=selected_option_sizes, 
-                                                possible_option_sizes=option_length, 
-                                                loss=loss, 
-                                                args=args, 
-                                                logger=logger)
-
-            logger.info(f'Search Summary for {problem}, seed={seed}: \nBest Mask:{mask}, levin_loss={levin_loss}, n_iterations={option_size}\nPrevious Loss: {best_loss}, Previous selected loss:{previous_loss}, n_selected_masks={len(selected_masks)}')
-            if best_loss is None or levin_loss < best_loss:
-                best_loss = levin_loss
-                best_mask_model = agent
-                agent.to_option(mask, option_size, problem)
-                if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
-                    agent.environment_args = {
-                        "seed": seed,
-                        "game_width": game_width
-                    }
-                else:
-                    agent.environment_args = {
-                        "game_width": game_width
-                    }
-            logger_flush(logger)
-        logger.debug("\n")
-
-        # we recompute the Levin loss after the automaton is selected so that we can use 
-        # the loss on all trajectories as the stopping condition for selecting masks
-        selected_masks.append(best_mask_model.mask)
-        selected_mask_models.append(best_mask_model)
-        selected_option_sizes.append(best_mask_model.option_size)
-        best_loss = loss.compute_loss(selected_masks, selected_mask_models, "", trajectories, number_actions, selected_option_sizes)
-
-        logger.info(f"Levin loss of the current set: {best_loss}")
-        logger_flush(logger)
-
-    # remove the last automaton added
-    num_options = len(selected_mask_models)
-    selected_mask_models = selected_mask_models[:num_options - 1]
-
-    # printing selected options
-    logger.info("Selected options:")
-    for i in range(len(selected_mask_models)):
-        logger.info(f"Option #{i}:\n" + 
-                    f"mask={selected_mask_models[i].mask}\n" +
-                    f"size={selected_mask_models[i].option_size}\n" +
-                    f"problem={selected_mask_models[i].problem_id}")
-
-    save_options(options=selected_mask_models, 
-                 trajectories=trajectories,
-                 args=args, 
-                 logger=logger)
-    
-    logger_flush(logger)
-
-
-@timing_decorator
-def hill_climbing_all_segments(args: Args, logger: logging.Logger):
-    
-    """
-    This function performs hill climbing in the space of masks of a ReLU neural network
-    to minimize the Levin loss of a given data set. 
-    """
-
-    number_actions = 3
-
-    trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
-
-    logits_loss = LogitsLossActorCritic(logger)
-    levin_loss = LevinLossActorCritic(logger)
-
-    all_masks_info = []
-
-    for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
-        logger.info(f'Extracting from the agent trained on {problem}, seed={seed}')
-        env = get_single_environment(args, seed=seed)
-        
-        agent = GruAgent(env, hidden_size=args.hidden_size)
-        agent.load_state_dict(torch.load(model_path, weights_only=True))
-
-        t_length = trajectories[problem].get_length()
-
-        for length in range(2, t_length + 1):
-            for s in range(t_length - length):
-                logger.info(f"Processing option length={length}, segment={s}..")
-                option_length = [length]
-                sub_trajectory = {problem: trajectories[problem].slice(s, n=length)}
-                mask, loss_value, option_size = hill_climbing(agent=agent, 
-                                                problem_str="", 
-                                                number_actions=number_actions, 
-                                                trajectories=sub_trajectory, 
-                                                selected_masks=[], 
-                                                selected_masks_models=[], 
-                                                selected_option_sizes=[], 
-                                                possible_option_sizes=option_length, 
-                                                loss=logits_loss, 
-                                                args=args, 
-                                                logger=logger)
-                all_masks_info.append((mask, problem, option_size, model_path, s))
-            logger_flush(logger)
-        
-    logger.debug("\n")
-
-    selected_masks = []
-    selected_option_sizes = []
-    selected_mask_models = []
-    selected_options_problem = []
-
-    previous_loss = None
-    best_loss = None
-
-    # the greedy loop of selecting options (masks)
-    while previous_loss is None or best_loss < previous_loss:
-        previous_loss = best_loss
-
-        best_loss = None
-        best_mask_model = None
-
-        for mask, problem, option_size, model_path, segment in all_masks_info:
-            logger.info(f'Extracting from the agent trained on problem={problem}, seed={seed}, segment=({segment},{segment+option_size})')
-            env = get_single_environment(args, seed=seed)
-            
-            agent = GruAgent(env, hidden_size=args.hidden_size)
-            agent.load_state_dict(torch.load(model_path, weights_only=True))
-
-            loss_value = levin_loss.compute_loss(masks=selected_masks + [mask], 
-                                           agents=selected_mask_models + [agent], 
-                                           problem_str=problem, 
-                                           trajectories=trajectories, 
-                                           number_actions=number_actions, 
-                                           number_steps=selected_option_sizes + [option_size])
-
-
-            if best_loss is None or loss_value < best_loss:
-                best_loss = loss_value
-                best_mask_model = agent
-                agent.to_option(mask, option_size, problem)
-
-        # we recompute the Levin loss after the automaton is selected so that we can use 
-        # the loss on all trajectories as the stopping condition for selecting masks
-        selected_masks.append(best_mask_model.mask)
-        selected_option_sizes.append(best_mask_model.option_size)
-        selected_mask_models.append(best_mask_model)
-        selected_options_problem.append(best_mask_model.problem_id)
-        best_loss = levin_loss.compute_loss(selected_masks, selected_mask_models, "", trajectories, number_actions, selected_option_sizes)
-
-        logger.info(f"Added option #{len(selected_mask_models)}; Levin loss of the current selected set: {best_loss} on all trajectories")
-        logger_flush(logger)
-
-    # remove the last automaton added
-    num_options = len(selected_mask_models)
-    selected_mask_models = selected_mask_models[:num_options - 1]
-
-    # printing selected options
-    logger.info("Selected options:")
-    for i in range(len(selected_mask_models)):
-        logger.info(f"Option #{i}:\n" + 
-                    f"mask={selected_mask_models[i].mask}\n" +
-                    f"size={selected_mask_models[i].option_size}\n" +
-                    f"problem={selected_mask_models[i].problem_id}")
-
-    save_options(options=selected_mask_models, 
-                 trajectories=trajectories,
-                 args=args,  
-                 logger=logger)
-    
-    logger_flush(logger)
-
-    levin_loss.print_output_subpolicy_trajectory(selected_mask_models, trajectories, logger=logger)
-    logger_flush(logger)
 
 
 @timing_decorator
@@ -920,8 +502,6 @@ class LearnOptions:
             t_length = trajectories[target_problem].get_length()
 
             for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
-                if primary_problem == target_problem:
-                    continue
                 model_path = f'binary/models/{self.args.env_id}/seed={self.args.seed}/{primary_model_directory}-{self.args.seed}.pt'
                 primary_env = get_single_environment(self.args, seed=primary_seed)
                 parimary_agent = GruAgent(primary_env, h_size=self.args.hidden_size)
@@ -967,9 +547,9 @@ class LearnOptions:
             logger_flush(self.logger)
         self.logger.debug("\n")
 
-        with open(f"binary/options/all_options_{self.args.seed}.pkl", "wb") as f:
+        with open(f"binary/options/all_options/{self.args.env_id}/seed={self.args.seed}/all_options.pkl", "wb") as f:
             pickle.dump(option_candidates, f)
-
+        
         if self.selection_type == "greedy":
             selected_options = self.select_greedy(option_candidates, trajectories)
         elif self.selection_type == "local_search":
@@ -977,13 +557,6 @@ class LearnOptions:
         else:
             raise ValueError(f"Invalid selection type: {self.selection_type}")
 
-        # printing selected options
-        # self.logger.info("Selected options:")
-        # for i in range(len(selected_options)):
-        #     self.logger.info(f"Option #{i}:\n" + 
-        #                 f"mask={selected_options[i].mask}\n" +
-        #                 f"size={selected_options[i].option_size}\n" +
-        #                 f"problem={selected_options[i].problem_id}")
 
         save_options(options=selected_options, 
                     trajectories=trajectories,
@@ -991,9 +564,6 @@ class LearnOptions:
                     logger=self.logger)
 
         logger_flush(self.logger)
-
-        # self.levin_loss.print_output_subpolicy_trajectory(selected_options, trajectories, logger=self.logger)
-        # logger_flush(self.logger)
 
     def select_greedy(self, option_candidates, trajectories):
         selected_masks = []
@@ -1196,8 +766,8 @@ class LearnOptions:
             option_data.append((id, feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment))
 
 
-        if os.path.exists(f"binary/options/option_cache_{self.args.seed}.pkl"):
-            with open(f"binary/options/option_cache_{self.args.seed}.pkl", "rb") as f:
+        if os.path.exists(f"binary/options/option_caches/{self.args.env_id}/seed={self.args.seed}/option_cache.pkl"):
+            with open(f"binary/options/option_caches/{self.args.env_id}/seed={self.args.seed}/option_cache.pkl", "rb") as f:
                 self.option_cache = pickle.load(f)
         else:
             if self.args.preprocess_cache:
@@ -1210,7 +780,7 @@ class LearnOptions:
                 del results
                 gc.collect()
                 try:
-                    with open(f"binary/options/option_cache_{self.args.seed}.pkl", "wb") as f:
+                    with open(f"binary/options/option_caches/{self.args.env_id}/seed={self.args.seed}/option_cache.pkl", "wb") as f:
                         pickle.dump(self.option_cache, f)
                 except:
                     pass 
@@ -1235,9 +805,10 @@ class LearnOptions:
             agent.extra_info['id'] = id
             self.option_id_to_agent[id] = agent
 
-        self.logger.info(f"Number of option_candidates: {len(all_options)}")
 
         all_options = list(self.option_id_to_agent.keys())
+
+        self.logger.info(f"Number of option_candidates: {len(all_options)}")
         
         self.levin_loss.option_cache = copy.deepcopy(self.option_cache)
         self.levin_loss.option_id_to_agent = copy.deepcopy(self.option_id_to_agent)
@@ -1541,12 +1112,12 @@ def main():
                                     mask_type=args.mask_type, 
                                     mask_transform_type=args.mask_transform_type, 
                                     selection_type=args.selection_type)
-    module_extractor.discover()
-    # with open("binary/options/all_masks.pkl", 'rb') as f:
-    #     options = pickle.load(f)
-    # trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
-    # agents = module_extractor.select_by_local_search(options, trajectories)
-    # save_options(agents, trajectories, args, logger)
+    # module_extractor.discover()
+    with open(f"binary/options/all_options/{args.env_id}/seed={args.seed}/all_options_{args.env_id.lower()}.pkl", 'rb') as f:
+        options = pickle.load(f)
+    trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
+    agents = module_extractor.select_by_local_search(options, trajectories)
+    save_options(agents, trajectories, args, logger)
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()
     # whole_dec_options_training_data_levin_loss()

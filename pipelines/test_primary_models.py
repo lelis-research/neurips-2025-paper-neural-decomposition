@@ -41,7 +41,6 @@ def main():
         models = find_pytorch_models(directory_path)
         logger.info(f"Found {len(models)} PyTorch models in {directory_path}.")
         env_seed = int(directory_path.strip().split("_")[-1])
-        # env_seed = 3
         best_model_per_seed = {} 
         
         best_seed = None
@@ -60,8 +59,7 @@ def main():
                 env = get_single_environment(seed=env_seed, args=args)
             elif args.env_id == "SimpleCrossing":
                 env = get_single_environment(seed=env_seed, args=args)
-                # env = gym.vector.SyncVectorEnv([
-                #     make_env_simple_crossing(seed=env_seed, view_size=args.view_size, max_episode_steps=args.max_episode_length, visitation_bonus=0) for i in range(1)])
+
             agent = GruAgent(env, h_size=args.hidden_size)
             agent.load_state_dict(torch.load(model, weights_only=True))
             agent.eval()
@@ -72,17 +70,16 @@ def main():
             o, _ = env.reset()
             length_cap = 35
             current_length = 0
-            done = False
 
-            while not done:
+            while True:
                 o = torch.tensor(o, dtype=torch.float32)
                 a, _, _, _, next_rnn_state, _ = agent.get_action_and_value(o, next_rnn_state, next_done)
-                next_o, _, terminal, truncated, _ = env.step(a)
-                current_length += 1
-                if (length_cap is not None and current_length > length_cap) or \
-                    terminal or truncated:
-                    done = True
+                next_o, _, terminal, truncated, _ = env.step(a.item())
                 o = next_o  
+                current_length += 1
+                # print("Step: ", current_length, "Action: ", a.item())
+                if terminal or truncated or current_length > length_cap:
+                    break
             if terminal:
                 if seed not in best_model_per_seed: 
                     best_model_per_seed[seed] = {"length": float("inf"), 'model': None}
@@ -91,7 +88,7 @@ def main():
                     best_model_per_seed[seed]['length'] = current_length
         if len(best_model_per_seed) != 0:
             for best_seed in best_model_per_seed:
-                logger.info(f"Best model for seed {best_seed} and env {PROBLEM_NAMES[env_seed] if args.env_id == "ComboGrid" else env_seed} is {best_model_per_seed[best_seed]['model']} with length {best_model_per_seed[best_seed]['length']}.")
+                logger.info(f"Best model for seed {best_seed} and env {PROBLEM_NAMES[env_seed] if args.env_id == 'ComboGrid' else env_seed} is {best_model_per_seed[best_seed]['model']} with length {best_model_per_seed[best_seed]['length']}.")
                 best_models.append((best_model_per_seed[best_seed]['model'], env_seed, best_seed))
 
     separator = os.path.sep
