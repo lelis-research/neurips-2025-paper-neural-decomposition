@@ -226,23 +226,36 @@ class PPOAgent(nn.Module):
     
     def to_option(self, mask, option_size, problem):
         self.mask = mask
-        if isinstance(mask, tuple):
-            self.mask_type = "both"
-            print(mask[0].shape)
-            mask_dim = mask[0].shape[0]
-        elif mask.shape[1] == self.observation_space_size:
-            self.mask_type = "input"
-            mask_dim = mask.shape[0]
-        elif mask.shape[1] == self.hidden_size:
-            self.mask_type = "internal"
-            mask_dim = mask.shape[0]
-        else:
-            raise Exception(f"The mask {mask} is of invalid type")
+        if mask is not None:
+            if isinstance(mask, tuple):
+                self.mask_type = "both"
+                mask_dim = mask[0].shape[0]
+            elif isinstance(mask, torch.Tensor):
+                if mask.shape[1] == self.observation_space_size:
+                    self.mask_type = "input"
+                    mask_dim = mask.shape[0]
+                elif mask.shape[1] == self.hidden_size:
+                    self.mask_type = "internal"
+                    mask_dim = mask.shape[0]
+                else:
+                    raise Exception(f"The mask {mask} is of invalid shape")
+            else:
+                raise Exception(f"The mask {mask} is of invalid type")
 
-        self.mask_transform_type = "softmax" if mask_dim == 3 else "quantize"
+            self.mask_transform_type = "softmax" if mask_dim == 3 else "quantize"
         self.option_size = option_size
         self.problem_id = problem
     
+    def get_option_id(self):
+        """Warning: Option ID and just for when we are learning the option and this is used within one experiment 
+        Not to be shared between multiple experiments"""
+        return f"{self.extra_info['primary_problem']}" + \
+            f"_{self.extra_info['primary_env_seed']}" + \
+            f"_{self.extra_info['target_problem']}" + \
+            f"_{self.extra_info['target_env_seed']}" + \
+            f"_{self.extra_info['segment']}" + \
+            f"_{self.option_size}"
+
     def _masked_input_softmax(self, input, mask):
         if mask is None or len(mask) == 0:
             raise Exception("No mask is set for the agent.")
@@ -597,7 +610,10 @@ class PPOAgent(nn.Module):
                     return trajectory
         else:
             while not envs.is_over():
-                x_tensor = torch.tensor(envs.get_observation(), dtype=torch.float32).view(1, -1)
+                if not include_goal:
+                    x_tensor = torch.tensor(envs.get_observation_without_goal(), dtype=torch.float32).view(1, -1)
+                else:
+                    x_tensor = torch.tensor(envs.get_observation(), dtype=torch.float32).view(1, -1)
 
                 a, logits = self._get_action_with_input_mask_softmax(x_tensor, mask)
                 
@@ -641,4 +657,67 @@ class PPOAgent(nn.Module):
                 if length >= max_size_sequence:
                     return trajectory
 
+        return trajectory
+
+    def _get_action_and_value_fixed_prefix(self, x, action=None, deterministic=False):
+        out = x
+        num_layers = len(self.actor)
+        for i, layer in enumerate(self.actor):
+            if i == num_layers - 1:
+                out = out.detach()
+            out = layer(out)
+        logits = out
+        probs = Categorical(logits=logits)
+        if action is None:
+            if not deterministic:
+                action = probs.sample()
+            else:
+                action = probs.probs.argmax(dim=1)
+        return action, probs.log_prob(action), probs.entropy(), self.critic(x), logits
+
+    def run_fixed_prefix(self, env: Union[ComboGym, MiniGridWrap], length_cap=None, detach_tensors=True, verbose=False, deterministic=True):
+        trajectory = Trajectory()
+        current_length = 0
+        self.actor.requires_grad = False
+
+        if isinstance(env, list):
+            length = 0
+            envs = env
+            env = envs[length]
+            while not env.is_over():
+                env = envs[length]
+                x_tensor = torch.tensor(env.get_observation(), dtype=torch.float32).view(1, -1)
+                a, _, _, _, logits = self._get_action_and_value_fixed_prefix(x_tensor, deterministic=deterministic)                
+                trajectory.add_pair(copy.deepcopy(env), a.item(), logits=logits[0])
+
+                length += 1
+
+                if length >= length_cap:
+                    return trajectory
+        if isinstance(env, SyncVectorEnv):
+            o = env.get_observation()
+            
+            done = False
+
+            if verbose: print('Beginning Trajectory')
+            while not done:
+                o = torch.tensor(o, dtype=torch.float32)
+                a, _, _, _, logits = self._get_action_and_value_fixed_prefix(o, deterministic=deterministic)
+                trajectory.add_pair(copy.deepcopy(env), a.item(), logits, detach=detach_tensors)
+
+                if verbose:
+                    print(env, a)
+                    print()
+
+                next_o, _, terminal, truncated, _ = env.step(a.item())
+                
+                current_length += 1
+                if (length_cap is not None and current_length >= length_cap) or \
+                    terminal or truncated:
+                    done = True     
+
+                o = next_o   
+        
+        self._h = None
+        if verbose: print("End Trajectory \n\n")
         return trajectory
