@@ -25,7 +25,7 @@ class Args:
     """The ID of the finished experiment; to be filled in run time"""
     exp_name: str = "train_ppoAgent"
     """the name of this experiment"""
-    env_id: str = "Unlock"
+    env_id: str = "FourRooms"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, SimpleCrossing, FourRooms, Unlock]
     """
@@ -70,9 +70,11 @@ class Args:
     """"""
     view_size: int = 5
     """the size of the agent's view in the mini-grid environment"""
+    save_run_info: int = 0
+    """save entropy and episode length along with satate dict if set to 1"""
 
     # Specific arguments
-    total_timesteps: int = 1_500_000
+    total_timesteps: int = 100_000
     """total timesteps for testinging"""
     learning_rate: float = 0.0008 # ComboGrid
     # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 5e-05) # Vanilla RL FourRooms

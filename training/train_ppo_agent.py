@@ -11,6 +11,7 @@ import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 from utils import utils
+import pandas as pd
 from agents.recurrent_agent import GruAgent
 
 
@@ -31,6 +32,11 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
     rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
+
+    #Entropy and Episode length storage to be used for determining the policy's convergence
+    entropies = []
+    episode_lengths = []
+    steps = []
 
     # TRY NOT TO MODIFY: start the game
     global_step = 0
@@ -234,6 +240,10 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                 "Charts/SPS": int(global_step / (time.time() - start_time))
             }, step=global_step)
         
+        entropies.append(entropy_loss.item())
+        episode_lengths.append(int(avg_length))
+        steps.append(int(global_step))
+        
         if iteration % 1000 == 0:
             logger.info(f"Global steps: {global_step}")
             logger.info(f"SPS: {int(global_step / (time.time() - start_time))}")
@@ -247,6 +257,15 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
     envs.close()
     # writer.close()
     os.makedirs(os.path.dirname(model_file_name), exist_ok=True)
-    torch.save(agent.state_dict(), model_file_name) # overrides the file if already exists
+    if args.save_run_info == 1:
+        checkpoint = {
+            'state_dict': agent.state_dict(),
+            'steps': steps,
+            'episode_lengths': episode_lengths,
+            'policy_entropies': entropies
+        }
+        torch.save(checkpoint, model_file_name)
+    else:
+        torch.save(agent.state_dict(), model_file_name) # overrides the file if already exists
     logger.info(f"Saved on {model_file_name}")
-
+    
