@@ -226,12 +226,14 @@ class LevinLossActorCritic:
         depth = len(t) + 1
         number_decisions = M[len(t)]
 
-        option_usage = np.zeros(len(options))
-        j = len(t)
-        while j != 0:
-            option_usage[trace[j][1]] += 1
-            j = trace[j][0]
-        reg = self.alpha * np.sum(1/option_usage[option_usage > 0])
+        reg = 0
+        if self.alpha > 0:
+            option_usage = np.zeros(len(options))
+            j = len(t)
+            while j != 0:
+                option_usage[trace[j][1]] += 1
+                j = trace[j][0]
+            reg = self.alpha * np.sum(1/option_usage[option_usage > 0])
 
         # use the Levin loss in log space to avoid numerical issues
         log_depth = math.log(depth)

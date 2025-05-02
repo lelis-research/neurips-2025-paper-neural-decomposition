@@ -1091,7 +1091,6 @@ class LearnOptions:
         cost = 0
         for problem, trajectory in trajectories.items():
             cost += self.levin_loss.compute_loss_cached(list(selected_options), trajectory, problem_str=problem, number_actions=self.number_actions)
-        self.logger.info(f"Initial cost: {cost}")
         best_cost = cost
         previous_cost = float('Inf')
         steps = 0

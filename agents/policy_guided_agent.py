@@ -610,10 +610,7 @@ class PPOAgent(nn.Module):
                     return trajectory
         else:
             while not envs.is_over():
-                if not include_goal:
-                    x_tensor = torch.tensor(envs.get_observation_without_goal(), dtype=torch.float32).view(1, -1)
-                else:
-                    x_tensor = torch.tensor(envs.get_observation(), dtype=torch.float32).view(1, -1)
+                x_tensor = torch.tensor(envs.get_observation(), dtype=torch.float32).view(1, -1)
 
                 a, logits = self._get_action_with_input_mask_softmax(x_tensor, mask)
                 
