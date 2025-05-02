@@ -23,7 +23,7 @@ from pipelines.losses import LevinLossActorCritic, LogitsLossActorCritic
 from agents.recurrent_agent import GruAgent
 from environments.environments_combogrid_gym import ComboGym, make_env
 from environments.environments_combogrid import SEEDS, PROBLEM_NAMES as COMBO_PROBLEM_NAMES
-from environments.environments_minigrid import get_simplecross_env, make_env_simple_crossing
+from environments.environments_minigrid import get_simplecross_env, make_env_simple_crossing, get_unlock_env
 from utils.utils import *
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -139,6 +139,8 @@ def get_single_environment(args: Args, seed):
     elif args.env_id == "ComboGrid":
         problem = COMBO_PROBLEM_NAMES[seed]
         env = ComboGym(rows=args.game_width, columns=args.game_width, problem=problem)
+    elif args.env_id == "Unlock":
+        env = get_unlock_env(seed=seed, view_size=args.view_size, n_discrete_actions=5, args=args)
     else:
         raise NotImplementedError
     return env
@@ -195,6 +197,16 @@ def process_args() -> Args:
         'simplecrossing-5',
         'simplecrossing-15',
         )
+    elif args.env_id == "Unlock":
+        args.env_seeds = [1, 255, 374, 453]
+        args.problems = [args.env_id + f"_{seed}" for seed in args.env_seeds]
+        args.model_paths = (
+        'unlock-1',
+        'unlock-255',
+        'unlock-374',
+        'unlock-453',
+        )
+        args.view_size = 3
         
     return args
 
@@ -218,7 +230,7 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
         if verbose:
             logger.info(f"Loading Trajectories from {model_path} ...")
         
-        agent = GruAgent(env, h_size=args.hidden_size)
+        agent = GruAgent(env, h_size=args.hidden_size, env_id=args.env_id)
         
         agent.load_state_dict(torch.load(model_path, weights_only=True))
 
@@ -324,7 +336,7 @@ def load_options(args, logger, folder=None):
         else:
             raise NotImplementedError
 
-        model = GruAgent(envs=envs, h_size=args.hidden_size)  # Create a new GruAgent instance with default parameters
+        model = GruAgent(envs=envs, h_size=args.hidden_size, env_id=args.env_id)  # Create a new GruAgent instance with default parameters
         model.load_state_dict(checkpoint['model_state_dict'])
         model.to_option(mask_f=checkpoint['feature_mask'], mask_a=checkpoint['actor_mask'], option_size=checkpoint['n_iterations'], problem_id=checkpoint['problem'])
         model.extra_info = checkpoint['extra_info'] if 'extra_info' in checkpoint else {}
@@ -374,7 +386,7 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
             logger.info(f'Extracting from the agent trained on {problem}, seed={seed}')
             env = get_single_environment(args, seed=seed)
 
-            agent = GruAgent(env, hidden_size=args.hidden_size)
+            agent = GruAgent(env, hidden_size=args.hidden_size, env_id=args.env_id)
             agent.load_state_dict(torch.load(model_path, weights_only=True))
 
             for i in range(2, max_length + 1):
@@ -516,7 +528,7 @@ class LearnOptions:
             for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
                 model_path = f'binary/models/{self.args.env_id}/seed={self.args.seed}/{primary_model_directory}-{self.args.seed}.pt'
                 primary_env = get_single_environment(self.args, seed=primary_seed)
-                parimary_agent = GruAgent(primary_env, h_size=self.args.hidden_size)
+                parimary_agent = GruAgent(primary_env, h_size=self.args.hidden_size, env_id=self.args.env_id)
                 parimary_agent.load_state_dict(torch.load(model_path, weights_only=True))
                 mimicing_agents[primary_problem] = (primary_seed, model_path, parimary_agent)
 
@@ -597,7 +609,7 @@ class LearnOptions:
             for mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment in option_candidates:
                 self.logger.info(f'Evaluating the option trained on the segment {({segment[0]},{segment[0]+option_size})} from problem={target_problem}, env_seed={target_env_seed}, primary_problem={primary_problem}')
                 env = get_single_environment(self.args, seed=primary_env_seed)
-                agent = GruAgent(env, hidden_size=self.args.hidden_size)
+                agent = GruAgent(env, hidden_size=self.args.hidden_size, env_id=self.args.env_id)
                 agent.load_state_dict(torch.load(model_path, weights_only=True))
 
                 loss_value = self.levin_loss.compute_loss(masks=selected_masks + [mask], 
@@ -741,7 +753,7 @@ class LearnOptions:
         """
         self.logger.info(f'Preprocessing option {agent_id}')
         env = get_single_environment(self.args, seed=primary_env_seed)
-        agent = GruAgent(env, h_size=self.args.hidden_size)
+        agent = GruAgent(env, h_size=self.args.hidden_size, env_id=self.args.env_id)
         agent.load_state_dict(torch.load(model_path, weights_only=True))
         agent.to_option(feature_mask, actor_mask, option_size, target_problem)
         agent.extra_info['primary_problem'] = primary_problem
@@ -808,7 +820,7 @@ class LearnOptions:
         for id, feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment in option_data:
             self.logger.info(f'Evaluating the option trained on the segment {({segment[0]},{segment[0]+option_size})} from problem={target_problem}, env_seed={target_env_seed}, primary_problem={primary_problem}')
             env = get_single_environment(self.args, seed=primary_env_seed)
-            agent = GruAgent(env, h_size=self.args.hidden_size)
+            agent = GruAgent(env, h_size=self.args.hidden_size, env_id=self.args.env_id)
             agent.load_state_dict(torch.load(model_path, weights_only=True))
             agent.to_option(feature_mask, actor_mask, option_size, target_problem)
             agent.extra_info['primary_problem'] = primary_problem
@@ -1011,7 +1023,7 @@ def evaluate_all_masks_levin_loss(args: Args, logger: logging.Logger):
             logger.info(f'Evaluating Problem: {problem}')
             model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
             env = get_single_environment(args, seed=seed)
-            agent = GruAgent(envs=env, hidden_size=args.hidden_size)
+            agent = GruAgent(envs=env, hidden_size=args.hidden_size, env_id=args.env_id)
             agent.load_state_dict(torch.load(model_path, weights_only=True))
 
 
@@ -1126,12 +1138,12 @@ def main():
                                     mask_type=args.mask_type, 
                                     mask_transform_type=args.mask_transform_type, 
                                     selection_type=args.selection_type)
-    module_extractor.discover()
-    # with open(f"binary/options/all_options/{args.env_id}/seed={args.seed}/all_options_{args.env_id.lower()}.pkl", 'rb') as f:
-    #     options = pickle.load(f)
-    # trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
-    # agents = module_extractor.select_by_local_search(options, trajectories)
-    # save_options(agents, trajectories, args, logger)
+    # module_extractor.discover()
+    with open(f"binary/options/all_options/{args.env_id}/seed={args.seed}/all_options.pkl", 'rb') as f:
+        options = pickle.load(f)
+    trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
+    agents = module_extractor.select_by_local_search(options, trajectories)
+    save_options(agents, trajectories, args, logger)
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()
     # whole_dec_options_training_data_levin_loss()

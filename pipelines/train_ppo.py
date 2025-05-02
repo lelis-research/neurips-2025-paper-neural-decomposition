@@ -25,7 +25,7 @@ class Args:
     """The ID of the finished experiment; to be filled in run time"""
     exp_name: str = "train_ppoAgent"
     """the name of this experiment"""
-    env_id: str = "FourRooms"
+    env_id: str = "Unlock"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, SimpleCrossing, FourRooms, Unlock]
     """

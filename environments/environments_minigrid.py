@@ -210,9 +210,9 @@ def get_fourrooms_env(*args, **kwargs):
 
 def get_unlock_env(*args, **kwargs):
     env = MiniGridWrap(
-                UnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], render_mode="rgb_array"),
+                env=UnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], render_mode="rgb_array"),
                 seed=kwargs['seed'],
-                n_discrete_actions=3,
+                n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
                 view_size=kwargs['view_size'],
                 show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
                 options=None if 'options' not in kwargs else kwargs['options'])

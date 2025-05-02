@@ -11,7 +11,7 @@ sys.path.append("C:\\Users\\Parnian\\Projects\\neurips-2025-paper-neural-decompo
 from environments.environments_combogrid import PROBLEM_NAMES
 from agents.recurrent_agent import GruAgent
 from pipelines.option_discovery import get_single_environment
-from environments.environments_minigrid import get_simplecross_env, make_env_simple_crossing
+from environments.environments_minigrid import get_simplecross_env, make_env_simple_crossing, get_unlock_env
 from pipelines.train_ppo import Args
 from utils import utils
 
@@ -59,8 +59,10 @@ def main():
                 env = get_single_environment(seed=env_seed, args=args)
             elif args.env_id == "SimpleCrossing":
                 env = get_single_environment(seed=env_seed, args=args)
-
-            agent = GruAgent(env, h_size=args.hidden_size)
+            elif args.env_id == "Unlock":
+                env = get_unlock_env(seed=env_seed, view_size=3, n_discrete_actions=5, args=args)
+                
+            agent = GruAgent(env, h_size=args.hidden_size, env_id=args.env_id)
             agent.load_state_dict(torch.load(model, weights_only=True))
             agent.eval()
 
