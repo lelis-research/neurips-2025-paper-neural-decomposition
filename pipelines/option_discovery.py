@@ -178,9 +178,23 @@ def process_args() -> Args:
         raise NotImplementedError
     
     if args.env_id == "ComboGrid":
+        args.env_seeds = [0, 1, 2, 3]
         args.problems = [COMBO_PROBLEM_NAMES[seed] for seed in args.env_seeds]
+        args.model_paths = (
+        'combogrid-TL-BR',
+        'combogrid-TR-BL',
+        'combogrid-BR-TL',
+        'combogrid-BL-TR',
+    )
     elif args.env_id == "SimpleCrossing":
+        args.env_seeds = [1, 3, 5, 15]
         args.problems = [args.env_id + f"_{seed}" for seed in args.env_seeds]
+        args.model_paths = (
+        'simplecrossing-1',
+        'simplecrossing-3',
+        'simplecrossing-5',
+        'simplecrossing-15',
+        )
         
     return args
 
@@ -295,16 +309,14 @@ def load_options(args, logger, folder=None):
         model_path = os.path.join(save_dir, model_file)
         checkpoint = torch.load(model_path, weights_only=True)
         
-        if args.env_id == "SimpleCrossing":
+        if args.env_id == "SimpleCrossing" or args.env_id == "FourRooms":
             if 'environment_args' in checkpoint:
                 seed = int(checkpoint['environment_args']['seed'])
                 game_width = int(checkpoint['environment_args']['game_width'])
             else:
                 seed = int(checkpoint['problem'][-1])
                 game_width = args.game_width
-            # envs = get_training_tasks_simplecross(view_size=game_width, seed=seed)
-        elif args.env_id == "FourRooms":
-            raise NotImplementedError("Environment creation not implemented!")
+            envs = get_simplecross_env(view_size=game_width, seed=seed)
         elif args.env_id == "ComboGrid":
             game_width = int(checkpoint['environment_args']['game_width'])
             problem = checkpoint['problem']
@@ -547,6 +559,7 @@ class LearnOptions:
             logger_flush(self.logger)
         self.logger.debug("\n")
 
+        os.makedirs(f"binary/options/all_options/{self.args.env_id}/seed={self.args.seed}", exist_ok=True)
         with open(f"binary/options/all_options/{self.args.env_id}/seed={self.args.seed}/all_options.pkl", "wb") as f:
             pickle.dump(option_candidates, f)
         
@@ -780,6 +793,7 @@ class LearnOptions:
                 del results
                 gc.collect()
                 try:
+                    os.makedirs(f"binary/options/option_caches/{self.args.env_id}/seed={self.args.seed}", exist_ok=True)
                     with open(f"binary/options/option_caches/{self.args.env_id}/seed={self.args.seed}/option_cache.pkl", "wb") as f:
                         pickle.dump(self.option_cache, f)
                 except:
@@ -1112,12 +1126,12 @@ def main():
                                     mask_type=args.mask_type, 
                                     mask_transform_type=args.mask_transform_type, 
                                     selection_type=args.selection_type)
-    # module_extractor.discover()
-    with open(f"binary/options/all_options/{args.env_id}/seed={args.seed}/all_options_{args.env_id.lower()}.pkl", 'rb') as f:
-        options = pickle.load(f)
-    trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
-    agents = module_extractor.select_by_local_search(options, trajectories)
-    save_options(agents, trajectories, args, logger)
+    module_extractor.discover()
+    # with open(f"binary/options/all_options/{args.env_id}/seed={args.seed}/all_options_{args.env_id.lower()}.pkl", 'rb') as f:
+    #     options = pickle.load(f)
+    # trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
+    # agents = module_extractor.select_by_local_search(options, trajectories)
+    # save_options(agents, trajectories, args, logger)
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()
     # whole_dec_options_training_data_levin_loss()

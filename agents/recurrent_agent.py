@@ -78,13 +78,12 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 class GruAgent(nn.Module):
-    def __init__(self, envs, h_size=64, feature_extractor=False, greedy=True, quantized=0, actor_layer_size=64, critic_layer_size=64):
+    def __init__(self, envs, h_size=64, feature_extractor=False, greedy=True, quantized=0, actor_layer_size=64, critic_layer_size=64, env_id="ComboGrid"):
         super().__init__()
         if isinstance(envs, ComboGym):
             observation_space_size = envs.get_observation_space()
             action_space_size = envs.get_action_space()
-        elif isinstance(envs.unwrapped, MiniGridWrap):
-            envs = envs.unwrapped
+        elif isinstance(envs, MiniGridWrap):
             observation_space_size = envs.get_observation_space()
             action_space_size = envs.get_action_space()
         elif isinstance(envs, SyncVectorEnv):
@@ -105,6 +104,7 @@ class GruAgent(nn.Module):
         self.extra_info = None
         self.observation_space_size = observation_space_size
         self.option_cache = {}
+        self.env_id = env_id
 
         # Mapping from model output index → env action for UnlockEnv
         self.index_to_action = torch.tensor([0, 1, 2, 3, 5])  # logits[0] = action 0, logits[1] = action 1, ..., logits[4] = action 5
@@ -205,9 +205,15 @@ class GruAgent(nn.Module):
                 indicies = torch.tensor([torch.argmax(logits[i]).item() for i in range(len(logits))])
             else:
                 indicies = probs.sample()
-            action = torch.tensor([self.index_to_action[i] for i in indicies])
+            if self.env_id == "Unlock":
+                action = torch.tensor([self.index_to_action[i] for i in indicies])
+            else:
+                action = indicies
         else:
-            indicies = torch.tensor([self.action_to_index[i.item()] for i in action])
+            if self.env_id == "Unlock":
+                indicies = torch.tensor([self.action_to_index[i.item()] for i in action])
+            else:
+                indicies = action
             
         return action, probs.log_prob(indicies), probs.entropy(), self.critic(concatenated), gru_state, logits
 
@@ -320,28 +326,25 @@ class GruAgent(nn.Module):
         hiddens = []
         next_done = torch.zeros(1).to(device)
         o, _ = env.reset()
+        if length_cap is None:
+            length_cap = 100
         
         done = False
 
         if verbose: print('Beginning Trajectory')
-        while not done:
+        while True:
             o = torch.tensor(o, dtype=torch.float32)
-            hiddens.append(next_rnn_state.clone())
             a, _, _, _, next_rnn_state, logits = self.get_action_and_value(o, next_rnn_state, next_done)
             trajectory.add_pair(copy.deepcopy(env), a.item(), logits, detach=detach_tensors)
-
+            next_o, _, terminal, truncated, _ = env.step(a.item())
+            o = next_o  
+            current_length += 1
             if verbose:
                 print(env, a)
+            # print("Step: ", current_length, "Action: ", a.item())
+            if terminal or truncated or current_length > length_cap:
+                break
 
-            next_o, _, terminal, truncated, _ = env.step(a)
-            
-            current_length += 1
-            if (length_cap is not None and current_length > length_cap) or \
-                terminal or truncated:
-                done = True     
-
-            o = next_o   
-        
         self._h = None
         if verbose: print("End Trajectory \n\n")
         return trajectory, hiddens

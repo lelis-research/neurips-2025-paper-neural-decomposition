@@ -30,6 +30,8 @@ class MiniGridWrap(gym.Env):
         view_size=5,
         show_direction=False,
         options=None,
+        step_reward=-1,
+        goal_reward=1
     ):
         super(MiniGridWrap, self).__init__()
         # Define action and observation space
@@ -40,8 +42,8 @@ class MiniGridWrap(gym.Env):
         self.n_steps = 0
         # self.env.max_steps = max_episode_steps
         self.n_discrete_actions = n_discrete_actions
-        self.step_reward = -1
-        self.goal_reward = 1
+        self.step_reward = step_reward
+        self.goal_reward = goal_reward
         self.reset()
         self.action_space = gym.spaces.Discrete(n_discrete_actions)
         if options:
@@ -242,12 +244,14 @@ def make_env_simple_crossing(*args, **kwargs):
 def make_env_four_rooms(*args, **kwargs):
     def thunk():
         env = MiniGridWrap(
-                env = FourRoomsEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], seed=kwargs['seed']),
+                env = FourRoomsEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], seed=kwargs['seed'], render_mode="rgb_array"),
                 seed=kwargs['seed'],
                 n_discrete_actions=3,
                 view_size=kwargs['view_size'],
                 show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
-                options=None if 'options' not in kwargs else kwargs['options'])
+                options=None if 'options' not in kwargs else kwargs['options'],
+                goal_reward=10,
+                step_reward=0)
         env.reset(seed=kwargs['seed'])
         if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
             env = PositionBonus(env, scale=0.001)

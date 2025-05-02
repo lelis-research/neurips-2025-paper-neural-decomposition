@@ -25,7 +25,7 @@ class Args:
     """The ID of the finished experiment; to be filled in run time"""
     exp_name: str = "train_ppoAgent"
     """the name of this experiment"""
-    env_id: str = "Unlock"
+    env_id: str = "FourRooms"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, SimpleCrossing, FourRooms, Unlock]
     """
@@ -147,7 +147,8 @@ def main(args: Args):
 
     options = None
     if args.use_options == 1:
-        option_folder = f"selected_options_{args.env_id}"
+        if args.env_id == "FourRooms":
+            option_folder = f"selected_options/SimpleCrossing"
         options, _ = load_options(args, logger, folder=option_folder)
 
     if args.track:
@@ -248,7 +249,7 @@ if __name__ == "__main__":
     # Parameter specification for each problem
     args.number_actions = 5 if args.env_id == "Unlock" else 3
     args.num_steps = args.max_episode_length * 2
-    args.view_size = 5 if (args.env_id == "SimpleCrossing" or args.env_id == "Fourrooms") else 3
+    args.view_size = 5 if (args.env_id == "SimpleCrossing" or args.env_id == "FourRooms") else 3
     lrs = args.learning_rate
     clip_coef = args.clip_coef
     ent_coef = args.ent_coef

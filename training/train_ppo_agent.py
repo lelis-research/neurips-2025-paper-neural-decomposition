@@ -21,7 +21,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
     if not seed:
         seed = args.env_seed
     
-    agent = GruAgent(envs, h_size=hidden_size, greedy=False).to(device)
+    agent = GruAgent(envs, h_size=hidden_size, greedy=False, env_id=args.env_id).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
