@@ -31,6 +31,9 @@ MUJOCO_ENV_LST = [
 
     "PointMaze_UMaze-v3",
     "PointMaze_UMazeDense-v3",
+
+    "Walker2d-v4", 
+    "Ant-v4",
 ]
 
 

@@ -63,7 +63,7 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
                         f"Video/Episode_{episode_counter}_Terminated_{terminated}", vid, timestep, fps=24
                     )  
         
-        if episode_return_org > best_ep:
+        if episode_return_org >= best_ep:
             best_ep = episode_return_org
             best_agent = copy.deepcopy(agent)
 
@@ -131,7 +131,7 @@ def agent_environment_episode_loop(env, agent, total_episodes, training=True, wr
                         f"Video/Episode_{episode_counter}_Terminated_{terminated}", vid, timestep, fps=24
                     )  
 
-        if episode_return_org > best_ep:
+        if episode_return_org >= best_ep:
             best_ep = episode_return_org
             best_agent = copy.deepcopy(agent)
 

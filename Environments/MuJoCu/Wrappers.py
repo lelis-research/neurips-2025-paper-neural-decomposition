@@ -34,6 +34,22 @@ class CombineGoalsWrapper(ObservationWrapper):
             # observation["achieved_goal"],
         ], axis=0)
 
+class ExtractObsWrapper(ObservationWrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        original_space = self.env.observation_space
+        assert isinstance(original_space, gym.spaces.Dict)
+
+        obs_dim = original_space["observation"].shape[0]
+        
+        self.observation_space = gym.spaces.Box(
+            low=-np.inf, high=np.inf, shape=(obs_dim,), dtype=np.float64
+        )
+    def observation(self, observation):
+        return np.concatenate([
+            observation["observation"],
+        ], axis=0)
+    
 class StepRewardWrapper(RewardWrapper):
     def __init__(self, env, step_reward=-1.0):
         super().__init__(env)
@@ -56,6 +72,7 @@ class SuccessBonus(gym.Wrapper):
 # Dictionary mapping string keys to corresponding wrapper classes.
 WRAPPING_TO_WRAPPER = {
     "CombineGoals": CombineGoalsWrapper,
+    "ExtractObs": ExtractObsWrapper,
     "NormalizeObs": NormalizeObservation,
     "ClipObs": TransformObservation,
     "NormalizeReward": NormalizeReward,

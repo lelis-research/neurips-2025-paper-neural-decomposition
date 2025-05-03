@@ -61,7 +61,7 @@ class PPOAgent:
         # self.kl_target = kwargs.get("kl_target", 1.0)
 
         # action_space = gym.spaces.Discrete(3)
-        action_space = gym.spaces.MultiDiscrete([10, 10])
+        # action_space = gym.spaces.MultiDiscrete([10, 10])
 
         self.observation_space = observation_space
         self.action_space = action_space
@@ -174,23 +174,11 @@ class PPOAgent:
 
         if self.flag_norm_adv:
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-
-        
-        # with torch.no_grad():
-        #     old_logits_full, _, _ = self.actor_critic.get_action(states)
-        #     old_dist_full = Categorical(logits=old_logits_full)
-
+            
         # PPO update over multiple epochs.
         indices = np.arange(T)
         for epoch in range(self.epochs):
             np.random.shuffle(indices)
-            
-            # new_logits_full, _, _ = self.actor_critic.get_action(states)
-            # new_dist_full = Categorical(logits=new_logits_full)
-            # kl_full = torch.distributions.kl_divergence(old_dist_full, new_dist_full).mean().item()
-            # if epoch > 0 and kl_full > self.kl_target:
-            #     print(f"Early stopping at epoch {epoch} due to KL divergence: {kl_full:.4f} > {self.kl_target:.4f}")
-            #     break
 
             for start in range(0, T, self.minibatch_size):
                 end = start + self.minibatch_size

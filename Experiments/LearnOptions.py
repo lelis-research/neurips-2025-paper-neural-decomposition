@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import random
 from tqdm import tqdm
+import numpy as np
 
 def extract_trajectory(agent, env):
     """
@@ -48,7 +49,7 @@ def generate_subtrajectories(traj, min_len, max_len):
             subs.append(traj[start : start + length])
     return subs
 
-def learn_mask(agent, sub_traj, num_epochs=100, lr=1e-2):
+def learn_mask(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e-3):
     """
     Learn a mask tensor that selectively overrides state features so that
     agent.actor_critic.get_action(masked_state) matches the actions in sub_traj.
@@ -71,7 +72,8 @@ def learn_mask(agent, sub_traj, num_epochs=100, lr=1e-2):
     mask = nn.Parameter(torch.zeros_like(example_state))
     loss_fn = nn.MSELoss()
     optimizer = optim.Adam([mask], lr=lr)
-
+    
+    
     for epoch in range(num_epochs):
         total_loss = 0.0
         for state_np, action_np in sub_traj:
@@ -87,10 +89,24 @@ def learn_mask(agent, sub_traj, num_epochs=100, lr=1e-2):
         total_loss.backward()
         optimizer.step()
 
-        # optional logging
-        # if epoch % 10 == 0:
-        #     print(f"Epoch {epoch}: loss = {total_loss.item():.4f}")
+        if pbar is not None:
+            pbar.set_postfix(loss=total_loss.item())
+            pbar.update(1)
+    
+    #test the mask for the sub_traj
+    failed = False
+    for state_np, action_np in sub_traj:
+        state = torch.from_numpy(state_np).float()
+        target_action = torch.from_numpy(action_np).float()
 
+        masked_state = mask + state #torch.where(mask == 0, state, mask)
+        pred_action = agent.actor_critic.actor_mean(masked_state)
+        if torch.norm(pred_action - target_action) > tol:
+            failed = True
+            break
+    
+    if failed:
+        return None
     return mask.detach().cpu()
 
 
@@ -149,7 +165,7 @@ def find_best_subset_stochastic(
     loss_fn,
     max_iters=200,
     restarts=5,
-    neighbor_samples=10
+    neighbor_samples=20
 ):
     """
     Stochastic hill‐climbing: at each step we only try a random
@@ -165,38 +181,53 @@ def find_best_subset_stochastic(
     Returns:
         best_subset, best_loss
     """
-    def climb(initial):
-        subset    = set(initial)
-        current   = list(subset)
-        curr_loss = loss_fn(current)
-        for _ in range(max_iters):
-            # sample a few candidates instead of all
+    pbar = tqdm(desc="Search", unit="samples")
+    best_subset, best_loss = [], float('inf')
+    no_option_loss = loss_fn([])
+    
+    for r in range(restarts):
+        # random start subset
+        start_size = 0 #random.randint(0, len(options))
+        subset = set(random.sample(options, start_size)) #initialize with random subset
+        curr_loss = loss_fn(list(subset))
+        # one climb run
+        for iter in range(max_iters):
+            # sample some flips
             candidates = random.sample(options, 
                                        k=min(neighbor_samples, len(options)))
-            improved   = False
-            for opt in candidates:
+            improved = False
+            for i, opt in enumerate(candidates):
                 if opt in subset:
                     cand = list(subset - {opt})
                 else:
                     cand = list(subset | {opt})
-
                 cand_loss = loss_fn(cand)
+                
+                pbar.set_postfix(
+                    cand=f"{i}/{len(candidates)}",
+                    cand_loss=f"{cand_loss:.4f}",
+                    best_loss=f"{best_loss:.4f}",
+                    no_option_loss=f"{no_option_loss:.4f}",
+                    num_selected_options=len(best_subset),
+                    iterations=f"{iter+1}/{max_iters}",
+                    restarts=f"{r+1}/{restarts}",
+                )
+                pbar.update(1)
+
                 if cand_loss < curr_loss:
                     subset, curr_loss = set(cand), cand_loss
                     improved = True
-                    break  # restart sampling next iteration
+                    break
+
+            # global best check
+            if curr_loss < best_loss:
+                best_loss = curr_loss
+                best_subset = list(subset)
 
             if not improved:
+                # no local improvement → stop this climb early
+                # but we still count this as one of the max_iters
+                # and continue hopping back to the next restart
                 break
-        return list(subset), curr_loss
-
-    best_subset, best_loss = [], float('inf')
-    for _ in tqdm(range(restarts)):
-        # random start
-        start_size = random.randint(0, len(options))
-        init = random.sample(options, start_size)
-        subset, loss = climb(init)
-        if loss < best_loss:
-            best_subset, best_loss = subset, loss
-
+    pbar.close()
     return best_subset, best_loss

@@ -21,7 +21,7 @@ def test_agent(seed, args):
                   wrapping_params=args.test_wrapping_params,
                   render_mode="human")
     
-    agent_path = os.path.join(args.res_dir, args.test_agent_path, "best.pt")
+    agent_path = os.path.join(args.res_dir, args.test_agent_path, "final.pt")
     agent = PPOAgent.load(agent_path) 
     # agent = RandomAgent.load(agent_path)
 

@@ -11,17 +11,21 @@ def default_env_wrappers(env_name):
     if env_name in MUJOCO_ENV_LST:
         env_wrappers= [ 
             "CombineGoals", 
+            # "ExtractObs",
             "ClipAction", 
             "RecordReward",
             "StepReward",
             "SuccessBonus",
+            "NormalizeReward",
             ]
         wrapping_params = [
         {}, 
+        # {},
         {}, 
         {}, 
         {}, 
-        {}
+        {},
+        {},
         ]
 
     elif env_name in MINIGRID_ENV_LST:
@@ -50,13 +54,13 @@ def default_env_wrappers(env_name):
 @dataclass
 class arguments:
     # ----- experiment settings -----
-    mode                                         = ["train"] # train, test, plot, tune, option
+    mode                                         = ["train_option"] # train, test, plot, tune, train_option, test_option
     res_dir:                  str                = "Results"
 
     # ----- tune experiment settings -----
     num_trials:               int                = 200    
     steps_per_trial:          int                = 200_000
-    param_ranges                                 = {
+    param_ranges                                 = { 
                                                         "clip_ratio":        [0.0, 0.5],
                                                         "step_size":         (1e-5, 1e-3),
                                                         "num_minibatches":   (16,   128),
@@ -70,26 +74,26 @@ class arguments:
 
     # ----- train experiment settings -----
     seeds                                        = [1000]
-    exp_total_steps:          int                = 1_000_000
+    exp_total_steps:          int                = 100_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
-    nametag:                  str                = "Normalized_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    nametag:                  str                = "Tanh64"#datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    training_env_name:        str                = "car-test"
-    training_env_params                          = {}#{"continuing_task": False}
+    training_env_name:        str                = "Maze_4_Sparse"
+    training_env_params                          = {"continuing_task": False}
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
     training_render_mode:     str                = None #human, None, rgb_array_list, rgb_array
     save_frame_freq:          int                = 100
     
     # ----- test experiment settings -----
-    test_agent_path:          str                = "car-train_1000_1000000_Normalized_20250428_235713"
+    test_agent_path:          str                = "Maze_1_Sparse_1000_100000_Tanh64"
     test_episodes:            int                = 10
     test_seed:                int                = 0 
     save_test:                bool               = False
 
-    test_env_name:            str                = "car-train"
-    test_env_params                              = {} #{"continuing_task": False}
+    test_env_name:            str                = "Maze_4_Sparse"
+    test_env_params                              = {"continuing_task": False}
     test_env_wrappers                            = default_env_wrappers(test_env_name)[0]
     test_wrapping_params                         = default_env_wrappers(test_env_name)[1]
 
@@ -98,13 +102,13 @@ class arguments:
     lamda:                    float              = 0.95
 
     epochs:                   int                = 10
-    total_steps:              int                = 1_000_000
-    rollout_steps:            int                = 8192
+    total_steps:              int                = 100_000
+    rollout_steps:            int                = 2048
     num_minibatches:          int                = 32
     
     flag_anneal_step_size:    bool               = True
     step_size:                float              = 3e-4
-    entropy_coef:             float              = 0.002
+    entropy_coef:             float              = 0.0
     critic_coef:              float              = 0.5
     clip_ratio:               float              = 0.2
     flag_clip_vloss:          bool               = True
@@ -112,7 +116,7 @@ class arguments:
     max_grad_norm:            float              = 0.5
 
     # ----- plot setting -----
-    pattern:                  str                = "Maze_1_Dense_*_500000_*"
+    pattern:                  str                = "Maze_1_Sparse_*_200000_*"
     smoothing_window_size:    int                = 5
     interpolation_resolution: int                = 100_000
 
@@ -122,24 +126,47 @@ class arguments:
                                                      "env_params": {"continuing_task": False},
                                                      "env_wrappers": default_env_wrappers("Maze_1_Sparse")[0],
                                                      "env_wrapping_params": default_env_wrappers("Maze_1_Sparse")[1],
-                                                     "agent_path": "Maze_1_Sparse_1000_200000_20250423_161200"},
+                                                     "agent_path": "Maze_1_Sparse_1000_100000_Tanh64"},
 
                                                      {"env_name": "Maze_2_Sparse", 
                                                      "env_params": {"continuing_task": False},
                                                      "env_wrappers": default_env_wrappers("Maze_2_Sparse")[0],
                                                      "env_wrapping_params": default_env_wrappers("Maze_2_Sparse")[1],
-                                                     "agent_path": "Maze_2_Sparse_1000_200000_20250423_161310"},
+                                                     "agent_path": "Maze_2_Sparse_1000_100000_Tanh64"},
 
                                                      {"env_name": "Maze_3_Sparse", 
                                                      "env_params": {"continuing_task": False},
                                                      "env_wrappers": default_env_wrappers("Maze_3_Sparse")[0],
                                                      "env_wrapping_params": default_env_wrappers("Maze_3_Sparse")[1],
-                                                     "agent_path": "Maze_3_Sparse_1000_200000_20250423_161349"},
+                                                     "agent_path": "Maze_3_Sparse_1000_100000_Tanh64"},
 
                                                      {"env_name": "Maze_4_Sparse", 
                                                      "env_params": {"continuing_task": False},
                                                      "env_wrappers": default_env_wrappers("Maze_4_Sparse")[0],
                                                      "env_wrapping_params": default_env_wrappers("Maze_4_Sparse")[1],
-                                                     "agent_path": "Maze_4_Sparse_1000_200000_20250423_161553"},
+                                                     "agent_path": "Maze_4_Sparse_1000_100000_Tanh64"},
                                                     ]
+    option_save_results:      bool               = True
+
+    option_exp_name:          str                = "test2"
+    sub_trajectory_min_len:   int                = 2
+    sub_trajectory_max_len:   int                = 24
+    mask_epochs:              int                = 300 # number of epochs to train the mask
+    
+    hc_iterations:            int                = 200 # hill climbing iterations
+    hc_restarts:              int                = 20 # hill climbing restarts
+    hc_neighbor_samples:      int                = 50 # number of neighbors to sample for hill climbing
+    action_dif_tolerance:     float              = 0.2 # tolerance for action difference
+
+    test_option_env_name:     str                = "Maze_3_Sparse"
+    test_option_env_params                       = {"continuing_task": False}
+    test_option_env_wrappers                     = default_env_wrappers(test_option_env_name)[0]
+    test_option_wrapping_params                  = default_env_wrappers(test_option_env_name)[1]
+    
+    test_option_render_mode:  str                = "None" #human, None, rgb_array_list, rgb_array
+    option_save_frame_freq:    int                = 100
+
+    exp_options_total_steps:   int                = 20_000
+    exp_options_total_episodes:int                = 0
+
 

@@ -1,11 +1,18 @@
 import math
 import numpy as np
+from scipy.special import gamma
+
+def _ball_volume(dim, radius):
+    """Volume of a d‐dimensional ball of given radius."""
+    return (math.pi**(dim/2) / gamma(dim/2 + 1)) * (radius**dim)
 
 def levin_loss_continuous_with_maxlen(
     trajectory,
     options,
     base_policy=None,
-    tol=1e-3
+    tol=0.1,
+    action_low=-1.0,
+    action_high=1.0,
 ):
     """
     Levin loss for continuous‐action setting, where each option `opt`
@@ -20,16 +27,20 @@ def levin_loss_continuous_with_maxlen(
         obs_j, true_action_j = trajectory[j]
 
         # primitive (one‐step) coverage
-        if base_policy is not None:
-            prim_act = base_policy.act(obs_j)  # assume returns NumPy array
-            if np.linalg.norm(prim_act - true_action_j) <= tol:
-                M[j+1] = min(M[j+1], M[j] + 1)
+        # if base_policy is not None:
+        #     prim_act = base_policy.act(obs_j)  # assume returns NumPy array
+        #     if np.linalg.norm(prim_act - true_action_j) <= tol:
+        #         M[j+1] = min(M[j+1], M[j] + 1)
+        
+        # primitive (one‐step) coverage
+        if j + 1 <= T:
+            M[j+1] = min(M[j+1], M[j] + 1)
 
         # each option covers up to opt.max_len steps
         for opt in options:
             seg_len = 0
             while (
-                seg_len < opt.max_len and  # don’t exceed this option’s budget
+                seg_len < opt.max_len and  # don’t exceed this option’s length
                 j + seg_len < T
             ):
                 obs_k, true_act_k = trajectory[j + seg_len]
@@ -48,8 +59,12 @@ def levin_loss_continuous_with_maxlen(
 
     num_decisions = M[T]
     depth = T + 1
-    choice_count = num_options + (1 if base_policy is not None else 0)
-    uniform_p = 1.0 / choice_count
+
+    d = trajectory[0][1].shape[0]
+    V_action_space = np.prod(action_high - action_low)
+    V_acceptable_action  = _ball_volume(d, tol)
+    # Probability of randomly selecting the correct action
+    uniform_p = V_acceptable_action / V_action_space
     return math.log(depth) - num_decisions * math.log(uniform_p)
 
 
