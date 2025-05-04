@@ -10,7 +10,7 @@ from environments.environments_combogrid import PROBLEM_NAMES as COMMBOGRID_NAME
 
 @dataclass
 class Args:
-    exp_id: str = "extract_learnOption_maxlength3_aligned_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinput_mskTransformsoftmax"
+    exp_id: str = "extract_learnOption_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinput_mskTransformsoftmax_selectTypelocal_search"
     """The ID of the finished experiment"""
     # env_id: str = "MiniGrid-SimpleCrossingS9N1-v0"
     env_id: str = "ComboGrid"
@@ -47,13 +47,21 @@ def main(args: Args):
     logger, args.log_path = utils.get_logger("whole_grid_testing_logger", args.log_level, log_path)
     
     options, trajectories = load_options(args, logger)
-    assert all(option.option_size == 3 for option in options)
     mask_type = options[0].mask_type
     assert all(option.mask_type == mask_type for option in options)
     mask_transform_type = options[0].mask_transform_type
     assert all(option.mask_transform_type == mask_transform_type for option in options)
-
-    loss = LevinLossActorCritic(logger, mask_type, mask_transform_type)
+    
+    loss = LevinLossActorCritic(logger, mask_type=mask_type, mask_transform_type=mask_transform_type)
+    levin_loss = loss.compute_loss([option.mask for option in options],
+                                   options,
+                                   "",
+                                   trajectories,
+                                   3,
+                                   [option.option_size for option in options],)
+    
+    logger.info(f"Levin loss: {levin_loss}")
+    logger.info(f"Saved on {args.log_path}")
 
     logger.info("Testing on each grid cell")
     for seed, problem in zip(args.env_seeds, args.problems):

@@ -20,12 +20,14 @@ from environments.environments_combogrid_gym import make_env as make_env_combogr
 
 @dataclass
 class Args:
-    exp_id: str = "extract_learnOptions_randomInit_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3"
+    exp_id: str = "extract_learnOption_filteredOptionSet_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinput_mskTransformsoftmax_selectTypelocal_search_reg0"
     """The ID of the finished experiment"""
     env_id: str = "ComboGrid"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
+    method: str = "w/o options"
+    """Determines the baseline that is being tested; Choices: ['w/o options']"""
     cuda: bool = True
     """if toggled, cuda will be enabled by default"""
     cpus: int = 4
@@ -51,7 +53,7 @@ class Args:
     choices from [ComboGrid, MiniGrid-FourRooms-v0]"""
     test_problems: List[str] = tuple()
     """"""
-    test_env_seeds: Union[List[int], str] = (13,)
+    test_env_seeds: Union[List[int], str] = (12,)
     """the seeds of the environment for testing"""
     total_timesteps: int = 1_500_000
     """total timesteps for testing"""
@@ -85,7 +87,8 @@ class Args:
     """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
     # ent_coef: Union[List[float], float] = (0.05, 0.2, 0.0) # Vanilla RL
     # ent_coef: Union[List[float], float] = (0.15, 0.05, 0.05) # Dec-Option Whole 
-    ent_coef: Union[List[float], float] = (0.1, 0.1, 0.1)
+    # ent_coef: Union[List[float], float] = (0.1, 0.1, 0.1) # ComboGrid
+    ent_coef: Union[List[float], float] = (0.2, 0.1, 0.1) # Experimental values
     """coefficient of the entropy"""
     vf_coef: float = 0.5
     """coefficient of the value function"""
@@ -105,7 +108,7 @@ class Args:
     # script arguments
     seed: int = 0
     """run seed"""
-    track: bool = True
+    track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
     wandb_project_name: str = "BASELINE0_Combogrid"
     """the wandb's project name"""
@@ -159,7 +162,7 @@ def train_ppo_with_options(options: List[PPOAgent], test_exp_id: str, env_seed: 
     elif "ComboGrid" in args.env_id:
         problem = args.test_problem
         envs = gym.vector.SyncVectorEnv(
-            [make_env_combogrid(rows=args.game_width, columns=args.game_width, problem=problem) for _ in range(args.num_envs)],
+            [make_env_combogrid(rows=args.game_width, columns=args.game_width, problem=problem, options=options) for _ in range(args.num_envs)],
         ) 
     else:
         raise NotImplementedError
@@ -193,7 +196,8 @@ def train_ppo_with_options(options: List[PPOAgent], test_exp_id: str, env_seed: 
               logger=logger, 
               writer=writer,
               sparse_init=False)
-    wandb.finish()
+    if args.track:
+        wandb.finish()
 
 
 def main(args: Args):
@@ -201,6 +205,8 @@ def main(args: Args):
     logger, args.log_path = utils.get_logger("testing_by_training_logger", args.log_level, args.log_path)
 
     options, _ = load_options(args, logger)
+    if args.method == "w/o options":
+        options = []
 
     for option in options:
         print((option.mask.tolist(), option.option_size, option.problem_id))

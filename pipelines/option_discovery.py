@@ -14,7 +14,6 @@ from utils import utils
 from dataclasses import dataclass
 import itertools
 import logging
-from ordered_set import OrderedSet
 from typing import Union, List, Tuple
 import concurrent.futures
 from pipelines.losses import LevinLossActorCritic, LogitsLossActorCritic
@@ -30,7 +29,7 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 @dataclass
 class Args:
     # exp_name: str = "extract_learnOption_noReg_excludeGoal"
-    exp_name: str = "extract_learnOption"
+    exp_name: str = "extract_learnOption_filteredOptionSet"
     # exp_name: str = "debug"
     # exp_name: str = "extract_decOptionWhole_sparseInit"
     # exp_name: str = "extract_learnOptions_randomInit_discreteMasks"
@@ -997,6 +996,8 @@ class LearnOptions:
             selected_options = self.select_by_local_search(option_candidates, trajectories)
         else:
             raise ValueError(f"Invalid selection type: {self.selection_type}")
+        
+        assert len(selected_options) > 0
 
         # printing selected options
         self.logger.info("Selected options:")
@@ -1092,7 +1093,7 @@ class LearnOptions:
         length_weights /= np.sum(length_weights)
         subset_length = random_generator.choice(range(max_num_options + 1), p=length_weights)
         selected_indices = random_generator.choice(range(len(all_options)), p=option_weights, size=subset_length, replace=False).tolist()
-        selected_options = OrderedSet([all_options[i] for i in selected_indices])
+        selected_options = set([all_options[i] for i in selected_indices])
         cost = 0
         for problem, trajectory in trajectories.items():
             cost += self.levin_loss.compute_loss_cached(list(selected_options), trajectory, problem_str=problem, number_actions=self.number_actions)
@@ -1102,7 +1103,6 @@ class LearnOptions:
         steps = 0
         num_neighbours = min(125, len(all_options) - max_num_options)
         while (best_cost < previous_cost or steps == 0) and steps < max_steps:
-            self.logger.info(f"Step {steps}, best_cost: {best_cost}, previous_cost: {previous_cost}")
             previous_cost = best_cost
             weights = copy.deepcopy(option_weights)
             for i in selected_indices:
@@ -1146,7 +1146,7 @@ class LearnOptions:
                     assert all_options[idx] == option2, f"Deleting option {i}: Option of idx {idx}, {all_options[idx].get_option_id()} should be equal to {option2.get_option_id()} appended indices={selected_indices[:i] + selected_indices[i+1:]}"
                 
 
-            self.logger.info(f"Number of neighbours: {len(neighbours)}")
+            # self.logger.info(f"Number of neighbours: {len(neighbours)}")
             for indices, neighbour in neighbours:
                 for idx, option in zip(indices, neighbour):
                     assert all_options[idx] == option, f"Option of idx {idx}, {all_options[idx].get_option_id()} should be equal to {option.get_option_id()} selected_indices={selected_indices}"
@@ -1160,7 +1160,7 @@ class LearnOptions:
                     best_cost = cost
             steps += 1
         
-        return best_cost, selected_options, total_loss_calculations
+        return best_cost, selected_options, {"total_loss_calculations": total_loss_calculations, "steps":steps}
 
     def select_by_local_search(self, option_candidates, trajectories):
         all_options = []
@@ -1211,12 +1211,14 @@ class LearnOptions:
         self.logger.info("weights calculated!")
 
         # for i in range(restarts):
-        #     best_cost, selected_options, total_loss_calculations = self._search_options_subset(max_num_options, all_options, trajectories, weights, max_steps, i)
+        #     best_cost, selected_options, info = self._search_options_subset(max_num_options, all_options, trajectories, weights, max_steps, i)
+        #     total_loss_calculations = info['total_loss_calculations']
+        #     steps = info['steps']        
         #     if best_cost < best_levin_loss_total:
         #         best_levin_loss_total = best_cost
         #         best_selected_options = selected_options
-        #     self.logger.info(f"Restart {i+1} of {restarts} Levin loss: {best_cost}, Best: {best_levin_loss_total}")
-
+        #     self.logger.info(f"Restart {completed} of {restarts} complete. Number of Options: {len(selected_options)}, total_loss_calculations={total_loss_calculations}, steps={steps}, Levin loss: {best_cost}, Best: {best_levin_loss_total}")
+                    
         # self.logger.info(f"Logging Checkpoint 1.")
 
         with concurrent.futures.ProcessPoolExecutor(max_workers=self.args.cpus) as executor:
@@ -1233,14 +1235,16 @@ class LearnOptions:
             # Process the results as they complete
             for future in concurrent.futures.as_completed(futures):
                 try:
-                    best_cost, selected_options, total_loss_calculations = future.result()
+                    best_cost, selected_options, info = future.result()
+                    total_loss_calculations = info['total_loss_calculations']
+                    steps = info['steps']
                     # self.levin_loss.cache.update(cache)
                     if best_cost < best_levin_loss_total:
                         best_levin_loss_total = best_cost
                         best_selected_options = selected_options
                     completed += 1
                     # self.logger.info(f"cache size: {len(self.levin_loss.cache)}")
-                    self.logger.info(f"Restart {completed} of {restarts} complete. Number of Options: {len(selected_options)}, total_loss_calculations={total_loss_calculations}, Levin loss: {best_cost}, Best: {best_levin_loss_total}")
+                    self.logger.info(f"Restart {completed} of {restarts} complete. Number of Options: {len(selected_options)}, total_loss_calculations={total_loss_calculations}, steps={steps}, Levin loss: {best_cost}, Best: {best_levin_loss_total}")
                     utils.logger_flush(self.logger)
                 except Exception as exc:
                     self.logger.error(f'Exception: {exc}')
