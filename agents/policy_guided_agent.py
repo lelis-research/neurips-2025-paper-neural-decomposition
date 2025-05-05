@@ -713,7 +713,26 @@ class PPOAgent(nn.Module):
                     terminal or truncated:
                     done = True     
 
-                o = next_o   
+                o = next_o
+        elif isinstance(env, Union[ComboGym, MiniGridWrap]):
+            length = 0
+            done = False
+            while not env.is_over():
+                x_tensor = torch.tensor(env.get_observation(), dtype=torch.float32).view(1, -1)
+                a, _, _, _, logits = self._get_action_and_value_fixed_prefix(x_tensor, deterministic=deterministic)
+                trajectory.add_pair(copy.deepcopy(env), a.item(), logits=logits[0])
+
+                next_o, _, terminal, truncated, _ = env.step(a.item())
+
+                length += 1
+                if (length_cap is not None and current_length >= length_cap) or \
+                    terminal or truncated:
+                    done = True  
+
+                if length >= length_cap:
+                    return trajectory
+        else:
+            raise NotImplementedError
         
         self._h = None
         if verbose: print("End Trajectory \n\n")
