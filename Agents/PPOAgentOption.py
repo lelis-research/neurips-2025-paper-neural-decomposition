@@ -204,41 +204,50 @@ class PPOAgentOption:
 
         
     def save(self, file_path):
-        ckpt = {
+        checkpoint = {
             "gamma": self.gamma,
             "lamda": self.lamda,
 
             "epochs": self.epochs,
             "total_steps": self.total_steps,
             "rollout_steps": self.rollout_steps,
+            "num_minibatches": self.num_minibatches,
+            "minibatch_size": self.minibatch_size,
 
+            "flag_anneal_step_size": self.flag_anneal_step_size,
             "step_size": self.step_size,
+
             "entropy_coef": self.entropy_coef,
             "critic_coef": self.critic_coef,
             "clip_ratio": self.clip_ratio,
-            "flag_clip_vloss": self.flag_clip_critic_loss,
+            "flag_clip_critic_loss": self.flag_clip_critic_loss,
             "flag_norm_adv": self.flag_norm_adv,
             "max_grad_norm": self.max_grad_norm,
             
             "observation_space": self.observation_space,
-            "option_space":      self.option_space,
+            "option_space": self.option_space,
+            "options_list": self.options,
+            "device": self.device,
+            
             "actor_critic":      self.actor_critic.state_dict(),
             "optimizer":         self.optimizer.state_dict(),
         }
-        torch.save(ckpt, file_path)
+        torch.save(checkpoint, file_path)
         print(f"PPOAgentOption saved to {file_path}")
 
     @classmethod
-    def load(cls, file_path, options_list):
-        ckpt = torch.load(file_path)
-        init_args = {
-            k: v for k, v in ckpt.items()
+    def load(cls, file_path):
+        checkpoint = torch.load(file_path, weights_only=False)
+        init_kwargs = {
+            k: v for k, v in checkpoint.items()
             if k not in ("actor_critic", "optimizer")
         }
-        obs_space = init_args.pop("observation_space")
-        agent = cls(obs_space, options_list, **init_args)
-        agent.actor_critic.load_state_dict(ckpt["actor_critic"])
-        agent.optimizer.load_state_dict(ckpt["optimizer"])
+        observation_space = init_kwargs.pop("observation_space")
+        options_list = init_kwargs.pop("options_list")
+
+        agent = cls(observation_space, options_list, **init_kwargs)
+        agent.actor_critic.load_state_dict(checkpoint["actor_critic"])
+        agent.optimizer.load_state_dict(checkpoint["optimizer"])
         print(f"PPOAgentOption loaded from {file_path}")
         return agent
         

@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
-from torch.distributions.normal import Normal
 import numpy as np
+from torch.distributions import Normal
 
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     torch.nn.init.orthogonal_(layer.weight, gain=std)
@@ -14,13 +14,60 @@ class ActorCriticContinuous(nn.Module):
         obs_dim = int(np.prod(observation_space.shape))# + 3
         action_dim = int(np.prod(action_space.shape))
 
+        # # FOR THE POINTMAZE ENVIRONMENT
+        # # policy: outputs logits over actions
+        # self.actor_mean = nn.Sequential(
+        #     layer_init(nn.Linear(obs_dim, 64)),
+        #     nn.Tanh(),
+        #     layer_init(nn.Linear(64, 64)),
+        #     nn.Tanh(),
+        #     layer_init(nn.Linear(64, action_dim), std=0.01),
+        #     # nn.Tanh(),
+        # )
+        # self.actor_logstd = nn.Parameter(torch.zeros(1, action_dim))
+
+        # self.critic = nn.Sequential(
+        #     layer_init(nn.Linear(obs_dim, 64)),
+        #     nn.Tanh(),
+        #     layer_init(nn.Linear(64, 64)),
+        #     nn.Tanh(),
+        #     layer_init(nn.Linear(64, 1), std=1.0)
+        # )
+        
+        # # FOR THE ANTMAZE ENVIRONMENT
+        # self.actor_mean = nn.Sequential(
+        #     layer_init(nn.Linear(obs_dim, 256)),
+        #     nn.LayerNorm(256),
+        #     nn.Tanh(),
+
+        #     layer_init(nn.Linear(256, 256)),
+        #     nn.LayerNorm(256),
+        #     nn.Tanh(),
+
+        #     layer_init(nn.Linear(256, action_dim), std=0.01),
+        # )
+        # self.actor_logstd = nn.Parameter(torch.zeros(1, action_dim))
+
+        # self.critic = nn.Sequential(
+        #     layer_init(nn.Linear(obs_dim, 256)),
+        #     nn.LayerNorm(256),
+        #     nn.Tanh(),
+
+        #     layer_init(nn.Linear(256, 256)),
+        #     nn.LayerNorm(256),
+        #     nn.Tanh(),
+
+        #     layer_init(nn.Linear(256, 1), std=1.0),
+        # )
+
+        # FOR THE CAR ENVIRONMENT
         # policy: outputs logits over actions
         self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(obs_dim, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, action_dim), std=0.01),
+            layer_init(nn.Linear(obs_dim, 256)),
+            nn.ReLU(),
+            layer_init(nn.Linear(256, 256)),
+            nn.ReLU(),
+            layer_init(nn.Linear(256, action_dim), std=0.01),
             # nn.Tanh(),
         )
         self.actor_logstd = nn.Parameter(torch.zeros(1, action_dim))
@@ -32,6 +79,7 @@ class ActorCriticContinuous(nn.Module):
             nn.Tanh(),
             layer_init(nn.Linear(64, 1), std=1.0)
         )
+
 
     def get_value(self, x):
         return self.critic(x)
@@ -49,3 +97,5 @@ class ActorCriticContinuous(nn.Module):
                 action = probs.sample()
                 
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1)
+    
+    

@@ -22,7 +22,7 @@ def train_single_seed(seed, args):
                   env_params=args.training_env_params,
                   wrapping_lst=args.training_env_wrappers,
                   wrapping_params=args.training_wrapping_params,
-                  render_mode=args.training_render_mode
+                  render_mode=args.training_render_mode,
                   )
     
     ppo_keys = ["gamma", "lamda",
@@ -33,8 +33,8 @@ def train_single_seed(seed, args):
                 ]
     agent_kwargs = {k: getattr(args, k) for k in ppo_keys}
 
-    agent = PPOAgent(env.observation_space, 
-                     env.action_space,
+    agent = PPOAgent(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space,
+                     env.single_action_space if hasattr(env, "single_action_space") else env.action_space,
                      device=torch.device("cpu"),
                      **agent_kwargs
                      )

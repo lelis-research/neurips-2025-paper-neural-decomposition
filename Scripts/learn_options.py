@@ -155,6 +155,7 @@ def test_options(args):
     option_dir = os.path.join(args.res_dir, args.option_exp_name)
     best_options = torch.load(os.path.join(option_dir, "selected_options.pt"), weights_only=False)
     print(len(best_options))
+    test_option_dir = f"{option_dir}_{args.test_option_env_name}"
 
     env = get_env(env_name=args.test_option_env_name,
                   env_params=args.test_option_env_params,
@@ -176,10 +177,14 @@ def test_options(args):
                             device=torch.device("cpu"),
                             **agent_kwargs
                             )
-
+     
     writer = None
     if args.option_save_results:
-        writer = SummaryWriter(log_dir=option_dir)
+        if not os.path.exists(test_option_dir):
+            os.makedirs(test_option_dir)
+        else:
+            raise ValueError(f"Experiment directory {test_option_dir} already exists.")
+        writer = SummaryWriter(log_dir=test_option_dir)
 
     if args.exp_options_total_steps > 0 and args.exp_options_total_episodes == 0:
         result, best_agent = agent_environment_step_loop(env, agent, args.exp_options_total_steps, writer=writer, save_frame_freq=args.option_save_frame_freq)
@@ -190,9 +195,9 @@ def test_options(args):
     
 
     if args.save_results:
-        with open(os.path.join(option_dir, "res.pkl"), "wb") as f:
+        with open(os.path.join(test_option_dir, "res.pkl"), "wb") as f:
             pickle.dump(result, f)
-        agent.save(os.path.join(option_dir, "final.pt"))
-        best_agent.save(os.path.join(option_dir, "best.pt"))
+        agent.save(os.path.join(test_option_dir, "final.pt"))
+        best_agent.save(os.path.join(test_option_dir, "best.pt"))
     env.close()
     return result

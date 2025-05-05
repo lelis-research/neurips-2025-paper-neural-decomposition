@@ -73,7 +73,7 @@ class PPOAgent:
             self.actor_critic = ActorCriticMultiDiscrete(observation_space, action_space).to(self.device)
         else:
             self.actor_critic = ActorCriticContinuous(observation_space, action_space).to(self.device)
-
+        
         self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=self.step_size, eps=1e-5)
 
         # Buffer to store transitions until update
@@ -82,6 +82,7 @@ class PPOAgent:
         self.update_counter = 0
         
         self.ep_counter = 0
+        self.exploration_lst = []
               
     def act(self, observation, greedy=False):
         """
@@ -102,13 +103,18 @@ class PPOAgent:
             return multidiscrete_to_continuous(action.squeeze(0).detach().cpu().numpy())
         else:
             return action.squeeze(0).detach().cpu().numpy()
+        
+    
     
     def update(self, next_observation, reward, terminated, truncated):
         """
         Called at each step: store the transition and, if the buffer is full,
         perform a PPO update using a batch of transitions.
         """
-
+        if next_observation not in self.exploration_lst:
+            self.exploration_lst.append(next_observation)
+            reward += 1.0
+            
         next_state = torch.tensor(next_observation, dtype=torch.float32).unsqueeze(0)
         self.memory.append({
             'state': self.prev_state,    # tensor shape (1, obs_dim)
@@ -125,6 +131,7 @@ class PPOAgent:
         if len(self.memory) >= self.rollout_steps:
             self.ppo_update()
             self.memory = []  # Clear the buffer after update
+
 
     def ppo_update(self):
         """

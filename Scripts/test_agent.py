@@ -4,6 +4,7 @@ import random
 import os
 import pickle
 
+from Agents.PPOAgentOption import PPOAgentOption
 from Agents.PPOAgent import PPOAgent
 from Agents.RandomAgent import RandomAgent
 
@@ -21,8 +22,19 @@ def test_agent(seed, args):
                   wrapping_params=args.test_wrapping_params,
                   render_mode="human")
     
-    agent_path = os.path.join(args.res_dir, args.test_agent_path, "final.pt")
-    agent = PPOAgent.load(agent_path) 
+    agent_path = os.path.join(args.res_dir, args.test_agent_path, "best.pt")
+    try:
+        print("Tryig PPOAgent Loading")
+        agent = PPOAgent.load(agent_path)
+    except Exception as e1:
+        print(f"PPOAgent loading failed with error: {e1}")
+        try:
+            print("Tryig PPOAgentOption Loading")
+            agent = PPOAgentOption.load(agent_path)
+        except Exception as e2:
+            print(f"PPOAgentOption.load also failed with error: {e2}")
+            print("Loading Both Agents Failed")
+            exit(1)
     # agent = RandomAgent.load(agent_path)
 
     result, _ = agent_environment_episode_loop(env, agent, args.test_episodes, training=True)

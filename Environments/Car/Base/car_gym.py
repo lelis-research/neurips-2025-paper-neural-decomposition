@@ -20,7 +20,7 @@ class CarEnv(gym.Env):
     """
     metadata = {'render_modes': ['human', 'rgb_array_list', 'rgb_array'], 'render_fps': 50}
 
-    def __init__(self, n_steps=2000, render_mode=None, test_mode=False, last_state_in_obs=False):
+    def __init__(self, n_steps=2000, render_mode=None, test_mode=False, last_state_in_obs=True):
         super().__init__()
         self.sim = CarReversePP(n_steps=n_steps)
         self.render_mode = render_mode
@@ -52,10 +52,11 @@ class CarEnv(gym.Env):
         if self.sim.check_collision(self.state) > 0.05 or self.sim.check_boundaries(self.state) > 0.05:
             reward = -2 * self.n_steps
             terminated = True
+            print("Collision or Out of Bound!")
         elif err_x <= 0.01 and err_y <= 0.01 and err_ang <= 0.01:
             reward = 2 * self.n_steps
             terminated = True
-            print("Goal Reached!")
+            print("*** Goal Reached! ***")
         else:
             reward = -err_x
             terminated = False

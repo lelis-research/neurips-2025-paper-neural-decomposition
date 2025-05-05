@@ -2,8 +2,12 @@ from .MiniGrid.GetEnvironment import MINIGRID_ENV_LST
 from .MuJoCu.GetEnvironment import MUJOCO_ENV_LST
 from .Car.GetEnvironment import CAR_ENV_LST
 
+from gymnasium.vector import SyncVectorEnv, AsyncVectorEnv
+from functools import partial
+
 # Combine supported environment lists from both MiniGrid and MiniHack.
 ENV_LST = MINIGRID_ENV_LST + MUJOCO_ENV_LST + CAR_ENV_LST
+
 
 def get_env(env_name,
             max_steps=None, 

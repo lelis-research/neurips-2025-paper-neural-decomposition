@@ -1,5 +1,6 @@
 import gymnasium as gym
 import numpy as np
+import random
 from gymnasium.wrappers import NormalizeObservation, TransformObservation, NormalizeReward, TransformReward, ClipAction
 from gymnasium.core import ActionWrapper, ObservationWrapper, RewardWrapper
 
@@ -65,9 +66,76 @@ class SuccessBonus(gym.Wrapper):
 
     def step(self, action):
         obs, r, terminated, truncated, info = super().step(action)
-        if terminated and info.get("success", False):
+        print("info", info.keys())
+        if terminated and info.get("is_success", False):
             r += self.bonus
+            print("success!")
+
         return obs, r, terminated, truncated, info
+    
+class RewardShaping(gym.Wrapper):
+    def step(self, action):
+        obs, r, terminated, truncated, info = super().step(action)
+        r += info['reward_forward'] + info['reward_ctrl'] + info['reward_ctrl'] 
+
+        return obs, r, terminated, truncated, info
+
+class CurriculumWrapper(gym.Wrapper):
+    def __init__(self, env, min_radius=1, max_radius=3, step=1):
+        super().__init__(env)
+        maze_map = self.env.unwrapped.maze._maze_map
+        self.min_r, self.max_r, self.r_step = min_radius, max_radius, step
+        self.curr_r = min_radius
+
+        # build lists of cells by type
+        self.reset_cells = []
+        self.free_cells  = []
+        self.goal_cells  = []
+        M = np.array(maze_map)
+        for i in range(M.shape[0]):
+            for j in range(M.shape[1]):
+                v = M[i,j]
+                if v == '0':        self.free_cells.append((i,j))
+                if v in ('r','c'):   self.reset_cells.append((i,j))
+                if v in ('g','c'):   self.goal_cells.append((i,j))
+
+    def reset(self, **kwargs):
+        # pick a random reset cell
+        start = random.choice(self.reset_cells)
+
+        # if still ramping, pick a goal at manhattan‐distance == curr_r
+        if self.curr_r < self.max_r:
+            # candidates at exact manhattan distance
+            cands = [
+                cell for cell in self.free_cells + self.goal_cells
+                if abs(cell[0]-start[0]) + abs(cell[1]-start[1]) == self.curr_r
+            ]
+            # fallback to any free/goal cell if none exactly match
+            goal = random.choice(cands) if cands else random.choice(self.free_cells + self.goal_cells)
+            
+        else:
+            # final stage: always use *your* original 'g' cells
+            goal = random.choice(self.goal_cells)
+
+        kwargs.pop("options", None)
+        obs, info = self.env.reset(options={
+            "reset_cell": np.array(start, dtype=int),
+            "goal_cell":  np.array(goal,  dtype=int),
+        }, **kwargs)
+        
+        return obs, info
+
+    def step(self, action):
+        obs, reward, term, trunc, info = self.env.step(action)
+        done = term or trunc
+
+        # adjust difficulty only at episode end
+        if done and info.get("success", False):
+            self.curr_r = min(self.curr_r + self.r_step, self.max_r)
+        elif done:
+            self.curr_r = max(self.curr_r - self.r_step, self.min_r)
+
+        return obs, reward, term, trunc, info
     
 # Dictionary mapping string keys to corresponding wrapper classes.
 WRAPPING_TO_WRAPPER = {
@@ -81,5 +149,7 @@ WRAPPING_TO_WRAPPER = {
     "ClipAction": ClipAction,
     "StepReward": StepRewardWrapper,
     "SuccessBonus": SuccessBonus,
+    "CurriculumWrapper": CurriculumWrapper,
+    "RewardShaping": RewardShaping
 }
 
