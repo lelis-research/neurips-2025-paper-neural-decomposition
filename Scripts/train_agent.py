@@ -33,24 +33,30 @@ def train_single_seed(seed, args):
                 "flag_clip_vloss", "flag_norm_adv", "max_grad_norm"
                 ]
     agent_kwargs = {k: getattr(args, k) for k in ppo_keys}
-    
+    agent_class = eval(args.agent_class)
     if args.load_agent is None:
         print("Training a new agent")
+        agent = agent_class(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space,
+                        env.single_action_space if hasattr(env, "single_action_space") else env.action_space,
+                        device=args.device,
+                        **agent_kwargs
+                        )
         # agent = PPOAgent(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space,
         #                 env.single_action_space if hasattr(env, "single_action_space") else env.action_space,
         #                 device=args.device,
         #                 **agent_kwargs
         #                 )
-        agent = ElitePPOAgent(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space,
-                        env.single_action_space if hasattr(env, "single_action_space") else env.action_space,
-                        device=args.device,
-                        **agent_kwargs
-                        )
+        # agent = ElitePPOAgent(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space,
+        #                 env.single_action_space if hasattr(env, "single_action_space") else env.action_space,
+        #                 device=args.device,
+        #                 **agent_kwargs
+        #                 )
     else:
         agent_path = os.path.join(args.res_dir, args.load_agent, "best.pt")
         print(f"Loading agent from {agent_path}")
+        agent = agent_class.load(agent_path)
         # agent = PPOAgent.load(agent_path)
-        agent = ElitePPOAgent.load(agent_path)
+        # agent = ElitePPOAgent.load(agent_path)
         agent.initialize_params(**agent_kwargs)
     
     # agent = RandomAgent(env.observation_space, 

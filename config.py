@@ -82,8 +82,9 @@ class arguments:
 
 
     # ----- train experiment settings -----
+    agent_class:              str                = "PPOAgent" # PPOAgent, ElitePPOAgent, RandomAgent
     seeds                                        = [1000]
-    exp_total_steps:          int                = 2_000_000
+    exp_total_steps:          int                = 200_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
     nametag:                  str                = "Tanh64_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -94,7 +95,7 @@ class arguments:
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
     training_render_mode:     str                = None #human, None, rgb_array_list, rgb_array
     save_frame_freq:          int                = 100
-    load_agent:               str                = None #"car-test_1000_500000_Tanh64_20250505_192847" # "car-test_1000_1000000_Tanh64_20250503_222014"
+    load_agent:               str                = "car-test_1000_500000_Tanh64_20250505_192847" # "car-test_1000_1000000_Tanh64_20250503_222014"
     
     # ----- test experiment settings -----
     test_agent_path:          str                = "car-test_1000_200000_Tanh64_20250505_211404"
@@ -112,7 +113,7 @@ class arguments:
     lamda:                    float              = 0.95
 
     epochs:                   int                = 10
-    total_steps:              int                = 2_000_000
+    total_steps:              int                = 200_000
     rollout_steps:            int                = 2000
     num_minibatches:          int                = 32
     

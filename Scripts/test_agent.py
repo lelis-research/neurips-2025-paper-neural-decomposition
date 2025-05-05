@@ -26,7 +26,7 @@ def test_agent(seed, args):
     agent_path = os.path.join(args.res_dir, args.test_agent_path, "best.pt")
 
     writer = None
-    if args.save_results:
+    if args.save_test:
         exp_dir = os.path.join(args.res_dir, f"Test_{args.test_agent_path}_{seed}_{args.test_env_name}")        
         if not os.path.exists(exp_dir):
             os.makedirs(exp_dir)
