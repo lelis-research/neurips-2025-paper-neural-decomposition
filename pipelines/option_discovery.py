@@ -131,14 +131,14 @@ class Args:
     """The logging level"""
 
 
-def get_single_environment(args: Args, seed):
+def get_single_environment(args: Args, seed, options=None):
     if args.env_id == "SimpleCrossing":
         env = get_simplecross_env(max_episode_steps=args.max_episode_length, view_size=args.view_size, seed=seed, visitation_bonus=0)
         # env = gym.vector.SyncVectorEnv([
         #             make_env_simple_crossing(seed=seed, view_size=args.view_size, max_episode_steps=args.max_episode_length, visitation_bonus=0) for i in range(1)])    
     elif args.env_id == "ComboGrid":
         problem = COMBO_PROBLEM_NAMES[seed]
-        env = ComboGym(rows=args.game_width, columns=args.game_width, problem=problem)
+        env = ComboGym(rows=args.game_width, columns=args.game_width, problem=problem, options=options)
     elif args.env_id == "Unlock":
         env = get_unlock_env(seed=seed, view_size=args.view_size, n_discrete_actions=5, args=args)
     else:

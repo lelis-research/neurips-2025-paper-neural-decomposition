@@ -51,7 +51,7 @@ class ComboGym(gym.Env):
             terminated, reached_goal = self._game.is_over()
             if reached_goal:
                 self.info["goals"] += 1
-            if self.options:
+            if self.options or self._problem == "MM-MR-ML-BM-TM":
                 reward = 10 if reached_goal else 0
             else:
                 reward = 1 if reached_goal else -1
