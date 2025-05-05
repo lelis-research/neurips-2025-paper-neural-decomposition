@@ -110,12 +110,12 @@ class arguments:
 
     epochs:                   int                = 10
     total_steps:              int                = 1_000_000
-    rollout_steps:            int                = 512
-    num_minibatches:          int                = 8
+    rollout_steps:            int                = 2000
+    num_minibatches:          int                = 32
     
     flag_anneal_step_size:    bool               = True
     step_size:                float              = 3e-4
-    entropy_coef:             float              = 0.0
+    entropy_coef:             float              = 0.01
     critic_coef:              float              = 0.5
     clip_ratio:               float              = 0.2
     flag_clip_vloss:          bool               = True
