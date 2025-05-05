@@ -64,9 +64,9 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
                         f"Video/Episode_{episode_counter}_Terminated_{terminated}", vid, timestep, fps=24
                     )  
         
-        if episode_return_org >= best_ep:
-            best_ep = episode_return_org
-            best_agent = copy.deepcopy(agent)
+        # if episode_return_org >= best_ep:
+        #     best_ep = episode_return_org
+        #     best_agent = copy.deepcopy(agent)
 
         results.append({
             "episode_return": episode_return_org,
@@ -84,6 +84,7 @@ def agent_environment_episode_loop(env, agent, total_episodes, training=True, wr
     Returns a list of dictionaries containing the episodic return and episode length.
     """
     greedy = False if training else True
+    greedy = False
     timestep = 0
     results = []
     best_ep, best_agent = -np.inf, None

@@ -21,7 +21,7 @@ def test_agent(seed, args):
                   env_params=args.test_env_params,
                   wrapping_lst=args.test_env_wrappers,
                   wrapping_params=args.test_wrapping_params,
-                  render_mode="rgb_array_list",)
+                  render_mode="human",)
     
     agent_path = os.path.join(args.res_dir, args.test_agent_path, "best.pt")
 

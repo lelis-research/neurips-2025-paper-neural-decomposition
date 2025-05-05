@@ -9,6 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from Agents.PPOAgent import PPOAgent
 from Agents.ElitePPOAgent import ElitePPOAgent
 from Agents.RandomAgent import RandomAgent
+from Agents.SACAgent import SACAgent
 # from Agents.RandomAgentRNN import RandomAgent
 from Environments.GetEnvironment import get_env
 from Experiments.EnvAgentLoops import agent_environment_step_loop, agent_environment_episode_loop
@@ -34,12 +35,13 @@ def train_single_seed(seed, args):
                 ]
     agent_kwargs = {k: getattr(args, k) for k in ppo_keys}
     agent_class = eval(args.agent_class)
+    
     if args.load_agent is None:
         print("Training a new agent")
         agent = agent_class(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space,
                         env.single_action_space if hasattr(env, "single_action_space") else env.action_space,
                         device=args.device,
-                        **agent_kwargs
+                        # **agent_kwargs
                         )
         # agent = PPOAgent(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space,
         #                 env.single_action_space if hasattr(env, "single_action_space") else env.action_space,
