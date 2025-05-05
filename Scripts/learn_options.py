@@ -174,7 +174,7 @@ def test_options(args):
 
     agent = PPOAgentOption(env.observation_space, 
                             best_options,
-                            device=torch.device("cpu"),
+                            device=args.device,
                             **agent_kwargs
                             )
      

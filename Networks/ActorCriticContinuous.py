@@ -64,8 +64,10 @@ class ActorCriticContinuous(nn.Module):
         # policy: outputs logits over actions
         self.actor_mean = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 256)),
+            nn.LayerNorm(256),
             nn.ReLU(),
             layer_init(nn.Linear(256, 256)),
+            nn.LayerNorm(256),
             nn.ReLU(),
             layer_init(nn.Linear(256, action_dim), std=0.01),
             # nn.Tanh(),

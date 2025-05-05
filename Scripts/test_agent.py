@@ -3,6 +3,7 @@ import torch
 import random
 import os
 import pickle
+from torch.utils.tensorboard import SummaryWriter
 
 from Agents.PPOAgentOption import PPOAgentOption
 from Agents.PPOAgent import PPOAgent
@@ -20,9 +21,20 @@ def test_agent(seed, args):
                   env_params=args.test_env_params,
                   wrapping_lst=args.test_env_wrappers,
                   wrapping_params=args.test_wrapping_params,
-                  render_mode="human")
+                  render_mode="rgb_array_list",)
     
     agent_path = os.path.join(args.res_dir, args.test_agent_path, "best.pt")
+
+    writer = None
+    if args.save_results:
+        exp_dir = os.path.join(args.res_dir, f"Test_{args.test_agent_path}_{seed}_{args.test_env_name}")        
+        if not os.path.exists(exp_dir):
+            os.makedirs(exp_dir)
+        else:
+            raise ValueError(f"Experiment directory {exp_dir} already exists.")
+        writer = SummaryWriter(log_dir=exp_dir)
+
+
     try:
         print("Tryig PPOAgent Loading")
         agent = PPOAgent.load(agent_path)
@@ -37,12 +49,12 @@ def test_agent(seed, args):
             exit(1)
     # agent = RandomAgent.load(agent_path)
 
-    result, _ = agent_environment_episode_loop(env, agent, args.test_episodes, training=True)
+    result, _ = agent_environment_episode_loop(env, agent, args.test_episodes, training=False,  writer=writer, save_frame_freq=1)
     
-    if args.save_test:
-        exp_dir = os.path.join(args.res_dir, f"test_{args.test_agent_path}_{seed}_{args.test_env_name}")
-        os.makedirs(exp_dir)
-        with open(os.path.join(exp_dir, "res.pkl"), "wb") as f:
-            pickle.dump(result, f)
+    # if args.save_test:
+    #     exp_dir = os.path.join(args.res_dir, f"test_{args.test_agent_path}_{seed}_{args.test_env_name}")
+    #     os.makedirs(exp_dir)
+    #     with open(os.path.join(exp_dir, "res.pkl"), "wb") as f:
+    #         pickle.dump(result, f)
 
     env.close()

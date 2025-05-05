@@ -34,29 +34,8 @@ def multidiscrete_to_continuous(action):
 
 class PPOAgent:
     def __init__(self, observation_space, action_space, **kwargs):
-        # Return Calculation Params 
-        self.gamma = kwargs.get("gamma", 0.99)
-        self.lamda = kwargs.get("lamda", 0.95)        
-
-        # Batch Update Params
-        self.epochs = kwargs.get("epochs", 10)
-        self.total_steps = kwargs.get("total_steps")
-        self.rollout_steps = kwargs.get("rollout_steps", 2048)
-        self.num_minibatches = kwargs.get("num_minibatches", 32)
-        self.minibatch_size = self.rollout_steps // self.num_minibatches
-        self.total_updates = self.total_steps // self.rollout_steps + 1
-        
-        # Step Size Params
-        self.flag_anneal_step_size = kwargs.get("flag_anneal_step_size", True)
-        self.step_size = kwargs.get("step_size", 3e-4)
-        
-        # Loss Calculation Params
-        self.entropy_coef = kwargs.get("entropy_coef", 0.0) 
-        self.critic_coef = kwargs.get("critic_coef", 0.5)
-        self.clip_ratio = kwargs.get("clip_ratio", 0.2) # Loss Clipping Ratio
-        self.flag_clip_critic_loss = kwargs.get("flag_clip_vloss", True) # Clipping Critic Loss
-        self.flag_norm_adv = kwargs.get("flag_norm_adv", True) # Normalizing Advantages
-        self.max_grad_norm = kwargs.get("max_grad_norm", 0.5) # Clipping Gradients
+        print("Initialize PPO Agent")
+        self.initialize_params(**kwargs)
 
         # self.kl_target = kwargs.get("kl_target", 1.0)
 
@@ -83,6 +62,31 @@ class PPOAgent:
         
         self.ep_counter = 0
         self.exploration_lst = {}
+    
+    def initialize_params(self, **kwargs):
+        # Return Calculation Params 
+        self.gamma = kwargs.get("gamma", 0.99)
+        self.lamda = kwargs.get("lamda", 0.95)        
+
+        # Batch Update Params
+        self.epochs = kwargs.get("epochs", 10)
+        self.total_steps = kwargs.get("total_steps")
+        self.rollout_steps = kwargs.get("rollout_steps", 2048)
+        self.num_minibatches = kwargs.get("num_minibatches", 32)
+        self.minibatch_size = self.rollout_steps // self.num_minibatches
+        self.total_updates = self.total_steps // self.rollout_steps + 1
+        
+        # Step Size Params
+        self.flag_anneal_step_size = kwargs.get("flag_anneal_step_size", True)
+        self.step_size = kwargs.get("step_size", 3e-4)
+        
+        # Loss Calculation Params
+        self.entropy_coef = kwargs.get("entropy_coef", 0.0) 
+        self.critic_coef = kwargs.get("critic_coef", 0.5)
+        self.clip_ratio = kwargs.get("clip_ratio", 0.2) # Loss Clipping Ratio
+        self.flag_clip_critic_loss = kwargs.get("flag_clip_vloss", True) # Clipping Critic Loss
+        self.flag_norm_adv = kwargs.get("flag_norm_adv", True) # Normalizing Advantages
+        self.max_grad_norm = kwargs.get("max_grad_norm", 0.5) # Clipping Gradients
               
     def act(self, observation, greedy=False):
         """
@@ -111,12 +115,12 @@ class PPOAgent:
         Called at each step: store the transition and, if the buffer is full,
         perform a PPO update using a batch of transitions.
         """
-        obs_tup = tuple(next_observation.tolist())
-        if obs_tup not in self.exploration_lst:
-            self.exploration_lst[obs_tup] = 1
-            # reward += 1.0
-        else:
-            self.exploration_lst[obs_tup] += 1
+        # obs_tup = tuple(next_observation.tolist())
+        # if obs_tup not in self.exploration_lst:
+        #     self.exploration_lst[obs_tup] = 1
+        #     # reward += 1.0
+        # else:
+        #     self.exploration_lst[obs_tup] += 1
 
         next_state = torch.tensor(next_observation, dtype=torch.float32).unsqueeze(0)
         self.memory.append({
