@@ -159,7 +159,7 @@ class SACAgent:
         true_action, action_discrete = get_mode_action(self.mode)
         
         state = torch.FloatTensor(observation).to(self.device).unsqueeze(0)
-        if self.ep_counter <= 200:
+        if self.ep_counter <= 5:
             action = torch.tensor(true_action, dtype=torch.float32, device=self.device).unsqueeze(0)
         else:
             if greedy:

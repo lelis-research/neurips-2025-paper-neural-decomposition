@@ -57,16 +57,21 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
                 if env.render_mode == "rgb_array_list":
                     frames = env.render()
                 if len(frames) > 0:
-                    arr = np.stack(frames)                      # (T,H,W,3)
-                    arr = arr.transpose(0,3,1,2)                 # (T,3,H,W)
-                    vid = torch.from_numpy(arr).unsqueeze(0)     # (1,T,3,H,W)
-                    writer.add_video(
-                        f"Video/Episode_{episode_counter}_Terminated_{terminated}", vid, timestep, fps=24
-                    )  
+                    # arr = np.stack(frames)                      # (T,H,W,3)
+                    # arr = arr.transpose(0,3,1,2)                 # (T,3,H,W)
+                    # vid = torch.from_numpy(arr).unsqueeze(0)     # (1,T,3,H,W)
+                    # writer.add_video(
+                    #     f"Video/Episode_{episode_counter}_Terminated_{terminated}", vid, timestep, fps=24
+                    # )  
+                    
+                    # write a gif
+                    gif_path = os.path.join(writer.log_dir, f"episode_{episode_counter}.gif")
+                    imageio.mimsave(gif_path, frames, fps=24)
+                    print(f"Saved GIF to {gif_path}")
         
-        # if episode_return_org >= best_ep:
-        #     best_ep = episode_return_org
-        #     best_agent = copy.deepcopy(agent)
+        if episode_return_org >= best_ep:
+            best_ep = episode_return_org
+            best_agent = copy.deepcopy(agent)
 
         results.append({
             "episode_return": episode_return_org,
@@ -127,12 +132,17 @@ def agent_environment_episode_loop(env, agent, total_episodes, training=True, wr
                 if env.render_mode =="rgb_array_list":
                     frames = env.render()
                 if len(frames) > 0:
-                    arr = np.stack(frames)                      # (T,H,W,3)
-                    arr = arr.transpose(0,3,1,2)                 # (T,3,H,W)
-                    vid = torch.from_numpy(arr).unsqueeze(0)     # (1,T,3,H,W)
-                    writer.add_video(
-                        f"Video/Episode_{episode_counter}_Terminated_{terminated}", vid, timestep, fps=24
-                    )  
+                    # arr = np.stack(frames)                      # (T,H,W,3)
+                    # arr = arr.transpose(0,3,1,2)                 # (T,3,H,W)
+                    # vid = torch.from_numpy(arr).unsqueeze(0)     # (1,T,3,H,W)
+                    # writer.add_video(
+                    #     f"Video/Episode_{episode_counter}_Terminated_{terminated}", vid, timestep, fps=24
+                    # )  
+                    
+                    # write a gif
+                    gif_path = os.path.join(writer.log_dir, f"episode_{episode_counter}.gif")
+                    imageio.mimsave(gif_path, frames, fps=24)
+                    print(f"Saved GIF to {gif_path}")
 
         if episode_return_org >= best_ep:
             best_ep = episode_return_org

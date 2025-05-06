@@ -20,7 +20,7 @@ class CarEnv(gym.Env):
     """
     metadata = {'render_modes': ['human', 'rgb_array_list', 'rgb_array'], 'render_fps': 50}
 
-    def __init__(self, n_steps=10000, render_mode=None, test_mode=False, last_state_in_obs=True):
+    def __init__(self, n_steps=2000, render_mode=None, test_mode=False, last_state_in_obs=True):
         super().__init__()
         self.sim = CarReversePP(n_steps=n_steps)
         self.render_mode = render_mode
@@ -40,6 +40,7 @@ class CarEnv(gym.Env):
         self.err_counter = 0
     def step(self, action):
         self.counter += 1
+        action = np.round(action, 3)
 
         prev_state = np.copy(self.state)
         self.state = self.sim.simulate(self.state, action, self.sim.dt)
@@ -58,7 +59,7 @@ class CarEnv(gym.Env):
             terminated = True
             print("*** Goal Reached! ***")
         else:
-            reward = -(2*err_x) - 1.0
+            reward = -(2*err_x) - min(1, err_y) - 1.0
             terminated = False
 
         reward /= self.n_steps
@@ -76,11 +77,17 @@ class CarEnv(gym.Env):
         else:
             observation = self.sim.get_features(self.state)
         
+        
+        self.text = f"action: {action}\n err x: {err_x}\n err y: {err_y}\n err ang: {err_ang}\n reward: {reward}"
         if self.render_mode == 'human':
-            self.sim.render(self.state, 'human')
+            self.sim.render(self.state, 
+                            text=self.text, 
+                            mode='human')
         
         elif self.render_mode == 'rgb_array_list':
-            self.frames.append(self.sim.render(self.state, 'rgb_array'))
+            self.frames.append(self.sim.render(self.state, 
+                                               text=self.text,
+                                               mode='rgb_array'))
 
         return observation, reward, terminated, truncated, {}
 
@@ -101,10 +108,10 @@ class CarEnv(gym.Env):
         self.frames = []
 
         if self.render_mode == 'human':
-            self.sim.render(self.state, 'human')
+            self.sim.render(self.state, mode='human')
         
         elif self.render_mode == 'rgb_array_list':
-            self.frames.append(self.sim.render(self.state, 'rgb_array'))
+            self.frames.append(self.sim.render(self.state, mode='rgb_array'))
 
         if self.last_state_in_obs:
             observation = np.concatenate([self.sim.get_features(self.state), self.sim.get_features(self.state)])
@@ -117,7 +124,7 @@ class CarEnv(gym.Env):
         if self.render_mode in ('human', 'rgb_array_list'):
             return self.frames
         elif self.render_mode == "rgb_array":
-            return self.sim.render(self.state, 'rgb_array')
+            return self.sim.render(self.state, text=self.text, mode='rgb_array')
         return None
 
     def close(self):

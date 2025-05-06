@@ -61,25 +61,21 @@ class ActorCriticContinuous(nn.Module):
         # )
 
         # FOR THE CAR ENVIRONMENT
-        # policy: outputs logits over actions
         self.actor_mean = nn.Sequential(
-            layer_init(nn.Linear(obs_dim, 256)),
-            nn.LayerNorm(256),
+            layer_init(nn.Linear(obs_dim, 128)),
             nn.ReLU(),
-            layer_init(nn.Linear(256, 256)),
-            nn.LayerNorm(256),
+            layer_init(nn.Linear(128, 128)),
             nn.ReLU(),
-            layer_init(nn.Linear(256, action_dim), std=0.01),
-            # nn.Tanh(),
+            layer_init(nn.Linear(128, action_dim), std=0.01),
         )
         self.actor_logstd = nn.Parameter(torch.zeros(1, action_dim))
 
         self.critic = nn.Sequential(
-            layer_init(nn.Linear(obs_dim, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
-            layer_init(nn.Linear(64, 1), std=1.0)
+            layer_init(nn.Linear(obs_dim, 128)),
+            nn.ReLU(),
+            layer_init(nn.Linear(128, 128)),
+            nn.ReLU(),
+            layer_init(nn.Linear(128, 1), std=1.0)
         )
 
 

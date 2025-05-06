@@ -1,6 +1,7 @@
 from Networks.ActorCriticDiscrete import ActorCriticDiscrete
 from Networks.ActorCriticContinuous import ActorCriticContinuous
 from Networks.ActorCriticMultiDiscrete import ActorCriticMultiDiscrete
+from Agents.mode_policy import update_mode, get_mode_action
 import torch
 import torch.optim as optim
 import torch.nn as nn
@@ -62,6 +63,8 @@ class PPOAgent:
         
         self.ep_counter = 0
         self.exploration_lst = {}
+        
+        self.mode = 0
     
     def initialize_params(self, **kwargs):
         # Return Calculation Params 
@@ -87,12 +90,19 @@ class PPOAgent:
         self.flag_clip_critic_loss = kwargs.get("flag_clip_vloss", True) # Clipping Critic Loss
         self.flag_norm_adv = kwargs.get("flag_norm_adv", True) # Normalizing Advantages
         self.max_grad_norm = kwargs.get("max_grad_norm", 0.5) # Clipping Gradients
+
+        self.flag_anneal_var = kwargs.get("flag_anneal_var", True) # Anneal Variance
+        self.var_coef = kwargs.get("var_coef", 0.01) # Variance Coefficient
               
     def act(self, observation, greedy=False):
         """
         Given an observation, sample an action according to the current policy.
         Stores the observation for the later update step.
         """
+        self.mode = update_mode(self.mode, observation)
+        true_action, _ = get_mode_action(self.mode)
+        true_action = torch.tensor(true_action, dtype=torch.float32, device=self.device).unsqueeze(0)
+        
         state = torch.tensor(observation, device=self.device, dtype=torch.float32).unsqueeze(0)
         with torch.no_grad():
             action, log_prob, _ = self.actor_critic.get_action(state, greedy=greedy)
@@ -100,6 +110,7 @@ class PPOAgent:
         self.prev_state = state
         self.last_log_prob = log_prob
         self.prev_action = action
+        # action  = true_action
         
         if isinstance(self.action_space, gym.spaces.Discrete):
             return discrete_to_continuous(action.squeeze(0).detach().cpu().numpy())
@@ -134,6 +145,7 @@ class PPOAgent:
         })
         if terminated or truncated:
             self.ep_counter += 1
+            self.mode = 0
 
         if len(self.memory) >= self.rollout_steps:
             self.ppo_update()
@@ -150,6 +162,13 @@ class PPOAgent:
         if self.flag_anneal_step_size:
             frac = 1.0 - (self.update_counter - 1.0) / self.total_updates
             self.optimizer.param_groups[0]["lr"] = frac * self.step_size
+        
+        # optional anneal: ramp coefficient from 0 → var_coef over training
+        if self.flag_anneal_var:
+            frac = self.update_counter / self.total_updates     # 0–1
+            var_w = self.var_coef * frac
+        else:
+            var_w = self.var_coef
             
         # Convert memory to lists (and later tensors).
         states = [transition['state'] for transition in self.memory]
@@ -227,7 +246,17 @@ class PPOAgent:
 
                 entropy_bonus = entropy.mean()
 
-                loss = actor_loss + self.critic_coef * critic_loss - self.entropy_coef * entropy_bonus
+                # log_std = self.actor_critic.actor_logstd                     # (act_dim,)
+                #   var_penalty = mean(σ²) = mean(exp(2 log σ))
+                # var_penalty = torch.exp(log_std).mean()
+
+                
+                # ===============================
+
+                loss = actor_loss + \
+                        self.critic_coef * critic_loss - \
+                        self.entropy_coef * entropy_bonus 
+                        # var_w * var_penalty
                 
                 self.optimizer.zero_grad()
                 loss.backward()

@@ -244,7 +244,7 @@ class CarReversePP(System):
         return np.array([x, y, ang, dist])
 
 
-    def render(self, state, mode='human'):
+    def render(self, state, text=None, mode='human'):
         W, H = 600, 600
         vshift = -5 * (W / self.world_size)
         
@@ -266,12 +266,24 @@ class CarReversePP(System):
         elif mode == 'rgb_array':
             # draw off‑screen
             surface = pygame.Surface((W, H))
+            self.font = pygame.font.Font(None, 24)
         else:
             # unsupported mode
             return None
 
         # 2) Clear & draw everything onto `surface`
         surface.fill((255, 255, 255))
+        
+        if text is not None:
+            # text = self.font.render(text, True, (0,0,0))
+            # surface.blit(text, (10,10))
+            x, y = 10, 10
+            line_spacing = 5
+            for line in text.splitlines():
+                surf = self.font.render(line, True, (0, 0, 0))
+                surface.blit(surf, (x, y))
+                y += surf.get_height() + line_spacing
+            
         
         # bounding box limits
         x_lim, y_lim = (-4, 2.2), (-5, 20)

@@ -154,7 +154,7 @@ def train_options(args):
 def test_options(args):
     option_dir = os.path.join(args.res_dir, args.option_exp_name)
     best_options = torch.load(os.path.join(option_dir, "selected_options.pt"), weights_only=False)
-    print(len(best_options))
+    print("Num options: ", len(best_options))
     test_option_dir = f"{option_dir}_{args.test_option_env_name}"
 
     env = get_env(env_name=args.test_option_env_name,

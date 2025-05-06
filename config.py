@@ -11,7 +11,7 @@ from Environments.Car.GetEnvironment import CAR_ENV_LST
 def default_env_wrappers(env_name):
     if env_name in MUJOCO_ENV_LST:
         env_wrappers= [ 
-            "CombineGoals", 
+            # "CombineGoals", 
             # # "CurriculumWrapper",
             # # "ExtractObs",
             "ClipAction", 
@@ -43,19 +43,19 @@ def default_env_wrappers(env_name):
     elif env_name in CAR_ENV_LST:
         env_wrappers= ["RecordReward", 
                        "ClipAction", 
-                    #    "NormalizeReward",
+                       "NormalizeReward",
                     #    "ClipReward",
-                    #    "StepReward",
                        ]
         wrapping_params = [{}, 
                            {}, 
                            {},
-                           {},
-                        #    {},
                            ]
     
     else:
-        raise ValueError(f"No default wrappers for {env_name} environment!")
+        print(f"No default wrappers for {env_name} environment!")
+        env_wrappers= []
+        wrapping_params = []
+
     return env_wrappers, wrapping_params
 
 
@@ -68,7 +68,7 @@ class arguments:
 
     # ----- tune experiment settings -----
     num_trials:               int                = 200    
-    steps_per_trial:          int                = 50_000
+    steps_per_trial:          int                = 500_000
     param_ranges                                 = { 
                                                         "clip_ratio":        [0.0, 0.5],
                                                         "step_size":         (1e-5, 1e-3),
@@ -82,28 +82,28 @@ class arguments:
 
 
     # ----- train experiment settings -----
-    agent_class:              str                = "SACAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent
+    agent_class:              str                = "PPOAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent
     seeds                                        = [1000]
     exp_total_steps:          int                = 500_000
     exp_total_episodes:       int                = 0
-    save_results:             bool               = False
-    nametag:                  str                = "SAC" #"Tanh64_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    save_results:             bool               = True
+    nametag:                  str                = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    training_env_name:        str                = "car-test"
+    training_env_name:        str                = "car-train"
     training_env_params                          = {} #{"continuing_task": False}
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
-    training_render_mode:     str                = None #human, None, rgb_array_list, rgb_array
-    save_frame_freq:          int                = 100
-    load_agent:               str                = None #"car-test_1000_500000_Tanh64_20250505_192847" # "car-test_1000_1000000_Tanh64_20250503_222014"
+    training_render_mode:     str                = "rgb_array" #human, None, rgb_array_list, rgb_array
+    save_frame_freq:          int                = 50
+    load_agent:               str                = None # "car-test_1000_1000000_Tanh64_20250503_222014"
     
     # ----- test experiment settings -----
-    test_agent_path:          str                = "car-test_1000_500000_Tanh64_20250505_160904"
+    test_agent_path:          str                = "car-train_1000_3000000_Tanh64_20250506_005134"
     test_episodes:            int                = 10
     test_seed:                int                = 0 
     save_test:                bool               = False
 
-    test_env_name:            str                = "car-test"
+    test_env_name:            str                = "car-train"
     test_env_params                              = {} #{"continuing_task": False}
     test_env_wrappers                            = default_env_wrappers(test_env_name)[0]
     test_wrapping_params                         = default_env_wrappers(test_env_name)[1]
@@ -119,12 +119,14 @@ class arguments:
     
     flag_anneal_step_size:    bool               = True
     step_size:                float              = 3e-4
-    entropy_coef:             float              = 0.01
+    entropy_coef:             float              = 0.0
     critic_coef:              float              = 0.5
     clip_ratio:               float              = 0.2
     flag_clip_vloss:          bool               = True
     flag_norm_adv:            bool               = True
     max_grad_norm:            float              = 0.5
+    flag_anneal_var:          bool               = False
+    var_coef:                 float              = 0.0
 
     # ----- plot setting -----
     pattern:                  str                = "Maze_1_Sparse_*_200000_*"

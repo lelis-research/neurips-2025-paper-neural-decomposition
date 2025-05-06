@@ -21,6 +21,7 @@ MUJOCO_ENV_LST = [
     "Maze_L",
     "Maze_U",
     "Maze_D",
+    "Medium_Maze_Sparse",
 
     "AntMaze_1_Sparse",
     "AntMaze_2_Sparse",
@@ -42,10 +43,10 @@ MUJOCO_ENV_LST = [
 
     "PointMaze_UMaze-v3",
     "PointMaze_UMazeDense-v3",
-    "MEDIUM_MAZE_DIVERSE_G"
 
+    
     "Walker2d-v4", 
-    "Ant-v4",
+    "Ant-v5",
 ]
 
 
@@ -230,7 +231,7 @@ register(
 )
 
 register(
-    id="Maze_Test_Sparse",                                    # your custom name
+    id="Medium_Maze_Sparse",                                    # your custom name
     entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
     max_episode_steps=300,
     kwargs={
