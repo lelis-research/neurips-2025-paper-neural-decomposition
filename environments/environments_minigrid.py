@@ -1,3 +1,6 @@
+import sys
+sys.path.append("C:\\Users\\Parnian\\Projects\\neurips-2025-paper-neural-decomposition")
+sys.path.append("/home/iprnb/scratch/neurips-2025-paper-neural-decomposition")
 import gymnasium as gym
 import gymnasium
 import copy
@@ -10,6 +13,7 @@ from minigrid.envs.crossing import CrossingEnv
 from minigrid.envs.fourrooms import FourRoomsEnv
 from minigrid.envs.unlock import UnlockEnv
 from minigrid.wrappers import PositionBonus
+from environments.minigrid_multiroomunlock import MultiRoomUnlockEnv
 import copy
 
 
@@ -276,3 +280,33 @@ def make_env_unlock(*args, **kwargs):
         return env
 
     return thunk
+
+def make_env_multiroom(*args, **kwargs):
+    def thunk():
+        env = MiniGridWrap(
+                env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=5, minNumRooms=3, render_mode="rgb_array"),
+                seed=kwargs['seed'],
+                n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
+                view_size=kwargs['view_size'],
+                show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
+                options=None if 'options' not in kwargs else kwargs['options'])
+        env.reset(seed=kwargs['seed'])
+        if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
+            env = PositionBonus(env, scale=0.001)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
+        return env
+
+    return thunk
+
+def get_multiroom_env(*args, **kwargs):
+    env = MiniGridWrap(
+                env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=5, minNumRooms=3, render_mode="rgb_array"),
+                seed=kwargs['seed'],
+                n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
+                view_size=kwargs['view_size'],
+                show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
+                options=None if 'options' not in kwargs else kwargs['options'])
+    env.reset(seed=kwargs['seed'])
+    if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
+        env = PositionBonus(env, scale=0.001)
+    return env

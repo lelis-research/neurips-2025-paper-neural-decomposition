@@ -23,7 +23,7 @@ from pipelines.losses import LevinLossActorCritic, LogitsLossActorCritic
 from agents.recurrent_agent import GruAgent
 from environments.environments_combogrid_gym import ComboGym, make_env
 from environments.environments_combogrid import SEEDS, PROBLEM_NAMES as COMBO_PROBLEM_NAMES
-from environments.environments_minigrid import get_simplecross_env, make_env_simple_crossing, get_unlock_env
+from environments.environments_minigrid import get_simplecross_env, make_env_simple_crossing, get_unlock_env, get_multiroom_env
 from utils.utils import *
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
@@ -329,6 +329,14 @@ def load_options(args, logger, folder=None):
                 seed = int(checkpoint['problem'][-1])
                 game_width = args.game_width
             envs = get_simplecross_env(view_size=game_width, seed=seed)
+        elif args.env_id == "Unlock" or args.env_id == "MultiRoom":
+            if 'environment_args' in checkpoint:
+                seed = int(checkpoint['environment_args']['seed'])
+                game_width = int(checkpoint['environment_args']['game_width'])
+            else:
+                seed = int(checkpoint['problem'][-1])
+                game_width = args.game_width
+            envs = get_multiroom_env(view_size=3, seed=seed)
         elif args.env_id == "ComboGrid":
             game_width = int(checkpoint['environment_args']['game_width'])
             problem = checkpoint['problem']

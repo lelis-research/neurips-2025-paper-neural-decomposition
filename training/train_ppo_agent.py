@@ -6,6 +6,7 @@ import time
 import os
 import torch
 import wandb
+import copy
 import gymnasium as gym
 import numpy as np
 import torch.nn as nn
@@ -21,9 +22,12 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
     l1_lambda = args.l1_lambda
     if not seed:
         seed = args.env_seed
-    
+    test_env = copy.deepcopy(envs.envs[0].unwrapped)
     agent = GruAgent(envs, h_size=hidden_size, greedy=False, env_id=args.env_id).to(device)
-    optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    optimizer = optim.Adam([
+    {"params": agent.actor.parameters(), "lr": args.actor_lr},   # smaller LR
+    {"params": list(agent.critic.parameters()) + list(agent.gru.parameters()), "lr": args.critic_lr},  # faster learning
+], eps=1e-5)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
@@ -34,9 +38,15 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
 
     #Entropy and Episode length storage to be used for determining the policy's convergence
-    entropies = []
-    episode_lengths = []
-    steps = []
+    log_data = {
+    "entropies": [],
+    "episode_lengths": [],
+    "steps": [],
+    "returns": [],
+    "goals": [],
+    "test_lengths": [],
+    "test_returns": [],
+    }
 
     # TRY NOT TO MODIFY: start the game
     global_step = 0
@@ -51,8 +61,15 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
         # Annealing the rate if instructed to do so.
         if args.anneal_lr:
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
-            lrnow = frac * args.learning_rate
-            optimizer.param_groups[0]["lr"] = lrnow
+            optimizer.param_groups[0]["lr"] = frac * args.actor_lr     # actor
+            optimizer.param_groups[1]["lr"] = frac * args.critic_lr    # critic (+GRU)
+        #     decay_progress = min(global_step / 1_000_000, 1.0)
+        # args.ent_coef = (1 - decay_progress) * 0.08 + decay_progress * 0.02
+        # vals = list(envs.envs[0].unwrapped._game._state_visitation_count.values())
+        # for i in range(args.game_width):
+        #     for j in range(args.game_width):
+        #             print(f"{vals[args.game_width*i+j]}", end="\t\t")
+        #     print()
 
         for step in range(0, args.num_steps):
             global_step += args.num_envs
@@ -213,6 +230,25 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
+        #Run the greedy policy to evaluate model performance
+        test_agent = GruAgent(test_env, h_size=hidden_size, greedy=True, env_id=args.env_id).to(device)
+        test_agent.load_state_dict(copy.deepcopy(agent.state_dict()))
+        test_agent.eval()
+        test_rnn_state = test_agent.init_hidden()
+        test_done = torch.zeros(1).to(device)
+        test_obs = test_env.reset(seed=seed)[0]
+        test_length = 0
+        test_return = 0
+        while True:
+            test_obs = torch.tensor(test_obs, dtype=torch.float32).to(device)
+            test_action, _, _, _, test_rnn_state, _ = test_agent.get_action_and_value(test_obs, test_rnn_state, test_done)
+            next_test_obs, temp_reward, test_terminal, test_truncated, test_info = test_env.step(test_action.item())
+            test_obs = next_test_obs
+            test_length = test_info["n_steps"]
+            test_return += temp_reward
+            if test_terminal or test_truncated or test_length > args.max_episode_length:
+                break
+        
         if writer:
             # TRY NOT TO MODIFY: record rewards for plotting purposes
             writer.add_scalar("Charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
@@ -237,12 +273,19 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                 "losses/clipfrac": np.mean(clipfracs),
                 # "losses/l1_reg": l1_reg.item(),
                 "losses/explained_variance": explained_var,
-                "Charts/SPS": int(global_step / (time.time() - start_time))
+                "Charts/SPS": int(global_step / (time.time() - start_time)),
+                "Charts/test_return": test_return,
+                "Charts/test_length": test_length,
             }, step=global_step)
         
-        entropies.append(entropy_loss.item())
-        episode_lengths.append(int(avg_length))
-        steps.append(int(global_step))
+        
+        log_data["entropies"].append(entropy_loss.item())
+        log_data["episode_lengths"].append(int(avg_length))
+        log_data["steps"].append(int(global_step))
+        log_data["returns"].append(int(avg_return))
+        log_data["goals"].append(int(avg_goal))
+        log_data["test_lengths"].append(int(test_length))
+        log_data["test_returns"].append(int(test_return))
         
         if iteration % 1000 == 0:
             logger.info(f"Global steps: {global_step}")
@@ -260,9 +303,14 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
     if args.save_run_info == 1:
         checkpoint = {
             'state_dict': agent.state_dict(),
-            'steps': steps,
-            'episode_lengths': episode_lengths,
-            'policy_entropies': entropies
+            'steps': log_data["steps"],
+            'episode_lengths': log_data["episode_lengths"],
+            'policy_entropies': log_data["entropies"],
+            'average_returns': log_data["returns"],
+            'average_goals': log_data["goals"],
+            'test_lengths': log_data["test_lengths"],
+            'test_returns': log_data["test_returns"],
+            'args': args,
         }
         torch.save(checkpoint, model_file_name)
     else:

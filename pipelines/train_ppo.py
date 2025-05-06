@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from torch.utils.tensorboard import SummaryWriter
 from environments.environments_combogrid_gym import make_env as make_env_combogrid
 from environments.environments_combogrid import PROBLEM_NAMES as COMBOGRID_PROBLEMS
-from environments.environments_minigrid import make_env_simple_crossing, make_env_four_rooms, make_env_unlock
+from environments.environments_minigrid import make_env_simple_crossing, make_env_four_rooms, make_env_unlock, make_env_multiroom
 from training.train_ppo_agent import train_ppo
 from option_discovery import load_options
 
@@ -27,7 +27,7 @@ class Args:
     """the name of this experiment"""
     env_id: str = "ComboGrid"
     """the id of the environment corresponding to the trained agent
-    choices from [ComboGrid, SimpleCrossing, FourRooms, Unlock]
+    choices from [ComboGrid, SimpleCrossing, FourRooms, Unlock, MultiRoom]
     """
     # env_seeds: Union[List[int], str] = (0,1,2) # SimpleCrossing
     # env_seeds: int = 12 # ComboGrid
@@ -56,11 +56,11 @@ class Args:
     # hyperparameter arguments
     game_width: int = 5
     """the length of the combo/mini-grid square"""
-    max_episode_length: int = 1000
+    max_episode_length: int = 150
     """"""
-    visitation_bonus: int = 0
+    visitation_bonus: int = 1
     """"""
-    use_options: int = 0
+    use_options: int = 1
     """"""
     hidden_size: int = 64
     """"""
@@ -74,16 +74,18 @@ class Args:
     """save entropy and episode length along with satate dict if set to 1"""
 
     # Specific arguments
-    total_timesteps: int = 100_000
+    total_timesteps: int = 2_000_000
     """total timesteps for testinging"""
-    learning_rate: float = 0.0008 # ComboGrid
+    learning_rate: float = 0.001 # ComboGrid
     # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 5e-05) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (5e-05,) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (0.0005, 0.001, 0.001) # SimpleCrossing
+    actor_lr: float = 1e-3
+    critic_lr: float = 5e-3
     """the learning rate of the optimize for testinging"""
-    num_envs: int = 8
+    num_envs: int = 16
     """the number of parallel game environments for testinging"""
-    num_steps: int = 128
+    num_steps: int = 256
     """the number of steps to run in each environment per policy rollout for testinging"""
     anneal_lr: bool = True
     """Toggle learning rate annealing for policy and value networks for testinging"""
@@ -91,20 +93,20 @@ class Args:
     """the discount factor gamma for testinging"""
     gae_lambda: float = 0.95
     """the lambda for the general advantage estimation for testinging"""
-    num_minibatches: int = 4
+    num_minibatches: int = 8
     """the number of mini-batches for testinging"""
-    update_epochs: int = 6
+    update_epochs: int = 4
     """the K epochs to update the policy for testinging"""
     norm_adv: bool = True
     """Toggles advantages normalization for testinging"""
-    clip_coef: float = 0.2 # ComboGrid
+    clip_coef: float = 0.25 # ComboGrid
     # clip_coef: Union[List[float], float] = (0.15, 0.1, 0.2) # Vanilla RL FourRooms
     # clip_coef: Union[List[float], float] = (0.2,) # Vanilla RL FourRooms
     # clip_coef: Union[List[float], float] = (0.25, 0.2, 0.2) # SimpleCrossing
     """the surrogate clipping coefficient"""
     clip_vloss: bool = False
     """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
-    ent_coef: float = 0.1 # ComboGrid
+    ent_coef: float = 0.045 # ComboGrid
     # ent_coef: Union[List[float], float] = (0.05, 0.2, 0.0) # Vanilla RL FourRooms
     # ent_coef: Union[List[float], float] = (0.1, 0.1, 0.1) # SimpleCrossing
     """coefficient of the entropy"""
@@ -112,7 +114,7 @@ class Args:
     """coefficient of the value function"""
     max_grad_norm: float = 0.5
     """the maximum norm for the gradient clipping"""
-    target_kl: float = None
+    target_kl: float = 0.04
     """the target KL divergence threshold"""
 
     # to be filled in runtime
@@ -122,9 +124,9 @@ class Args:
     """the mini-batch size (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
-    env_seed: int = 1
+    env_seed: int = 12
     """the seed of the environment (set in runtime)"""
-    seed: int = 1
+    seed: int = 2
     """experiment randomness seed (set in runtime)"""
     problem: str = ""
     """"""
@@ -153,6 +155,8 @@ def main(args: Args):
             option_folder = f"selected_options/SimpleCrossing"
         elif args.env_id == "ComboGrid":
             option_folder = f"selected_options/ComboGrid"
+        elif args.env_id == "MultiRoom":
+            option_folder = f"selected_options/Unlock"
         options, _ = load_options(args, logger, folder=option_folder)
 
     if args.track:
@@ -221,6 +225,11 @@ def main(args: Args):
             [make_env_unlock(max_episode_steps=args.max_episode_length, view_size=args.view_size, seed=args.env_seed, visitation_bonus=args.visitation_bonus, n_discrete_actions=args.number_actions) for _ in range(args.num_envs)],
             autoreset_mode=gym.vector.AutoresetMode.SAME_STEP
         )
+    elif args.env_id == "MultiRoom":
+        envs = gym.vector.SyncVectorEnv( 
+            [make_env_multiroom(max_episode_steps=args.max_episode_length, view_size=args.view_size, seed=args.env_seed, visitation_bonus=args.visitation_bonus, n_discrete_actions=args.number_actions) for _ in range(args.num_envs)],
+            autoreset_mode=gym.vector.AutoresetMode.SAME_STEP
+            )
     else:
         raise NotImplementedError
     
@@ -247,12 +256,11 @@ if __name__ == "__main__":
         args.exp_id = f'{args.exp_name}_{args.env_id}_option{args.use_options}' + \
         f'_gw{args.game_width}_h{args.hidden_size}_lr{args.learning_rate}' +\
         f'_ent-coef{args.ent_coef}_clip-coef{args.clip_coef}_visit-bonus{args.visitation_bonus}' +\
-        f'_ep-len{args.max_episode_length}_num-minibatches{args.num_minibatches}' +\
-        f'_num-epochs{args.update_epochs}'
+        f'_ep-len{args.max_episode_length}'
     
     
     # Parameter specification for each problem
-    args.number_actions = 5 if args.env_id == "Unlock" else 3
+    args.number_actions = 5 if (args.env_id == "Unlock" or args.env_id == "MultiRoom") else 3
     args.num_steps = args.max_episode_length * 2
     args.view_size = 5 if (args.env_id == "SimpleCrossing" or args.env_id == "FourRooms") else 3
     lrs = args.learning_rate

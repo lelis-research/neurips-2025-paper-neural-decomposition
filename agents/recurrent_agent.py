@@ -205,12 +205,12 @@ class GruAgent(nn.Module):
                 indicies = torch.tensor([torch.argmax(logits[i]).item() for i in range(len(logits))])
             else:
                 indicies = probs.sample()
-            if self.env_id == "Unlock":
+            if self.env_id == "Unlock" or self.env_id == "MultiRoom":
                 action = torch.tensor([self.index_to_action[i] for i in indicies])
             else:
                 action = indicies
         else:
-            if self.env_id == "Unlock":
+            if self.env_id == "Unlock" or self.env_id == "MultiRoom":
                 indicies = torch.tensor([self.action_to_index[i.item()] for i in action])
             else:
                 indicies = action

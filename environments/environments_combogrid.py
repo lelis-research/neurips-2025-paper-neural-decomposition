@@ -100,6 +100,11 @@ class Game:
         self._visitation_bonus = visitation_bonus
         if self._visitation_bonus:
             self._state_visitation_count = {}
+            for r in range(self._rows):
+                for c in range(self._columns):
+                    one_hot_matrix_state = np.zeros((self._rows, self._columns), dtype=int)
+                    one_hot_matrix_state[r][c] = 1
+                    self._state_visitation_count[tuple(one_hot_matrix_state.ravel())] = 0
 
         self.problem = Problem(rows, columns, problem_str)
         self._matrix_structure = np.zeros((rows, columns))
@@ -135,14 +140,6 @@ class Game:
         self.set_goal()   
         gc.collect()
 
-        if self._visitation_bonus:
-            for r in range(self._rows):
-                for c in range(self._columns):
-                    one_hot_matrix_state = np.zeros((self._rows, self._columns), dtype=int)
-                    one_hot_matrix_state[r][c] = 1
-                    self._state_visitation_count[tuple(one_hot_matrix_state.ravel())] = 0
-            
-            self._state_visitation_count[copy.deepcopy(tuple(self._matrix_unit.ravel()))] += 1
 
     def set_goal(self):
         self._matrix_goal = np.zeros((self._rows, self._columns))
