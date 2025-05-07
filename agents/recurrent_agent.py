@@ -107,7 +107,7 @@ class GruAgent(nn.Module):
         self.env_id = env_id
 
         # Mapping from model output index → env action for UnlockEnv
-        self.index_to_action = torch.tensor([0, 1, 2, 3, 5])  # logits[0] = action 0, logits[1] = action 1, ..., logits[4] = action 5
+        self.index_to_action = torch.tensor([0, 1, 2, 3, 5] + [i for i in range(5, action_space_size)])  # logits[0] = action 0, logits[1] = action 1, ..., logits[4] = action 5
         self.action_to_index = {a: i for i, a in enumerate(self.index_to_action.tolist())}  # if needed for reverse lookup
 
         if feature_extractor:
@@ -189,7 +189,7 @@ class GruAgent(nn.Module):
             concatenated = hidden
         return self.critic(concatenated)
 
-    def get_action_and_value(self, x, gru_state, done, action=None):
+    def get_action_and_value(self, x, gru_state, done, action=None, deterministic=False):
         if len(x.shape) == 1:  # If no batch dimension
             x = x[None, ...]
         if self.input_to_actor:
@@ -201,7 +201,7 @@ class GruAgent(nn.Module):
         logits = self.actor(concatenated)
         probs = Categorical(logits=logits)
         if action is None:
-            if self.greedy:
+            if self.greedy or deterministic:
                 indicies = torch.tensor([torch.argmax(logits[i]).item() for i in range(len(logits))])
             else:
                 indicies = probs.sample()
@@ -410,4 +410,91 @@ class GruAgent(nn.Module):
                 if length >= max_size_sequence:
                     return trajectory
 
+        return trajectory
+
+    def _get_action_and_value_fixed_prefix(self, x, gru_state, action=None, deterministic=False):
+        done = torch.zeros(1).to(device)
+        hidden, gru_state = self.get_states(x, gru_state, done)
+        concatenated = torch.cat((hidden, x), dim=1)
+        out = concatenated
+        num_layers = len(self.actor)
+        for i, layer in enumerate(self.actor):
+            if i == num_layers - 1:
+                out = out.detach()
+            out = layer(out)
+        logits = out
+        probs = Categorical(logits=logits)
+        if action is None:
+            if not deterministic:
+                action = probs.sample()
+            else:
+                action = probs.probs.argmax(dim=1)
+        return action, probs.log_prob(action), probs.entropy(), self.critic(concatenated), logits, gru_state
+
+    def run_fixed_prefix(self, env: Union[ComboGym, MiniGridWrap], length_cap=None, detach_tensors=True, verbose=False, deterministic=True):
+        trajectory = Trajectory()
+        current_length = 0
+        self.actor.requires_grad = False
+        gru_state = self.init_hidden()
+
+        if isinstance(env, list):
+            length = 0
+            envs = env
+            env = envs[length]
+            while not env.is_over()[0]:
+                env = envs[length]
+                x_tensor = torch.tensor(env.get_observation(), dtype=torch.float32).view(1, -1)
+                a, _, _, _, logits, gru_state = self._get_action_and_value_fixed_prefix(x_tensor, gru_state, deterministic=deterministic)                
+                trajectory.add_pair(copy.deepcopy(env), a.item(), logits=logits[0])
+
+                length += 1
+
+                if length >= length_cap:
+                    return trajectory
+        if isinstance(env, SyncVectorEnv):
+            o = env.get_observation()
+            
+            done = False
+
+            if verbose: print('Beginning Trajectory')
+            while not done:
+                o = torch.tensor(o, dtype=torch.float32)
+                a, _, _, _, logits, gru_state = self._get_action_and_value_fixed_prefix(o, gru_state, deterministic=deterministic)
+                trajectory.add_pair(copy.deepcopy(env), a.item(), logits, detach=detach_tensors)
+
+                if verbose:
+                    print(env, a)
+                    print()
+
+                next_o, _, terminal, truncated, _ = env.step(a.item())
+                
+                current_length += 1
+                if (length_cap is not None and current_length >= length_cap) or \
+                    terminal or truncated:
+                    done = True     
+
+                o = next_o
+
+        elif isinstance(env, Union[ComboGym, MiniGridWrap]):
+            length = 0
+            done = False
+            while not env.is_over()[0]:
+                x_tensor = torch.tensor(env.get_observation(), dtype=torch.float32).view(1, -1)
+                a, _, _, _, logits, gru_state = self._get_action_and_value_fixed_prefix(x_tensor, gru_state, deterministic=deterministic)
+                trajectory.add_pair(copy.deepcopy(env), a.item(), logits=logits[0])
+
+                next_o, _, terminal, truncated, _ = env.step(a.item())
+
+                length += 1
+                if (length_cap is not None and current_length >= length_cap) or \
+                    terminal or truncated:
+                    done = True  
+
+                if length >= length_cap:
+                    return trajectory
+        else:
+            raise NotImplementedError
+        
+        self._h = None
+        if verbose: print("End Trajectory \n\n")
         return trajectory

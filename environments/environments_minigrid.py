@@ -289,7 +289,10 @@ def make_env_multiroom(*args, **kwargs):
                 n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
                 view_size=kwargs['view_size'],
                 show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
-                options=None if 'options' not in kwargs else kwargs['options'])
+                options=None if 'options' not in kwargs else kwargs['options'],
+                goal_reward=10,
+                step_reward=0
+                )
         env.reset(seed=kwargs['seed'])
         if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
             env = PositionBonus(env, scale=0.001)
@@ -305,7 +308,9 @@ def get_multiroom_env(*args, **kwargs):
                 n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
                 view_size=kwargs['view_size'],
                 show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
-                options=None if 'options' not in kwargs else kwargs['options'])
+                options=None if 'options' not in kwargs else kwargs['options'],
+                goal_reward=10,
+                step_reward=0)
     env.reset(seed=kwargs['seed'])
     if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
         env = PositionBonus(env, scale=0.001)

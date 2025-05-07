@@ -563,16 +563,17 @@ class LearnOptions:
                 # Process the results as they complete
                 for future in concurrent.futures.as_completed(futures):
                     try:
-                        feature_mask, actor_mask, init_loss, final_loss = future.result()
-                        option_candidates.append((feature_mask,
-                                            actor_mask,
-                                            future.primary_problem, 
-                                            target_problem, 
-                                            future.primary_env_seed, 
-                                            target_seed, 
-                                            future.length, 
-                                            future.primary_model_path, 
-                                            future.s))
+                        feature_mask, actor_mask, init_loss, final_loss, applicable = future.result()
+                        if applicable:
+                            option_candidates.append((feature_mask,
+                                                actor_mask,
+                                                future.primary_problem, 
+                                                target_problem, 
+                                                future.primary_env_seed, 
+                                                target_seed, 
+                                                future.length, 
+                                                future.primary_model_path, 
+                                                future.s))
                         self.logger.info(f'Progress: segment:{future.s} of length {future.length}, primary_problem={future.primary_problem} done. init_loss={init_loss}, final_loss={final_loss}')
                     except Exception as exc:
                         self.logger.error(f'Segment:{future.s} of length {future.length} with primary_problem={future.primary_problem} generated an exception: {exc}')
@@ -962,8 +963,12 @@ class LearnOptions:
 
                 # Update progress
                 steps += 1
+        trajectory = list(trajectories.values())[0]
+        envs = trajectory.get_state_sequence()
+        new_trajectory = agent.run_with_input_mask_softmax(envs, mask_a=best_actor_mask, mask_f=best_feature_mask, max_size_sequence=trajectory.get_length())
 
-        return best_feature_mask.detach().data, best_actor_mask.detach().data, init_loss, mask_loss.item()
+        applicable = new_trajectory.get_action_sequence() == trajectory.get_action_sequence()
+        return best_feature_mask.detach().data, best_actor_mask.detach().data, init_loss, mask_loss.item(), applicable
 
 
 def evaluate_all_masks_for_model(masks, agents, num_steps, problem, trajectories, loss_evaluator, args, number_actions):
