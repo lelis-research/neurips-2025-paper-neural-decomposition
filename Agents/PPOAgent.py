@@ -33,6 +33,8 @@ def multidiscrete_to_continuous(action):
     cont = low + a * step
     return cont
 
+
+
 class PPOAgent:
     def __init__(self, observation_space, action_space, **kwargs):
         print("Initialize PPO Agent")
@@ -311,6 +313,8 @@ class PPOAgent:
         
         agent.actor_critic.load_state_dict(checkpoint["actor_critic"])
         agent.optimizer.load_state_dict(checkpoint["optimizer"])
+        agent.actor_critic.analyze_weights()
+        
         print(f"Agent loaded from {file_path}")
         return agent
         

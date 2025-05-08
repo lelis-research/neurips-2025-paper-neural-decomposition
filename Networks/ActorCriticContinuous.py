@@ -97,3 +97,27 @@ class ActorCriticContinuous(nn.Module):
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1)
     
     
+    
+    def analyze_weights(self, topk: int = 100):
+        """
+        Prints out:
+          1) All parameter names and shapes,
+          2) A per-input-feature importance score for the first actor_linear layer,
+             sorted by descending importance.
+        """
+        # 1) list all params
+        print("=== Parameter shapes ===")
+        for name, p in self.named_parameters():
+            print(f"{name:40s}  {tuple(p.shape)}")
+        print()
+
+        # 2) feature importance on first actor layer
+        first_lin = self.actor_mean[0]  # nn.Linear(obs_dim → 128)
+        W = first_lin.weight.data      # shape [128, obs_dim]
+        imp = W.abs().sum(dim=0)       # [obs_dim]
+
+        # sort features
+        vals, idxs = torch.sort(imp, descending=True)
+        print(f"=== Top {topk} input features by abs‐weight sum ===")
+        for rank, (i, v) in enumerate(zip(idxs[:topk], vals[:topk]), 1):
+            print(f"{rank:2d}. feature[{i.item():3d}] → importance {v.item():.4f}")

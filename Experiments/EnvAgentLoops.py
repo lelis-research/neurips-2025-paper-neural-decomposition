@@ -5,12 +5,12 @@ import torch
 import copy
 
 
-def agent_environment_step_loop(env, agent, total_steps, training=True, writer=None, save_frame_freq=1):
+def agent_environment_step_loop(env, agent, total_steps, training=True, writer=None, save_frame_freq=1, greedy=False):
     """
     Runs the training loop for the agent in the given environment over a specified number of timesteps.
     Returns a list of dictionaries containing the episodic return and episode length.
     """
-    greedy = False if training else True
+    # greedy = False if training else True
     timestep = 0
     episode_counter = 1
     results = []
@@ -83,13 +83,12 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
     print("Best Episode Return Org: ", best_ep)
     return results, best_agent
 
-def agent_environment_episode_loop(env, agent, total_episodes, training=True, writer=None, save_frame_freq=1):
+def agent_environment_episode_loop(env, agent, total_episodes, training=True, writer=None, save_frame_freq=1, greedy=False):
     """
     Runs the training loop for the agent in the given environment over a specified number of timesteps.
     Returns a list of dictionaries containing the episodic return and episode length.
     """
-    greedy = False if training else True
-    greedy = False
+    # greedy = False if training else True
     timestep = 0
     results = []
     best_ep, best_agent = -np.inf, None

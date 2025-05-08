@@ -49,7 +49,8 @@ def test_agent(seed, args):
             exit(1)
     # agent = RandomAgent.load(agent_path)
 
-    result, _ = agent_environment_episode_loop(env, agent, args.test_episodes, training=False,  writer=writer, save_frame_freq=1)
+    result, _ = agent_environment_episode_loop(env, agent, args.test_episodes, training=False,  
+                                               writer=writer, save_frame_freq=1, greedy=True)
     
     # if args.save_test:
     #     exp_dir = os.path.join(args.res_dir, f"test_{args.test_agent_path}_{seed}_{args.test_env_name}")

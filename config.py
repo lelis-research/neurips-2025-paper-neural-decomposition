@@ -68,7 +68,7 @@ class arguments:
 
     # ----- tune experiment settings -----
     num_trials:               int                = 200    
-    steps_per_trial:          int                = 500_000
+    steps_per_trial:          int                = 1_000_000
     param_ranges                                 = { 
                                                         "clip_ratio":        [0.0, 0.5],
                                                         "step_size":         (1e-5, 1e-3),
@@ -83,27 +83,27 @@ class arguments:
 
     # ----- train experiment settings -----
     agent_class:              str                = "PPOAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent
-    seeds                                        = [1000]
-    exp_total_steps:          int                = 500_000
+    seeds                                        = [1000, 2000, 3000, 4000, 5000]
+    exp_total_steps:          int                = 1_000_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
-    nametag:                  str                = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    nametag:                  str                = "Reward_X,minY,1__Acc_4,5__Theta_0,5" #atetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     training_env_name:        str                = "car-train"
     training_env_params                          = {} #{"continuing_task": False}
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
     training_render_mode:     str                = "rgb_array" #human, None, rgb_array_list, rgb_array
-    save_frame_freq:          int                = 50
+    save_frame_freq:          int                = 100
     load_agent:               str                = None # "car-test_1000_1000000_Tanh64_20250503_222014"
-    
+
     # ----- test experiment settings -----
-    test_agent_path:          str                = "car-train_1000_3000000_Tanh64_20250506_005134"
+    test_agent_path:          str                = "car-train_1000_200000_Reward_X,minY,1__Acc_4,5__Theta_0,5_Reg4"
     test_episodes:            int                = 10
     test_seed:                int                = 0 
     save_test:                bool               = False
 
-    test_env_name:            str                = "car-train"
+    test_env_name:            str                = "car-test"
     test_env_params                              = {} #{"continuing_task": False}
     test_env_wrappers                            = default_env_wrappers(test_env_name)[0]
     test_wrapping_params                         = default_env_wrappers(test_env_name)[1]
@@ -113,8 +113,8 @@ class arguments:
     lamda:                    float              = 0.95
 
     epochs:                   int                = 10
-    total_steps:              int                = 500_000
-    rollout_steps:            int                = 2000
+    total_steps:              int                = 1_000_000
+    rollout_steps:            int                = 2048
     num_minibatches:          int                = 32
     
     flag_anneal_step_size:    bool               = True
