@@ -25,8 +25,8 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
     test_env = copy.deepcopy(envs.envs[0].unwrapped)
     agent = GruAgent(envs, h_size=hidden_size, greedy=False, env_id=args.env_id).to(device)
     optimizer = optim.Adam([
-    {"params": agent.actor.parameters(), "lr": args.actor_lr},   # smaller LR
-    {"params": list(agent.critic.parameters()) + list(agent.gru.parameters()), "lr": args.critic_lr},  # faster learning
+    {"params": agent.critic.parameters(), "lr": args.critic_lr},   # larger LR
+    {"params": list(agent.actor.parameters()) + list(agent.gru.parameters()), "lr": args.actor_lr},  # smaller lr
 ], eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -63,13 +63,14 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             optimizer.param_groups[0]["lr"] = frac * args.actor_lr     # actor
             optimizer.param_groups[1]["lr"] = frac * args.critic_lr    # critic (+GRU)
-        #     decay_progress = min(global_step / 1_000_000, 1.0)
+        #     decay_progress = min(global_step / 1_000_000, 0.1)
         # args.ent_coef = (1 - decay_progress) * 0.08 + decay_progress * 0.02
-        # vals = list(envs.envs[0].unwrapped._game._state_visitation_count.values())
-        # for i in range(args.game_width):
-        #     for j in range(args.game_width):
-        #             print(f"{vals[args.game_width*i+j]}", end="\t\t")
-        #     print()
+        # print(args.ent_coef)
+        vals = list(envs.envs[0].unwrapped._game._state_visitation_count.values())
+        for i in range(args.game_width):
+            for j in range(args.game_width):
+                    print(f"{vals[args.game_width*i+j]}", end="\t\t")
+            print()
 
         for step in range(0, args.num_steps):
             global_step += args.num_envs
@@ -280,10 +281,16 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
         
         
         log_data["entropies"].append(entropy_loss.item())
-        log_data["episode_lengths"].append(int(avg_length))
+        try:
+            log_data["episode_lengths"].append(int(avg_length))
+            log_data["returns"].append(int(avg_return))
+            log_data["goals"].append(int(avg_goal))
+        except:
+            log_data["episode_lengths"].append(0)
+            log_data["returns"].append(0)
+            log_data["goals"].append(0)
         log_data["steps"].append(int(global_step))
-        log_data["returns"].append(int(avg_return))
-        log_data["goals"].append(int(avg_goal))
+
         log_data["test_lengths"].append(int(test_length))
         log_data["test_returns"].append(int(test_return))
         

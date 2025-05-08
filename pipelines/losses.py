@@ -72,7 +72,7 @@ class LevinLossActorCritic:
         self.option_cache = {}
         self.logger.info("Cache removed.")
 
-    def is_applicable(self, trajectory, actions, start_index):
+    def is_applicable(self, trajectory, actions, start_index, option_size):
         """
         This function checks whether an MLP is applicable in a given state. 
 
@@ -81,7 +81,7 @@ class LevinLossActorCritic:
         actor-critic agent if it has less than 2 actions, as it would be equivalent to a 
         primitive action. 
         """
-        if len(actions) <= 1 or len(actions) + start_index > len(trajectory):
+        if len(actions) <= 1 or len(actions) + start_index > len(trajectory) or len(actions) < option_size:
             return False
         
         for i in range(len(actions)):
@@ -144,7 +144,7 @@ class LevinLossActorCritic:
                         continue
                     actions = self._run(copy.deepcopy(t[j][0]), (feature_masks[i], actor_masks[i]), models[i], number_steps[i])
 
-                    if self.is_applicable(t, actions, j):
+                    if self.is_applicable(t, actions, j, number_steps[i]):
                         M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
         uniform_probability = (1/(len(feature_masks) + number_actions)) 
         depth = len(t) + 1
@@ -199,7 +199,7 @@ class LevinLossActorCritic:
                             if j not in self.option_cache[option_id][problem_name]:
                                 agent = self.option_id_to_agent[option_id]
                                 actions = self._run(copy.deepcopy(t[j][0]), [agent.feature_mask, agent.actor_mask], agent, agent.option_size)
-                                is_applicable = self.is_applicable(t, actions, j)
+                                is_applicable = self.is_applicable(t, actions, j, agent.option_size)
                                 self.option_cache[option_id][problem_name][j] = (is_applicable, actions)
                                 print(self.option_cache)
                             if self.option_cache[option_id][problem_name][j][0] == True:
@@ -267,7 +267,7 @@ class LevinLossActorCritic:
 
                         actions = self._run(copy.deepcopy(t[j][0]), (options[i].feature_mask, options[i].actor_mask), options[i], options[i].option_size)
 
-                        if self.is_applicable(t, actions, j):
+                        if self.is_applicable(t, actions, j, options[i].option_size):
                             M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
 
                             # if isinstance(options[i].mask, torch.Tensor):
@@ -410,7 +410,7 @@ class LogitsLossActorCritic(LevinLossActorCritic):
                         continue
                     actions, logits_ls = self._run_for_logits(copy.deepcopy(t[j][0]), masks[i], models[i], number_steps[i])
 
-                    if self.is_applicable(t, actions, j):
+                    if self.is_applicable(t, actions, j,  number_steps[i]):
                         loss = 0
                         n_actions = len(actions)
                         for logits, target_logits in zip(logits_ls, trajectory.get_logits_sequence()[j:j+n_actions]):

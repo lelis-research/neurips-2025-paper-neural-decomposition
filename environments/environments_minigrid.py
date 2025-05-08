@@ -284,7 +284,7 @@ def make_env_unlock(*args, **kwargs):
 def make_env_multiroom(*args, **kwargs):
     def thunk():
         env = MiniGridWrap(
-                env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=5, minNumRooms=3, render_mode="rgb_array"),
+                env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=3, minNumRooms=3, render_mode="rgb_array"),
                 seed=kwargs['seed'],
                 n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
                 view_size=kwargs['view_size'],

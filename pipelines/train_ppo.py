@@ -23,7 +23,7 @@ from option_discovery import load_options
 class Args:
     exp_id: str = ""
     """The ID of the finished experiment; to be filled in run time"""
-    exp_name: str = "train_ppoAgent"
+    exp_name: str = "train_ppoAgent_ComboGrid_Primary"
     """the name of this experiment"""
     env_id: str = "ComboGrid"
     """the id of the environment corresponding to the trained agent
@@ -56,11 +56,11 @@ class Args:
     # hyperparameter arguments
     game_width: int = 5
     """the length of the combo/mini-grid square"""
-    max_episode_length: int = 150
+    max_episode_length: int = 50
     """"""
     visitation_bonus: int = 1
     """"""
-    use_options: int = 1
+    use_options: int = 0
     """"""
     hidden_size: int = 64
     """"""
@@ -76,16 +76,16 @@ class Args:
     # Specific arguments
     total_timesteps: int = 2_000_000
     """total timesteps for testinging"""
-    learning_rate: float = 0.001 # ComboGrid
+    learning_rate: float = 5e-4 # ComboGrid
     # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 5e-05) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (5e-05,) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (0.0005, 0.001, 0.001) # SimpleCrossing
     actor_lr: float = 1e-3
-    critic_lr: float = 5e-3
+    critic_lr: float = 1e-3
     """the learning rate of the optimize for testinging"""
-    num_envs: int = 16
+    num_envs: int = 8
     """the number of parallel game environments for testinging"""
-    num_steps: int = 256
+    num_steps: int = 100
     """the number of steps to run in each environment per policy rollout for testinging"""
     anneal_lr: bool = True
     """Toggle learning rate annealing for policy and value networks for testinging"""
@@ -106,7 +106,7 @@ class Args:
     """the surrogate clipping coefficient"""
     clip_vloss: bool = False
     """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
-    ent_coef: float = 0.045 # ComboGrid
+    ent_coef: float = 0.02 # ComboGrid
     # ent_coef: Union[List[float], float] = (0.05, 0.2, 0.0) # Vanilla RL FourRooms
     # ent_coef: Union[List[float], float] = (0.1, 0.1, 0.1) # SimpleCrossing
     """coefficient of the entropy"""
@@ -114,7 +114,7 @@ class Args:
     """coefficient of the value function"""
     max_grad_norm: float = 0.5
     """the maximum norm for the gradient clipping"""
-    target_kl: float = 0.04
+    target_kl: float = None
     """the target KL divergence threshold"""
 
     # to be filled in runtime
@@ -124,9 +124,9 @@ class Args:
     """the mini-batch size (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
-    env_seed: int = 12
+    env_seed: int = 0
     """the seed of the environment (set in runtime)"""
-    seed: int = 2
+    seed: int = 16
     """experiment randomness seed (set in runtime)"""
     problem: str = ""
     """"""
@@ -227,7 +227,7 @@ def main(args: Args):
         )
     elif args.env_id == "MultiRoom":
         envs = gym.vector.SyncVectorEnv( 
-            [make_env_multiroom(max_episode_steps=args.max_episode_length, view_size=args.view_size, seed=args.env_seed, visitation_bonus=args.visitation_bonus, n_discrete_actions=args.number_actions) for _ in range(args.num_envs)],
+            [make_env_multiroom(max_episode_steps=args.max_episode_length, view_size=args.view_size, seed=args.env_seed, visitation_bonus=args.visitation_bonus, n_discrete_actions=args.number_actions, options=options) for _ in range(args.num_envs)],
             autoreset_mode=gym.vector.AutoresetMode.SAME_STEP
             )
     else:
@@ -261,7 +261,7 @@ if __name__ == "__main__":
     
     # Parameter specification for each problem
     args.number_actions = 5 if (args.env_id == "Unlock" or args.env_id == "MultiRoom") else 3
-    args.num_steps = args.max_episode_length * 2
+    # args.num_steps = args.max_episode_length * 2
     args.view_size = 5 if (args.env_id == "SimpleCrossing" or args.env_id == "FourRooms") else 3
     lrs = args.learning_rate
     clip_coef = args.clip_coef

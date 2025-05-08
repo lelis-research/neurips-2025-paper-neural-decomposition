@@ -298,7 +298,7 @@ class MultiRoomUnlockEnv(MiniGridEnv):
         return True
     
 def main():
-    env = MultiRoomUnlockEnv(minNumRooms=3, maxNumRooms=5, render_mode="human")
+    env = MultiRoomUnlockEnv(minNumRooms=3, maxNumRooms=3, render_mode="human")
 
     # enable manual control for testing
     manual_control = ManualControl(env, seed=14)

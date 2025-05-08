@@ -14,7 +14,11 @@ device = torch.device("cuda" if torch.cuda.is_available()  else "cpu")
 class STEQuantize(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x):
-        return torch.sign(x)  # Quantize to -1 or 1
+        # return torch.sign(x)  # Quantize to -1 or 1
+        quantization_levels = torch.tensor([0, 1], dtype=x.dtype, device=device).view(1, 1, 1, 2)
+        distances = torch.abs(x.unsqueeze(-1) - quantization_levels)
+        quantized_indices = torch.argmin(distances, dim=-1)
+        return quantized_indices.float()
     
     @staticmethod
     def backward(ctx, grad_output):
@@ -175,8 +179,8 @@ class GruAgent(nn.Module):
             h, gru_state = self.gru(h.unsqueeze(0), (1.0 - d).view(1, -1, 1) * gru_state)
             if self.quantized == 1:
                 gru_state = STEQuantize.apply(gru_state)
-            new_hidden += [STEQuantize.apply(h)]
-            # new_hidden += [h]
+            # new_hidden += [STEQuantize.apply(h)]
+            new_hidden += [h]
         new_hidden = torch.flatten(torch.cat(new_hidden), 0, 1)
         return new_hidden, gru_state
 
@@ -303,7 +307,8 @@ class GruAgent(nn.Module):
         if self.quantized == 1:
             gru_state = STEQuantize.apply(gru_state)
             #TODO masking of GRU hidden states
-        discrete_hidden = STEQuantize.apply(h)
+        # discrete_hidden = STEQuantize.apply(h)
+        discrete_hidden = h
         
         concatenated = torch.cat((discrete_hidden, x), dim=1)
         concatenated = self._masked_input_softmax(concatenated, mask_a)

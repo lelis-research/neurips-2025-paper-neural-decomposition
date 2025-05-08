@@ -778,7 +778,7 @@ class LearnOptions:
             for j in range(len(t) + 1):
                 if j < len(t):
                     actions = self.levin_loss._run(copy.deepcopy(t[j][0]), [agent.feature_mask, agent.actor_mask], agent, agent.option_size)
-                    is_applicable = self.levin_loss.is_applicable(t, actions, j)
+                    is_applicable = self.levin_loss.is_applicable(t, actions, j, agent.option_size)
                     #option cache update
                     if j not in temp_dict:
                         temp_dict[j] = (bool(is_applicable), list(actions)) 
