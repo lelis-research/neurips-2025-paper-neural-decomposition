@@ -68,7 +68,7 @@ class Args:
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
-    cpus: int = 12
+    cpus: int = 1
     """"The number of CPUTs used in this experiment."""
     
     # hyperparameters
@@ -187,8 +187,7 @@ class FineTuning:
             actions = trajectory.get_action_sequence()
             agent.eval()
 
-            new_trajectory = agent.run_fixed_prefix(envs, trajectory.get_length())
-
+            new_trajectory = agent.run_fixed_prefix(envs, trajectory.get_length(), verbose=True)
             loss_fn = torch.nn.CrossEntropyLoss()
             loss = loss_fn(torch.stack(new_trajectory.logits), torch.tensor(actions))
             if not init_loss:
@@ -256,10 +255,12 @@ class FineTuning:
                             agent, init_loss, final_loss = future.result()
                             self.logger.info(f'Progress: segment:{future.s} of length {future.length}, primary_problem={future.primary_problem} done. init_loss={init_loss}, final_loss={final_loss}')
                             actions = []
+                            gru_state = agent.init_hidden()
                             for i in range(future.length):
                                 t_env = trajectories[target_problem].get_trajectory()[future.s[0] + i][0]
                                 o = torch.tensor(t_env.get_observation(), dtype=torch.float32)
-                                actions.append(agent.get_action_and_value(o, agent.init_hidden(), torch.zeros(1), deterministic=True)[0].item())
+                                action, _, _, _, gru_state, _ = agent.get_action_and_value(o, gru_state, torch.zeros(1), deterministic=True)
+                                actions.append(action.item())
                             t_actions = trajectories[target_problem].get_action_sequence()[future.s[0]: future.s[0]+ future.length]
                             assert actions == t_actions, f"Agent {agent.extra_info} failed to mimic the action {t_actions} in state {t_env} with action {actions} at setgment {future.s} of length {future.length}"
                             option_candidates.append((agent.state_dict(),
