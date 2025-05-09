@@ -24,6 +24,15 @@ SEEDS = {
 
 PROBLEM_NAMES = list(SEEDS.keys())
 
+# These are for 5*5 grid
+OPTIMAL_TRAJECTORY_LENGTHS = {
+    seed: 24 for seed in range(12)
+}
+OPTIMAL_TRAJECTORY_LENGTHS.update({
+    12: 54,
+    13: 30
+})
+
 DIRECTIONS = {(0,0,1): "U",
               (0,1,2): "D",
               (2,1,0): "L",

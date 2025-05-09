@@ -7,17 +7,31 @@ import gymnasium as gym
 import numpy as np
 import torch.nn as nn
 import torch.optim as optim
+from environments.environments_combogrid import PROBLEM_NAMES as COMBO_PROBLEM_NAMES, OPTIMAL_TRAJECTORY_LENGTHS
+from environments.utils import get_single_environment
 from utils import utils
 from agents.policy_guided_agent import PPOAgent
 
+def try_agent_deterministicly(agent: PPOAgent, options, args, env_seed):
+    if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
+        problem = None
+    elif args.env_id == "ComboGrid":
+        problem = COMBO_PROBLEM_NAMES[env_seed]
+    else:
+        raise NotImplementedError
+    env = get_single_environment(args, seed=env_seed, problem=problem, is_test=True, options=options)
+    trajectory = agent.run(env, 500, deterministic=True)
+    if trajectory.get_length() == OPTIMAL_TRAJECTORY_LENGTHS[env_seed]:
+        return True
+    return False
 
-def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, device, logger=None, writer=None, sparse_init=False, deterministic=False):
+def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, device, options=None, logger=None, writer=None, parameter_sweeps=False, deterministic=False):
     hidden_size = args.hidden_size
     l1_lambda = args.l1_lambda
     if not seed:
         seed = args.env_seed
     
-    agent = PPOAgent(envs, hidden_size=hidden_size, sparse_init=sparse_init).to(device)
+    agent = PPOAgent(envs, hidden_size=hidden_size).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -91,8 +105,14 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                         writer.add_scalar("Charts/episodic_return", avg_return, global_step)
                         writer.add_scalar("Charts/episodic_length", avg_length, global_step)
                     logger.info(f"global_step={global_step}, episodic_return={avg_return}, episodic_length={avg_length}")
-            
-
+                    if parameter_sweeps and avg_length - OPTIMAL_TRAJECTORY_LENGTHS[seed] < 10: # FIX: just works for ComboGrid
+                        if try_agent_deterministicly(agent, options, args, seed):
+                            logger.info(f"Optimal trajectory found on step {global_step}")
+                            envs.close()
+                            # writer.close()
+                            os.makedirs(os.path.dirname(model_file_name), exist_ok=True)
+                            torch.save(agent.state_dict(), model_file_name) # overrides the file if already exists
+                            logger.info(f"Saved on {model_file_name}")
         # bootstrap value if not done
         with torch.no_grad():
             next_value = agent.get_value(next_obs).reshape(1, -1)

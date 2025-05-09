@@ -3,7 +3,7 @@ from environments.environments_combogrid_gym import ComboGym, make_env as make_e
 from environments.environments_minigrid import get_training_tasks_simplecross, make_env_four_rooms, make_env_simple_crossing
 from environments.environments_combogrid import PROBLEM_NAMES as COMBO_PROBLEM_NAMES
 
-def get_single_environment(args, seed, problem=None, is_test=False):
+def get_single_environment(args, seed, problem=None, is_test=False, options=None):
     """
     Makes a single environment based on `args.env_id`
 
@@ -15,7 +15,7 @@ def get_single_environment(args, seed, problem=None, is_test=False):
     """
     if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
         # requires `args` to include `args.game_width`
-        env = get_training_tasks_simplecross(view_size=args.game_width, seed=seed)
+        env = get_training_tasks_simplecross(view_size=args.game_width, seed=seed, options=options)
     elif args.env_id == "ComboGrid":
         # requires `args` to include `args.game_width`
         if not problem:
@@ -25,6 +25,7 @@ def get_single_environment(args, seed, problem=None, is_test=False):
         env = ComboGym(rows=args.game_width, 
                        columns=args.game_width, 
                        problem=problem, 
+                       options=options,
                        reward_per_step=reward_per_step, 
                        reward_terminated=reward_terminated)
     else:

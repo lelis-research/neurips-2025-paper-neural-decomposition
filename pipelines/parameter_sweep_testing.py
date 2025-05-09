@@ -28,7 +28,7 @@ class Args:
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
-    method: str = "no_options"
+    method: str = ""
     """Determines the baseline that is being tested; Choices: ['no_options']"""
     cuda: bool = True
     """if toggled, cuda will be enabled by default"""
@@ -187,10 +187,11 @@ def train_ppo_with_options(options: List[PPOAgent], test_exp_id: str, env_seed: 
               seed=env_seed, 
               args=args, 
               model_file_name=model_path, 
+              options=options,
               device=device, 
               logger=logger, 
               writer=writer,
-              sparse_init=False)
+              parameter_sweeps=True)
     if args.track:
         wandb.finish()
 
@@ -214,7 +215,7 @@ def main(args: Args):
         else:
             options, _ = load_options(mod_args, logger)
         for option in options:
-            print((option.mask.tolist(), option.option_size, option.problem_id))
+            print((option.mask, option.option_size, option.problem_id))
 
         logger.info(f"Testing by training on {problem}, env_seed={seed}")
         mod_args.batch_size = int(mod_args.num_envs * mod_args.num_steps)

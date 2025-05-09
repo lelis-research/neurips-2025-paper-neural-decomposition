@@ -185,10 +185,10 @@ def train_ppo_with_options(options: List[PPOAgent], test_exp_id: str, env_seed: 
               seed=env_seed, 
               args=args, 
               model_file_name=model_path, 
+              options=options,
               device=device, 
               logger=logger, 
-              writer=writer,
-              sparse_init=False)
+              writer=writer)
     if args.track:
         wandb.finish()
 

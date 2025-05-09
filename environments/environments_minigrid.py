@@ -141,11 +141,11 @@ class MiniGridWrap(gym.Env):
         return str_map
 
 
-def get_training_tasks_simplecross(view_size=7, seed=0):
+def get_training_tasks_simplecross(view_size=7, seed=0, options=None):
     return MiniGridWrap(
                 gymnasium.make("MiniGrid-SimpleCrossingS9N1-v0"),
                 seed=seed, max_episode_steps=1000, n_discrete_actions=3,
-                view_size=view_size, step_reward=-1)
+                view_size=view_size, step_reward=-1, options=options)
 
 
 def get_test_tasks_fourrooms(view_size=7, seed=0):

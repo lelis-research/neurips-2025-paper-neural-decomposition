@@ -231,7 +231,7 @@ class LevinLossActorCritic:
         """
         for idx, agent in enumerate(options):
             # Evaluating the performance of options
-            logger.info(f"\n {idx} Option: {agent.mask.cpu().numpy()} {agent.problem_id}, {agent.extra_info}")
+            logger.info(f"\n {idx} Option: {agent.mask} {agent.problem_id}, {agent.extra_info}")
 
 
         for problem, trajectory in trajectories.items():  

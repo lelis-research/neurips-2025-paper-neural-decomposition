@@ -189,8 +189,7 @@ def main(args: Args):
               model_file_name=model_path, 
               device=device, 
               logger=logger, 
-              writer=writer, 
-              sparse_init=False)
+              writer=writer)
     if args.track:
         wandb.finish()
     # wandb.finish()
