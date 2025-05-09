@@ -20,7 +20,7 @@ class CarEnv(gym.Env):
     """
     metadata = {'render_modes': ['human', 'rgb_array_list', 'rgb_array'], 'render_fps': 50}
 
-    def __init__(self, n_steps=2000, render_mode=None, test_mode=False, last_state_in_obs=True):
+    def __init__(self, n_steps=5000, render_mode=None, test_mode=False, last_state_in_obs=True):
         super().__init__()
         self.sim = CarReversePP(n_steps=n_steps)
         self.render_mode = render_mode

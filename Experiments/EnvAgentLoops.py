@@ -98,6 +98,7 @@ def agent_environment_episode_loop(env, agent, total_episodes, training=True, wr
         episode_return_org = 0.0
         episode_return_wrapped = 0.0
         episode_length = 0
+        frames = []
 
         while True:
             action = agent.act(observation, greedy=greedy)

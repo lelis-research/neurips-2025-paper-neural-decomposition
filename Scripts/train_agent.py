@@ -80,14 +80,14 @@ def train_single_seed(seed, args):
         agent.save(os.path.join(exp_dir, "final.pt"))
         best_agent.save(os.path.join(exp_dir, "best.pt"))
     env.close()
-    return result
+    return result, best_agent
 
 
 def train_parallel_seeds(seeds, args):
     # Use multiprocessing to run experiments in parallel.
     pool = multiprocessing.Pool(processes=len(seeds))
     try:
-        results = pool.starmap(train_single_seed, [(seed, args) for seed in seeds])
+        results_bestagents = pool.starmap(train_single_seed, [(seed, args) for seed in seeds])
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Terminating all processes...")
         pool.terminate()
@@ -95,8 +95,9 @@ def train_parallel_seeds(seeds, args):
     finally:
         pool.close()
         pool.join()
-
-    return results
+    results = [x[0] for x in results_bestagents]
+    best_agents = [x[1] for x in results_bestagents]
+    return results, best_agents
 
 
     
