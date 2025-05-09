@@ -95,7 +95,7 @@ class Args:
     """the discount factor gamma for testinging"""
     gae_lambda: float = 0.95
     """the lambda for the general advantage estimation for testinging"""
-    num_minibatches: int = 8
+    num_minibatches: int = 4
     """the number of mini-batches for testinging"""
     update_epochs: int = 6
     """the K epochs to update the policy for testinging"""
@@ -258,12 +258,12 @@ if __name__ == "__main__":
         args.exp_id = f'{args.exp_name}_{args.env_id}_option{args.use_options}' + \
         f'_gw{args.game_width}_h{args.hidden_size}_actor-lr{args.actor_lr}_critic-lr{args.critic_lr}' +\
         f'_ent-coef{args.ent_coef}_clip-coef{args.clip_coef}_visit-bonus{args.visitation_bonus}' +\
-        f'_ep-len{args.max_episode_length}'
+        f'_ep-len{args.max_episode_length}-ent_an{args.anneal_entropy}'
     
     
     # Parameter specification for each problem
     args.number_actions = 5 if (args.env_id == "Unlock" or args.env_id == "MultiRoom") else 3
-    # args.num_steps = args.max_episode_length * 2
+    args.num_steps = args.max_episode_length * 2
     args.view_size = 5 if (args.env_id == "SimpleCrossing" or args.env_id == "FourRooms") else 3
     lrs = args.learning_rate
     clip_coef = args.clip_coef

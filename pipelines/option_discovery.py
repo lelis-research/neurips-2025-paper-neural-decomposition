@@ -115,7 +115,7 @@ class Args:
     selection_type: str = "local_search"
 
     # Script arguments
-    seed: int = 3
+    seed: int = 1
     """The seed used for reproducibilty of the script"""
     torch_deterministic: bool = True
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
@@ -899,7 +899,7 @@ class LearnOptions:
     def _train_mask_iter(self, trajectories, problem, s, length, agent: GruAgent):
         sub_trajectory = {problem: trajectories[problem].slice(s, n=length)}
         feature_mask = torch.nn.Parameter(torch.randn(3, agent.observation_space_size), requires_grad=True)
-        actor_mask = torch.nn.Parameter(torch.randn(3, self.args.hidden_size + agent.observation_space_size), requires_grad=True)
+        actor_mask = torch.nn.Parameter(torch.randn(3, agent.observation_space_size), requires_grad=True)
         return self._train_mask_both(feature_mask, actor_mask, agent, sub_trajectory)
 
 
@@ -1151,12 +1151,12 @@ def main():
                                     mask_type=args.mask_type, 
                                     mask_transform_type=args.mask_transform_type, 
                                     selection_type=args.selection_type)
-    # module_extractor.discover()
-    with open(f"binary/options/all_options/{args.env_id}/seed={args.seed}/all_options.pkl", 'rb') as f:
-        options = pickle.load(f)
-    trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
-    agents = module_extractor.select_by_local_search(options, trajectories)
-    save_options(agents, trajectories, args, logger)
+    module_extractor.discover()
+    # with open(f"binary/options/all_options/{args.env_id}/seed={args.seed}/all_options.pkl", 'rb') as f:
+    #     options = pickle.load(f)
+    # trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
+    # agents = module_extractor.select_by_local_search(options, trajectories)
+    # save_options(agents, trajectories, args, logger)
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()
     # whole_dec_options_training_data_levin_loss()

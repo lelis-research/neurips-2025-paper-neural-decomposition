@@ -6,15 +6,66 @@ import gymnasium as gym
 import tyro
 import random
 import numpy as np
+from dataclasses import dataclass
 sys.path.append("/home/iprnb/scratch/neurips-2025-paper-neural-decomposition")
 sys.path.append("C:\\Users\\Parnian\\Projects\\neurips-2025-paper-neural-decomposition")
 from environments.environments_combogrid import PROBLEM_NAMES
 from agents.recurrent_agent import GruAgent
 from pipelines.option_discovery import get_single_environment
 from environments.environments_minigrid import get_simplecross_env, make_env_simple_crossing, get_unlock_env
-from pipelines.train_ppo import Args
 from utils import utils
 
+@dataclass
+class Args:
+    exp_id: str = ""
+    """The ID of the finished experiment; to be filled in run time"""
+    exp_name: str = "train_ppoAgent"
+    """the name of this experiment"""
+    env_id: str = "SimpleCrossing"
+    """the id of the environment corresponding to the trained agent
+    choices from [ComboGrid, SimpleCrossing, FourRooms, Unlock, MultiRoom]
+    """
+
+    """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'.
+    This determines the exact environments that will be separately used for training.
+    """
+    cuda: bool = True
+    """if toggled, cuda will be enabled by default"""
+    torch_deterministic: bool = True
+    """if toggled, `torch.backends.cudnn.deterministic=False`"""
+    
+    # hyperparameter arguments
+    game_width: int = 5
+    """the length of the combo/mini-grid square"""
+    max_episode_length: int = 150
+    """"""
+    visitation_bonus: int = 1
+    """"""
+    use_options: int = 0
+    """"""
+    hidden_size: int = 64
+    """"""
+    l1_lambda: float = 0
+    """"""
+    number_actions: int = 3
+    """"""
+    view_size: int = 5
+    """the size of the agent's view in the mini-grid environment"""
+    save_run_info: int = 0
+    """save entropy and episode length along with satate dict if set to 1"""
+
+ 
+    env_seed: int = 12
+    """the seed of the environment (set in runtime)"""
+    seed: int = 2
+    """experiment randomness seed (set in runtime)"""
+    problem: str = ""
+    """"""
+    log_path: str = "outputs/logs/"
+    """The name of the log file"""
+    
+    log_level: str = "INFO"
+    """The logging level"""
 
 
 
@@ -62,15 +113,24 @@ def main():
             elif args.env_id == "Unlock":
                 env = get_unlock_env(seed=env_seed, view_size=3, n_discrete_actions=5, args=args)
                 
+            checkpoint = torch.load(model, weights_only=True)
+            if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
+                state_dict = checkpoint['state_dict']
+                episode_lengths = checkpoint['episode_lengths']
+                entropies = checkpoint['policy_entropies']
+                steps = ['steps']
+            else:
+                state_dict = checkpoint
+            
             agent = GruAgent(env, h_size=args.hidden_size, env_id=args.env_id)
-            agent.load_state_dict(torch.load(model, weights_only=True))
+            agent.load_state_dict(state_dict)
             agent.eval()
 
             #evaluate agent
             next_rnn_state = agent.init_hidden()
             next_done = torch.zeros(1)
             o, _ = env.reset()
-            length_cap = 35
+            length_cap = args.max_episode_length
             current_length = 0
 
             while True:

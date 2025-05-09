@@ -310,8 +310,9 @@ class GruAgent(nn.Module):
         # discrete_hidden = STEQuantize.apply(h)
         discrete_hidden = h
         
-        concatenated = torch.cat((discrete_hidden, x), dim=1)
-        concatenated = self._masked_input_softmax(concatenated, mask_a)
+        
+        x_masked_2 = self._masked_input_softmax(x, mask_a)
+        concatenated = torch.cat((discrete_hidden, x_masked_2), dim=1)
 
         logits = self.actor(concatenated)
         

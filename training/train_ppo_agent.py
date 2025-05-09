@@ -75,7 +75,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                 ent_coef = entropy_end
         else:
             ent_coef = args.ent_coef
-        print(ent_coef)
+
         for step in range(0, args.num_steps):
             global_step += args.num_envs
             obs[step] = next_obs
