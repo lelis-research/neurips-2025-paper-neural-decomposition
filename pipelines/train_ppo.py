@@ -56,7 +56,7 @@ class Args:
     # hyperparameter arguments
     game_width: int = 5
     """the length of the combo/mini-grid square"""
-    max_episode_length: int = 50
+    max_episode_length: int = 100
     """"""
     visitation_bonus: int = 1
     """"""
@@ -80,33 +80,35 @@ class Args:
     # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 5e-05) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (5e-05,) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (0.0005, 0.001, 0.001) # SimpleCrossing
-    actor_lr: float = 1e-3
+    actor_lr: float = 5e-3
     critic_lr: float = 1e-3
     """the learning rate of the optimize for testinging"""
     num_envs: int = 8
     """the number of parallel game environments for testinging"""
-    num_steps: int = 100
+    num_steps: int = 300
     """the number of steps to run in each environment per policy rollout for testinging"""
     anneal_lr: bool = True
     """Toggle learning rate annealing for policy and value networks for testinging"""
+    anneal_entropy: int = 0
+    """Toggle entropy coefficient annealing"""
     gamma: float = 0.99
     """the discount factor gamma for testinging"""
     gae_lambda: float = 0.95
     """the lambda for the general advantage estimation for testinging"""
     num_minibatches: int = 8
     """the number of mini-batches for testinging"""
-    update_epochs: int = 4
+    update_epochs: int = 6
     """the K epochs to update the policy for testinging"""
     norm_adv: bool = True
     """Toggles advantages normalization for testinging"""
-    clip_coef: float = 0.25 # ComboGrid
+    clip_coef: float = 0.15 # ComboGrid
     # clip_coef: Union[List[float], float] = (0.15, 0.1, 0.2) # Vanilla RL FourRooms
     # clip_coef: Union[List[float], float] = (0.2,) # Vanilla RL FourRooms
     # clip_coef: Union[List[float], float] = (0.25, 0.2, 0.2) # SimpleCrossing
     """the surrogate clipping coefficient"""
     clip_vloss: bool = False
     """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
-    ent_coef: float = 0.02 # ComboGrid
+    ent_coef: float = 0.13 # ComboGrid
     # ent_coef: Union[List[float], float] = (0.05, 0.2, 0.0) # Vanilla RL FourRooms
     # ent_coef: Union[List[float], float] = (0.1, 0.1, 0.1) # SimpleCrossing
     """coefficient of the entropy"""
@@ -254,7 +256,7 @@ if __name__ == "__main__":
     # Setting the experiment id
     if args.exp_id == "":
         args.exp_id = f'{args.exp_name}_{args.env_id}_option{args.use_options}' + \
-        f'_gw{args.game_width}_h{args.hidden_size}_lr{args.learning_rate}' +\
+        f'_gw{args.game_width}_h{args.hidden_size}_actor-lr{args.actor_lr}_critic-lr{args.critic_lr}' +\
         f'_ent-coef{args.ent_coef}_clip-coef{args.clip_coef}_visit-bonus{args.visitation_bonus}' +\
         f'_ep-len{args.max_episode_length}'
     

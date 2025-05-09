@@ -56,6 +56,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
     next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
     initial_rnn_state = next_rnn_state.clone()
+    rnn_states = torch.zeros((args.num_steps, agent.gru.num_layers, args.num_envs, agent.gru.hidden_size)).to(device)
 
     for iteration in range(1, args.num_iterations + 1):
         # Annealing the rate if instructed to do so.
@@ -63,19 +64,23 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             frac = 1.0 - (iteration - 1.0) / args.num_iterations
             optimizer.param_groups[0]["lr"] = frac * args.actor_lr     # actor
             optimizer.param_groups[1]["lr"] = frac * args.critic_lr    # critic (+GRU)
-        #     decay_progress = min(global_step / 1_000_000, 0.1)
-        # args.ent_coef = (1 - decay_progress) * 0.08 + decay_progress * 0.02
-        # print(args.ent_coef)
-        vals = list(envs.envs[0].unwrapped._game._state_visitation_count.values())
-        for i in range(args.game_width):
-            for j in range(args.game_width):
-                    print(f"{vals[args.game_width*i+j]}", end="\t\t")
-            print()
-
+        if args.anneal_entropy == 1:
+            entropy_start = args.ent_coef
+            entropy_end = 0.005
+            entropy_cutoff_steps = 2_000_000
+            if global_step < entropy_cutoff_steps:
+                frac = 1.0 - global_step / entropy_cutoff_steps
+                ent_coef = frac * entropy_start + (1 - frac) * entropy_end
+            else:
+                ent_coef = entropy_end
+        else:
+            ent_coef = args.ent_coef
+        print(ent_coef)
         for step in range(0, args.num_steps):
             global_step += args.num_envs
             obs[step] = next_obs
             dones[step] = next_done
+            rnn_states[step] = next_rnn_state.clone().detach()
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
@@ -89,6 +94,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
+
 
             # if "final_info" in infos:
             #     for info in infos["final_info"]:
@@ -132,7 +138,8 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                     logger.info(f"global_step={global_step}, episodic_return={avg_return}, episodic_length={avg_length}, episodic_goal={avg_goal}")
             
 
-        # bootstrap value if not done
+        
+        # --- Compute GAE and returns ---
         with torch.no_grad():
             next_value = agent.get_value(next_obs, next_rnn_state, next_done).reshape(1, -1)
             advantages = torch.zeros_like(rewards).to(device)
@@ -148,7 +155,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                 advantages[t] = lastgaelam = delta + args.gamma * args.gae_lambda * nextnonterminal * lastgaelam
             returns = advantages + values
 
-          # flatten the batch
+        # --- Flatten batch for training ---
         b_obs = obs.reshape((-1,) + envs.single_observation_space.shape)
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + envs.single_action_space.shape)
@@ -157,23 +164,29 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
 
-        # Optimizing the policy and value network
+        # Reshape RNN states: [T, L, N, H] → [N, L, T, H]
+        b_rnn_states = rnn_states.permute(2, 1, 0, 3).contiguous()  # [env, layer, step, hidden]
+
+        # --- PPO update ---
         assert args.num_envs % args.num_minibatches == 0
         envsperbatch = args.num_envs // args.num_minibatches
         envinds = np.arange(args.num_envs)
         flatinds = np.arange(args.batch_size).reshape(args.num_steps, args.num_envs)
         clipfracs = []
-        gradients = []
+
         for epoch in range(args.update_epochs):
             np.random.shuffle(envinds)
             for start in range(0, args.num_envs, envsperbatch):
                 end = start + envsperbatch
                 mbenvinds = envinds[start:end]
-                mb_inds = flatinds[:, mbenvinds].ravel()  # be really careful about the index
+                mb_inds = flatinds[:, mbenvinds].ravel()
+
+                # Initial RNN state per env trajectory
+                mb_rnn_states = b_rnn_states[mbenvinds, :, 0, :].permute(1, 0, 2).contiguous()  # shape [num_layers, batch, hidden]
 
                 _, newlogprob, entropy, newvalue, _, _ = agent.get_action_and_value(
                     b_obs[mb_inds],
-                    initial_rnn_state[:, mbenvinds],
+                    mb_rnn_states,
                     b_dones[mb_inds],
                     b_actions.long()[mb_inds],
                 )
@@ -182,7 +195,6 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                 ratio = logratio.exp()
 
                 with torch.no_grad():
-                    # calculate approx_kl http://joschu.net/blog/kl-approx.html
                     old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
                     clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
@@ -191,17 +203,13 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                 if args.norm_adv:
                     mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
 
-                #L1 loss
-                # l1_loss = _l1_norm(model=agent.gru, lambda_l1=args.l1_lambda)
-
-                # Policy loss
                 pg_loss1 = -mb_advantages * ratio
                 pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
-                pg_loss = torch.max(pg_loss1, pg_loss2).mean() #+ l1_loss
+                pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                 # Value loss
                 newvalue = newvalue.view(-1)
-                if args.clip_vloss == 1:
+                if args.clip_vloss:
                     v_loss_unclipped = (newvalue - b_returns[mb_inds]) ** 2
                     v_clipped = b_values[mb_inds] + torch.clamp(
                         newvalue - b_values[mb_inds],
@@ -209,22 +217,19 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                         args.clip_coef,
                     )
                     v_loss_clipped = (v_clipped - b_returns[mb_inds]) ** 2
-                    v_loss_max = torch.max(v_loss_unclipped, v_loss_clipped)
-                    v_loss = 0.5 * v_loss_max.mean()
+                    v_loss = 0.5 * torch.max(v_loss_unclipped, v_loss_clipped).mean()
                 else:
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
 
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef
+                loss = pg_loss - ent_coef * entropy_loss + v_loss * args.vf_coef
 
                 optimizer.zero_grad()
                 loss.backward()
                 nn.utils.clip_grad_norm_(agent.parameters(), args.max_grad_norm)
                 optimizer.step()
-                for p in agent.parameters():
-                    gradients += [p.grad.norm()]
 
-            if args.target_kl is not None and approx_kl > args.target_kl:
+            if args.target_kl is not None and (torch.isnan(approx_kl) or approx_kl > args.target_kl):
                 break
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
