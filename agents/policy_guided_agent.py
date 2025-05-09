@@ -166,6 +166,7 @@ def sparse_init(tensor, sparsity, type='uniform'):
 class PPOAgent(nn.Module):
     def __init__(self, envs, hidden_size=6, sparse_init=False, discrete_masks=True):
         super().__init__()
+        # TODO: remove envs from parameters; it's redundant
         if isinstance(envs, ComboGym):
             observation_space_size = envs.get_observation_space()
             action_space_size = envs.get_action_space()

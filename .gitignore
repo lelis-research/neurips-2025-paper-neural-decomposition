@@ -28,3 +28,4 @@ wandb
 .vscode
 */.ipynb_checkpoints
 TODOs.txt
+param_sweep_raw

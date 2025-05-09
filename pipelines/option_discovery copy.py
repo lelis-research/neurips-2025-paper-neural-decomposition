@@ -30,7 +30,7 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 @dataclass
 class Args:
     # exp_name: str = "extract_learnOption_noReg_excludeGoal"
-    exp_name: str = "extract_learnOption_unfiltered"
+    exp_name: str = "extract_learnOption_filteredOptionSet"
     # exp_name: str = "debug"
     # exp_name: str = "extract_decOptionWhole_sparseInit"
     # exp_name: str = "extract_learnOptions_randomInit_discreteMasks"
@@ -96,7 +96,7 @@ class Args:
     """"""
     input_update_frequency: int = 1
     """"""
-    mask_type: str = "internal"
+    mask_type: str = "input"
     """It's one of these: [internal, input, both]"""
     mask_transform_type: str = "softmax"
     """It's either `softmax` or `quantize`"""
@@ -107,7 +107,6 @@ class Args:
     # reg_coef: float = 0.0
     # reg_coef: float = 110.03 # Combogrid 4 environments
     reg_coef: float = 0
-    filtering_inapplicable: bool = False
 
     # Script arguments
     seed: int = 0
@@ -265,12 +264,11 @@ def load_options(args, logger):
     options = [None] * n
 
     print(model_files)
-    
+    assert int(checkpoint['environment_args']['game_width']) == int(args.game_width)
 
     for model_file in model_files:
         model_path = os.path.join(save_dir, model_file)
         checkpoint = torch.load(model_path)
-        assert int(checkpoint['environment_args']['game_width']) == int(args.game_width)
         
         if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
             if 'environment_args' in checkpoint:
@@ -925,7 +923,7 @@ class LearnOptions:
                     for future in concurrent.futures.as_completed(futures):
                         try:
                             mask, init_loss, final_loss, applicable = future.result()
-                            if (not self.args.filtering_inapplicable) or applicable:
+                            if applicable:
                                 option_candidates.append((mask, 
                                                     future.primary_problem, 
                                                     target_problem, 
@@ -942,7 +940,7 @@ class LearnOptions:
                 utils.logger_flush(self.logger)
             self.logger.debug("\n")
             self.logger.info("Saving parameters ... ")
-            os.makedirs(os.path.dirname(self.option_candidates_path), exist_ok=True)
+            os.makedirs(os.path.dirname(self.option_candidates_path))
             with open(self.option_candidates_path, 'wb') as f:
                 pickle.dump({'option_candidates': option_candidates, 'trajectories': trajectories}, f, protocol=pickle.HIGHEST_PROTOCOL)
         else:
@@ -1075,105 +1073,82 @@ class LearnOptions:
         selected_options = selected_options[:num_options - 1]
         return selected_options
 
-    def _compute_sample_weight(self, option_refs, possible_sequences, all_options):
-        transitions = [0.1 for _ in range(len(option_refs))]
-        for i, o_idx in enumerate(option_refs):
-            option = all_options[o_idx]
-            option_id = option.get_option_id()
-            for problem_name, sub_cache in self.levin_loss.cache[option_id].items():
-                for segment, (applicable, _) in sub_cache.items():
-                    if applicable == True and (segment, segment + option.option_size) in possible_sequences[problem_name]:
-                        transitions[i] += 1
-
-        weights = np.array(transitions)
-        weights /= weights.sum()
-        return weights
-
-    def _search_options_subset(self, max_num_options, all_options, all_possible_sequences, trajectories, max_steps, worker_id):
-        max_num_neighbours = 125
-        
+    def _search_options_subset(self, max_num_options, all_options, trajectories, option_weights, max_steps, worker_id):
         random_generator = np.random.default_rng([worker_id, self.args.seed])
-        all_option_refs = set(range(len(all_options)))
-        
-        max_num_options = min(max_num_options, len(all_option_refs))
-        # length_weights = np.array([1/(i+2) for i in range(max_num_options + 1)])
+        max_num_options = min(max_num_options, len(all_options))
+
         length_weights = np.array([1/(i*3+2) for i in range(max_num_options + 1)])
         length_weights /= np.sum(length_weights)
         subset_length = random_generator.choice(range(max_num_options + 1), p=length_weights)
-        
-        weights = self._compute_sample_weight(all_option_refs, all_possible_sequences, all_options)
-        selected_options = set(random_generator.choice(list(all_option_refs), p=weights, size=subset_length, replace=False).tolist())
-        possible_sequences = copy.deepcopy(all_possible_sequences)
-        
-        previous_cost = float('Inf')
-        total_loss_calculations = 1
-        steps = 0
-        best_cost = 0
+        selected_indices = random_generator.choice(range(len(all_options)), p=option_weights, size=subset_length, replace=False).tolist()
+        selected_options = set([all_options[i] for i in selected_indices])
+        cost = 0
         for problem, trajectory in trajectories.items():
-            cost, used_sequences = self.levin_loss.compute_loss_cached([all_options[idx] for idx in selected_options], 
-                                                                                        trajectory, 
-                                                                                        problem_str=problem, 
-                                                                                        number_actions=self.number_actions)
-            possible_sequences[problem] = possible_sequences[problem] - used_sequences
-            best_cost += cost
-        
+            cost += self.levin_loss.compute_loss_cached(list(selected_options), trajectory, problem_str=problem, number_actions=self.number_actions)
+        best_cost = cost
+        total_loss_calculations = 1
+        previous_cost = float('Inf')
+        steps = 0
+        num_neighbours = min(125, len(all_options) - max_num_options)
         while (best_cost < previous_cost or steps == 0) and steps < max_steps:
             previous_cost = best_cost
-            not_selected_options = all_option_refs - selected_options
-            weights = self._compute_sample_weight(not_selected_options, possible_sequences, all_options)
-            num_neighbours = min(max_num_neighbours, len(not_selected_options))
-            sample_options = random_generator.choice(list(not_selected_options), p=weights, size=num_neighbours, replace=False).tolist()
-            # assert len(sample_options) == (len(all_options) - len(selected_options)) == len(not_selected_options), f"Sampled options {len(sample_options)} should be equal to all options {len(all_options)} len of selected ones: {len(selected_options)}, len of not selected ones: {len(not_selected_options)}"
+            weights = copy.deepcopy(option_weights)
+            for i in selected_indices:
+                weights[i] = 0
+            weights /= np.sum(weights)
+            sample_indices = random_generator.choice(range(len(all_options)), p=weights, size=num_neighbours, replace=False).tolist()
+            sample_options = [all_options[i] for i in sample_indices]
 
             neighbours = []
-            for option in sample_options:
+            for index, option in zip(sample_indices, sample_options):
                 assert option not in selected_options, f"Option {option.get_option_id()} should not be in selected options."
                 if option not in selected_options:
                     if len(selected_options) < max_num_options:
                         neighbour = selected_options | {option}
-                        neighbours.append(neighbour)
-                    for option2 in selected_options:
-                        neighbour = selected_options - {option2} | {option}
-                        neighbours.append(neighbour)
-            for option in selected_options:
-                neighbour = selected_options - {option}
-                neighbours.append(neighbour)
+                        neighbours.append((selected_indices + [index], neighbour))
+                        for idx, option2 in zip(*neighbours[-1]):
+                            assert all_options[idx] == option2, f"Addition: Option of idx {idx}, {all_options[idx].get_option_id()} should be equal to {option2.get_option_id()} appended indices={selected_indices + [index]} \
+                                \n {[option3.get_option_id() for option3 in neighbour]} \
+                                \n To be added: {option.get_option_id()} "
                 
+                    for i, option2 in enumerate(selected_options):
+                        neighbour2 = selected_options - {option2} | {option}
+                        neighbours.append((selected_indices[:i] + selected_indices[i+1:] + [index], neighbour2))
+                        for idx, option3 in zip(*neighbours[-1]):
+                            assert all_options[idx] == option3, f"Swapping option {i}: Option of idx {idx}, {all_options[idx].get_option_id()} should be equal to {option3.get_option_id()} appended indices={neighbours[-1][0]} \
+                                \n result={[option4.get_option_id() for option4 in neighbour2]} \
+                                \n selected_options={[option5.get_option_id() for option5 in selected_options]} \
+                                \n option2={option2.get_option_id()} \
+                                \n option={option.get_option_id()} \
+                                \n selected_indices={selected_indices} \
+                                \n selected_indices options={[all_options[idx2].get_option_id() for idx2 in selected_indices]}"
+                
+                else:
+                    raise Exception(f"Option {option.get_option_id()} should not be in selected options.")
+                    neighbour = selected_options - {option}
+                    neighbours.append(neighbour)
+            for i, option in enumerate(selected_options):
+                neighbour = selected_options - {option}
+                neighbours.append((selected_indices[:i] + selected_indices[i+1:], neighbour))
+                for idx, option2 in zip(*neighbours[-1]):
+                    assert all_options[idx] == option2, f"Deleting option {i}: Option of idx {idx}, {all_options[idx].get_option_id()} should be equal to {option2.get_option_id()} appended indices={selected_indices[:i] + selected_indices[i+1:]}"
+                
+
             # self.logger.info(f"Number of neighbours: {len(neighbours)}")
-            i = 0
-            for neighbour in neighbours:
-                i += 1
+            for indices, neighbour in neighbours:
+                for idx, option in zip(indices, neighbour):
+                    assert all_options[idx] == option, f"Option of idx {idx}, {all_options[idx].get_option_id()} should be equal to {option.get_option_id()} selected_indices={selected_indices}"
                 cost = 0
-                remaining_sequences = copy.deepcopy(all_possible_sequences)
                 for problem, trajectory in trajectories.items():
-                    returned_cost, used_sequences = self.levin_loss.compute_loss_cached([all_options[idx] for idx in neighbour], 
-                                                                                        trajectory, 
-                                                                                        problem_str=problem, 
-                                                                                        number_actions=self.number_actions)
-                    remaining_sequences[problem] = remaining_sequences[problem] - used_sequences
-                    cost += returned_cost
-                    total_loss_calculations += 1
+                    cost += self.levin_loss.compute_loss_cached(list(neighbour), trajectory, problem_str=problem, number_actions=self.number_actions)
+                total_loss_calculations += 1
                 if cost < best_cost:
                     selected_options = neighbour
-                    possible_sequences = remaining_sequences
+                    selected_indices = indices
                     best_cost = cost
             steps += 1
         
         return best_cost, selected_options, {"total_loss_calculations": total_loss_calculations, "steps":steps}
-
-    def _compute_option_applicability(self, option, trajectories):
-        result = {problem: {} for problem in trajectories.keys()}
-        applicable_count = 0
-        for problem, trajectory in trajectories.items():
-            t_len = trajectory.get_length()
-            t = trajectory.get_trajectory()
-            for s in range(t_len):
-                actions = self.levin_loss._run(copy.deepcopy(t[s][0]), option.mask, option, option.option_size)
-                is_applicable = (len(actions) == option.option_size) and self.levin_loss.is_applicable(t, actions, s)
-                if is_applicable:
-                    applicable_count += 1
-                result[problem][s] = (is_applicable, actions)
-        return result, applicable_count
 
     def select_by_local_search(self, option_candidates, trajectories):
         all_options = []
@@ -1193,70 +1168,6 @@ class LearnOptions:
 
         self.logger.info(f"Number of option_candidates: {len(all_options)}")
 
-        if os.path.exists(self.option_cache_path):
-            self.logger.info(f"Loading option cache from {self.option_cache_path}")
-            with open(self.option_cache_path, 'rb') as f:
-                self.levin_loss.cache = pickle.load(f)
-        else:
-            with concurrent.futures.ProcessPoolExecutor(max_workers=self.args.cpus) as executor:
-                # Submit tasks to the executor with all required arguments
-                futures = set()
-                for i, option in enumerate(all_options):
-                    future = executor.submit(
-                        self._compute_option_applicability, option, trajectories)
-                    future.option_id = option.get_option_id()
-                    futures.add(future)
-                self.logger.info(f"Logging Checkpoint 1.")
-
-                # Process the results as they complete
-                total_applicable_count = 0
-                progress = 0
-                for future in concurrent.futures.as_completed(futures):
-                    try:
-                        option_id = future.option_id
-                        self.levin_loss.cache[option_id], n_applicable = future.result()
-                        total_applicable_count += n_applicable
-                        progress += 1
-                        if progress % 100 == 0:
-                            self.logger.info(f"Cache size: {len(self.levin_loss.cache)}, applicable_count: {total_applicable_count}")
-                    except Exception as exc:
-                        self.logger.error(f'Exception: {exc}')
-                        traceback.print_exc()
-                        return
-
-            # applicable_count = 0
-            # for i, option in enumerate(all_options):
-            #     option_id = option.get_option_id()
-            #     for problem, trajectory in trajectories.items():
-            #         t_len = trajectory.get_length()
-            #         t = trajectory.get_trajectory()
-            #         for s in range(t_len):
-            #             if option_id not in self.levin_loss.cache:
-            #                 self.levin_loss.cache[option_id] = {}
-            #             if problem not in self.levin_loss.cache[option_id]:
-            #                 self.levin_loss.cache[option_id][problem] = {}
-            #             actions = self.levin_loss._run(copy.deepcopy(t[s][0]), option.mask, option, option.option_size)
-            #             is_applicable = (len(actions) == option.option_size) and self.levin_loss.is_applicable(t, actions, s)
-            #             if is_applicable:
-            #                 applicable_count += 1
-            #             self.levin_loss.cache[option.get_option_id()][problem][s] = (is_applicable, actions)
-            #     if i % 100 == 0:
-            #         self.logger.info(f"Cache size: {len(self.levin_loss.cache)}, applicable_count: {applicable_count}")
-            self.logger.info(f"Saving option cache to {self.option_cache_path}")
-            os.makedirs(os.path.dirname(self.option_cache_path), exist_ok=True)
-            with open(self.option_cache_path, 'wb') as f:
-                pickle.dump(self.levin_loss.cache, f, protocol=pickle.HIGHEST_PROTOCOL)
-        self.logger.info(f"Cache created. size: {len(self.levin_loss.cache)}")
-
-        all_possible_sequences = {}
-        for problem_name, trajectory in trajectories.items():
-            trajectory = trajectory.get_trajectory()
-            all_possible_sequences[problem_name] = set()
-            t_length = len(trajectory)
-            for length in range(2, t_length + 1):
-                for s in range(0, t_length - length + 1):
-                    all_possible_sequences[problem_name].add((s, s+length))
-
         chained_trajectory = None
         joint_problem_name_list = []
         for problem, trajectory in trajectories.items():
@@ -1274,37 +1185,39 @@ class LearnOptions:
         best_selected_options = []
         best_levin_loss_total = float('Inf')
         completed = 0
+        
+        weights = np.array([0.1 for _ in range(len(all_options))], dtype=np.float64)
+        for i, option in enumerate(all_options):
+            for problem, trajectory in trajectories.items():
+                t = trajectory.get_trajectory()
+                for j in range(len(t)): # We just don't care if the option is applicable to the last primitive action of any trajectory
+                    actions = self.levin_loss._run(copy.deepcopy(t[j][0]), option.mask, option, option.option_size)
+                    is_applicable = self.levin_loss.is_applicable(t, actions, j)
+                    if is_applicable:
+                        weights[i] += 1
+        weights /= np.sum(weights)
+        self.logger.info("weights calculated!")
 
-        for problem, trajectory in trajectories.items():
-            cost, _ = self.levin_loss.compute_loss_cached([], 
-                                                            trajectory, 
-                                                            problem_str=problem, 
-                                                            number_actions=self.number_actions)
-            print(f"Cost of empty set: {cost} for problem {problem}")
-            
-
-        # for i in range(10):
-        #     best_cost, selected_options, info = self._search_options_subset(max_num_options, all_options, all_possible_sequences, trajectories, max_steps, i)
+        # for i in range(restarts):
+        #     best_cost, selected_options, info = self._search_options_subset(max_num_options, all_options, trajectories, weights, max_steps, i)
         #     total_loss_calculations = info['total_loss_calculations']
-        #     steps = info['steps']
-        #     # self.levin_loss.cache.update(cache)
+        #     steps = info['steps']        
         #     if best_cost < best_levin_loss_total:
         #         best_levin_loss_total = best_cost
         #         best_selected_options = selected_options
-        #     completed += 1
-        #     # self.logger.info(f"cache size: {len(self.levin_loss.cache)}")
-        #     self.logger.info(f"Restart {completed} of {restarts} complete. Selected Options: {selected_options}, total_loss_calculations={total_loss_calculations}, steps={steps}, Levin loss: {best_cost}, Best: {best_levin_loss_total}")
-        #     utils.logger_flush(self.logger)        
-
+        #     self.logger.info(f"Restart {completed} of {restarts} complete. Number of Options: {len(selected_options)}, total_loss_calculations={total_loss_calculations}, steps={steps}, Levin loss: {best_cost}, Best: {best_levin_loss_total}")
+                    
+        # self.logger.info(f"Logging Checkpoint 1.")
 
         with concurrent.futures.ProcessPoolExecutor(max_workers=self.args.cpus) as executor:
             # Submit tasks to the executor with all required arguments
             futures = set()
             for i in range(restarts):
                 future = executor.submit(
-                    self._search_options_subset, max_num_options, all_options, all_possible_sequences, trajectories, max_steps, i)
+                    self._search_options_subset, max_num_options, all_options, trajectories, weights, max_steps, i)
                 self.logger.info(f"Restart {i} of {restarts} submitted.")
                 futures.add(future)
+
             self.logger.info(f"Logging Checkpoint 2.")
 
             # Process the results as they complete
@@ -1319,14 +1232,13 @@ class LearnOptions:
                         best_selected_options = selected_options
                     completed += 1
                     # self.logger.info(f"cache size: {len(self.levin_loss.cache)}")
-                    self.logger.info(f"Restart {completed} of {restarts} complete. Selected Options: {selected_options}, total_loss_calculations={total_loss_calculations}, steps={steps}, Levin loss: {best_cost}, Best: {best_levin_loss_total}")
+                    self.logger.info(f"Restart {completed} of {restarts} complete. Number of Options: {len(selected_options)}, total_loss_calculations={total_loss_calculations}, steps={steps}, Levin loss: {best_cost}, Best: {best_levin_loss_total}")
                     utils.logger_flush(self.logger)
                 except Exception as exc:
                     self.logger.error(f'Exception: {exc}')
                     traceback.print_exc()
                     return
 
-        best_selected_options = [all_options[idx] for idx in best_selected_options]
         self.levin_loss.remove_cache()
         return list(best_selected_options)
 

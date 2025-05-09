@@ -1,4 +1,5 @@
 import copy
+from environments.utils import get_single_environment
 import torch
 import math
 import numpy as np
@@ -9,44 +10,6 @@ from agents.policy_guided_agent import PPOAgent
 from environments.environments_combogrid_gym import ComboGym
 from environments.environments_combogrid import DIRECTIONS, PROBLEM_NAMES as COMBO_PROBLEM_NAMES
 from environments.environments_minigrid import get_training_tasks_simplecross
-
-
-def regenerate_trajectories(args, verbose=False, logger=None):
-    """
-    This function loads one trajectory for each problem stored in variable "problems".
-
-    The trajectories are returned as a dictionary, with one entry for each problem. 
-    """
-    def get_single_environment(args, seed):
-        if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
-            env = get_training_tasks_simplecross(view_size=args.game_width, seed=seed)
-        elif args.env_id == "ComboGrid":
-            problem = COMBO_PROBLEM_NAMES[seed]
-            env = ComboGym(rows=args.game_width, columns=args.game_width, problem=problem)
-        else:
-            raise NotImplementedError
-        return env
-    
-    trajectories = {}
-    
-    for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
-        env = get_single_environment(args, seed=seed)
-        
-        if verbose:
-            logger.info(f"Loading Trajectories from {model_path} ...")
-        
-        agent = PPOAgent(env, hidden_size=args.hidden_size)
-        
-        agent.load_state_dict(torch.load(model_path))
-
-        trajectory = agent.run(env, verbose=verbose)
-        trajectories[problem] = trajectory
-
-        if verbose:
-            logger.info(f"The trajectory length: {len(trajectory.get_state_sequence())}")
-
-    return trajectories
 
 
 class LevinLossActorCritic:
@@ -186,6 +149,7 @@ class LevinLossActorCritic:
         M = np.arange(len(t) + 1)
         trace = [(i-1, None) for i in range(len(t) + 1)]
         trace[0] = (0, None)
+        used_sequences = set()
 
         for j in range(len(t) + 1):
             if j > 0:
@@ -206,22 +170,20 @@ class LevinLossActorCritic:
                     #     continue
                     # if any([joint_problem_name_list[min(j+k, len(t) - 1)] == problem_str for k in range(1, option.option_size)]):
                     #     continue
-                    if (option.get_option_id(), problem_str, j) in self.cache:
-                        if self.cache[(option.get_option_id(), problem_str, j)][0] == True:
-                            actions = self.cache[(option.get_option_id(), problem_str, j)][1]
+                    option_id = option.get_option_id()
+                    if option_id in self.cache and problem_str in self.cache[option_id] and j in self.cache[option_id][problem_str]:
+                        if self.cache[option_id][problem_str][j][0] == True:
+                            actions = self.cache[option_id][problem_str][j][1]
                             if M[j + len(actions)] > M[j] + 1:
                                 trace[j + len(actions)] = (j, i)
                                 M[j + len(actions)] = M[j] + 1
+                            used_sequences.add((j, j+len(actions)))
                             # M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
                     else:
-                        actions = self._run(copy.deepcopy(t[j][0]), option.mask, option, option.option_size)
-                        # self.cache[(option.get_option_id(), problem_str, j)] = (False, actions)
-                        if self.is_applicable(t, actions, j):
-                            if M[j + len(actions)] > M[j] + 1:
-                                trace[j + len(actions)] = (j, i)
-                                M[j + len(actions)] = M[j] + 1
-                            # M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
-                            # self.cache[(option.get_option_id(), problem_str, j)] = (True, actions)
+                        assert option_id in self.cache , f"{option_id} not found in cache"
+                        assert problem_str in self.cache[option_id], f"{problem_str} not found in cache of {option_id}"
+                        assert j in self.cache[option_id][problem_str], f"{j} not found in cache of {option_id} and {problem_str}"
+                        raise Exception(f"The cache is supposed to be precomputed, combination wasn't found: \n {(option_id, problem_str, j)}")
         uniform_probability = (1/(len(options) + number_actions)) 
         depth = len(t) + 1
         number_decisions = M[len(t)]
@@ -239,7 +201,7 @@ class LevinLossActorCritic:
         log_depth = math.log(depth)
         log_uniform_probability = math.log(uniform_probability)
 
-        return log_depth - number_decisions * log_uniform_probability + reg
+        return log_depth - number_decisions * log_uniform_probability + reg, used_sequences
 
     def print_output_subpolicy_trajectory(self, options: List[PPOAgent], trajectories, logger):
         """
@@ -292,7 +254,7 @@ class LevinLossActorCritic:
 
                         actions = self._run(copy.deepcopy(t[j][0]), options[i].mask, options[i], options[i].option_size)
 
-                        if self.is_applicable(t, actions, j):
+                        if len(actions) == options[i].option_size and self.is_applicable(t, actions, j):
                             M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
 
                             if isinstance(options[i].mask, torch.Tensor):
@@ -337,14 +299,13 @@ class LevinLossActorCritic:
                 buffer += "\n"
             logger.info(buffer)
 
+        env = get_single_environment(args, seed, problem=problem_test)
+        game_width = args.game_width
+
         if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
-            env = get_training_tasks_simplecross(args.game_width, seed=seed)
             directions = ["R", "D", "L", "U"]
-            game_width = 7
         elif args.env_id == "ComboGrid":
-            env = ComboGym(args.game_width, args.game_width, problem_test)
             directions = ["NA"]
-            game_width = args.game_width
         else:
             raise NotImplementedError
         
@@ -355,7 +316,7 @@ class LevinLossActorCritic:
         
         for idx, agent in enumerate(options):
             # Evaluating the performance of options
-            logger.info(f"\n {idx} Option: {agent.mask.cpu().numpy()} {agent.problem_id}, {agent.extra_info}")
+            logger.info(f"\n {idx} Option: {agent.mask} {agent.problem_id}, {agent.extra_info}")
             for direction in directions:
                 logger.info(f"Direction: {direction}")
                 action_seq = {}

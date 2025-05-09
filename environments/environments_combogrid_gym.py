@@ -7,7 +7,7 @@ from typing import List, Any
 from gymnasium.envs.registration import register
 
 class ComboGym(gym.Env):
-    def __init__(self, rows=3, columns=3, problem="TL-BR", options=None):
+    def __init__(self, rows=3, columns=3, problem="TL-BR", options=None, reward_per_step=-1, reward_terminated=1):
         self._game = Game(rows, columns, problem)
         self._rows = rows
         self._columns = columns
@@ -17,6 +17,8 @@ class ComboGym(gym.Env):
         self.n_discrete_actions = 3
         self.action_space = gym.spaces.Discrete(self.n_discrete_actions)
         self.n_steps = 0
+        self.reward_per_step = reward_per_step
+        self.reward_terminated = reward_terminated
         
         if options is not None:
             self.setup_options(options)
@@ -45,7 +47,7 @@ class ComboGym(gym.Env):
             self._game.apply_action(action)
             self.n_steps += 1
             terminated = self._game.is_over()
-            reward = 0 if terminated else -1 
+            reward = self.reward_terminated if terminated else self.reward_per_step 
             if self.n_steps == 500:
                 truncated = True
             return self.get_observation(), reward, terminated, truncated, {}

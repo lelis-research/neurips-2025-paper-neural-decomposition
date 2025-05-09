@@ -3,6 +3,7 @@ from environments.utils import get_single_environment_builder
 import torch
 import time
 import tyro
+import copy
 import random
 import numpy as np
 import gymnasium as gym
@@ -27,7 +28,7 @@ class Args:
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
-    method: str = "learn-options-filtered"
+    method: str = "no_options"
     """Determines the baseline that is being tested; Choices: ['no_options']"""
     cuda: bool = True
     """if toggled, cuda will be enabled by default"""
@@ -47,14 +48,14 @@ class Args:
     # Testing specific arguments
     test_exp_id: str = ""
     """The ID of the new experiment"""
-    test_exp_name: str = "parameter_search_learnOptions_filteredOptionSet"
+    test_exp_name: str = "test_learnOptions_filteredOptionSet"
     """the name of this experiment"""
     test_env_id: str = "ComboGrid"
     """the id of the environment for testing
     choices from [ComboGrid, MiniGrid-FourRooms-v0]"""
     test_problems: List[str] = tuple()
     """"""
-    test_env_seeds: Union[List[int], str] = (12,)
+    test_env_seeds: Union[List[int], str] = (13,)
     """the seeds of the environment for testing"""
     total_timesteps: int = 2_000_000
     """total timesteps for testing"""
@@ -110,7 +111,7 @@ class Args:
     seed: int = 0
     """run seed"""
     track: bool = False
-    """if toggled, this experiment will be tracked with Weights and Biases"""
+    """if toggled, this experiment will be tracked with Weights and Biases; Set to true if you want to plot the experiment"""
     wandb_project_name: str = "BASELINE0_Combogrid"
     """the wandb's project name"""
     wandb_entity: str = None
@@ -159,16 +160,17 @@ def train_ppo_with_options(options: List[PPOAgent], test_exp_id: str, env_seed: 
     if "ComboGrid" in args.env_id:
        problem = args.test_problem
     envs = gym.vector.SyncVectorEnv([get_single_environment_builder(args, env_seed, problem, options=options, is_test=True) for _ in range(args.num_envs)])
+    
     assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
     
-    model_path = f'binary/models/{test_exp_id}/seed={args.seed}/extended_MODEL.pt'
+    model_path = f'binary/models/parameter_sweep/{test_exp_id}/seed={args.seed}/extended_MODEL.pt'
     
     args.batch_size = int(args.num_envs * args.num_steps)
     args.minibatch_size = int(args.batch_size // args.num_minibatches)
     args.num_iterations = args.total_timesteps // args.batch_size
     
     run_name = f"{test_exp_id}_trained_with_options/seed={args.seed}/_t{int(time.time())}"
-    writer = SummaryWriter(f"outputs/tensorboard/runs/{run_name}")
+    writer = SummaryWriter(f"outputs/tensorboard/runs/parameter_sweep/{run_name}")
     hyperparameters = dict(vars(args))
     hyperparameters.update({"test_exp_id": test_exp_id})
     writer.add_text(
@@ -194,33 +196,35 @@ def train_ppo_with_options(options: List[PPOAgent], test_exp_id: str, env_seed: 
 
 
 def main(args: Args):
-
-    logger, args.log_path = utils.get_logger("test_options_logger", args.log_level, args.log_path)
-
-    if args.method == "no_options":
-        options = []
-    else:
-        options, _ = load_options(args, logger)
-
-    for option in options:
-        print((option.mask.tolist(), option.option_size, option.problem_id))
-
     # Custom parameters for each problem
     lrs = args.learning_rate
     clip_coef = args.clip_coef
     ent_coef = args.ent_coef
     for i, (problem, seed) in enumerate(zip(args.test_problems, args.test_env_seeds)):
+        mod_args = copy.deepcopy(args)
+        mod_args.learning_rate = lrs[i]
+        mod_args.clip_coef = clip_coef[i]
+        mod_args.ent_coef = ent_coef[i]
+        test_exp_sub_id = f"_lr{mod_args.learning_rate}_clip{mod_args.clip_coef}_ent{mod_args.ent_coef}_envsd{seed}"
+        args.log_path = os.path.join(mod_args.log_path, test_exp_sub_id)
+        logger, mod_args.log_path = utils.get_logger("test_options_logger", mod_args.log_level, args.log_path)
+        
+        if mod_args.method == "no_options":
+            options = []
+        else:
+            options, _ = load_options(mod_args, logger)
+        for option in options:
+            print((option.mask.tolist(), option.option_size, option.problem_id))
+
         logger.info(f"Testing by training on {problem}, env_seed={seed}")
-        args.batch_size = int(args.num_envs * args.num_steps)
-        args.minibatch_size = int(args.batch_size // args.num_minibatches)
-        args.num_iterations = args.total_timesteps // args.batch_size
-        args.learning_rate = lrs[i]
-        args.clip_coef = clip_coef[i]
-        args.ent_coef = ent_coef[i]
-        args.test_seed = seed
-        args.test_problem = problem
-        test_exp_id = f'{args.test_exp_id}_lr{args.learning_rate}_clip{args.clip_coef}_ent{args.ent_coef}_envsd{seed}'
-        train_ppo_with_options(options, test_exp_id, seed, args, logger)
+        mod_args.batch_size = int(mod_args.num_envs * mod_args.num_steps)
+        mod_args.minibatch_size = int(mod_args.batch_size // mod_args.num_minibatches)
+        mod_args.num_iterations = mod_args.total_timesteps // mod_args.batch_size
+        
+        mod_args.test_seed = seed
+        mod_args.test_problem = problem
+        test_exp_id = f'{mod_args.test_exp_id}_{test_exp_sub_id}'
+        train_ppo_with_options(options, test_exp_id, seed, mod_args, logger)
         utils.logger_flush(logger)
 
 
@@ -230,7 +234,8 @@ if __name__ == "__main__":
     # Setting the test experiment id
     if args.test_exp_id == "":
         args.test_exp_id = f'{args.test_exp_name}_{args.test_env_id}' + \
-        f'_gw{args.game_width}_h{args.hidden_size}_l1{args.l1_lambda}'
+        f'_gw{args.game_width}_h{args.hidden_size}'
+    args.log_path = os.path.join(args.log_path, "param_sweep")
     if args.method == "no_options":
         args.log_path = os.path.join(args.log_path, args.test_exp_id, f"seed={args.seed}")
     else:

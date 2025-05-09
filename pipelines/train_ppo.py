@@ -1,6 +1,7 @@
 import os
 import random
 import time
+from environments.utils import get_single_environment_builder
 import torch
 import tyro
 import numpy as np
@@ -175,19 +176,10 @@ def main(args: Args):
     utils.logger_flush(logger)
 
     # Environment creation
-    if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
-        envs = gym.vector.SyncVectorEnv( 
-            [make_env_simple_crossing(view_size=args.game_width, seed=args.env_seed) for _ in range(args.num_envs)])
-    elif "ComboGrid" in args.env_id:
+    problem = None
+    if "ComboGrid" in args.env_id:
         problem = args.problem
-        envs = gym.vector.SyncVectorEnv(
-            [make_env_combogrid(rows=args.game_width, columns=args.game_width, problem=problem) for _ in range(args.num_envs)],
-        )    
-    elif args.env_id == "MiniGrid-FourRooms-v0":
-        envs = gym.vector.SyncVectorEnv( 
-            [make_env_four_rooms(view_size=args.game_width, seed=args.env_seed) for _ in range(args.num_envs)])
-    else:
-        raise NotImplementedError
+    envs = gym.vector.SyncVectorEnv([get_single_environment_builder(args, args.env_seed, problem, is_test=False) for _ in range(args.num_envs)])
     
     model_path = f'binary/models/{args.exp_id}/seed={args.seed}/ppo_first_MODEL.pt'
 
@@ -206,6 +198,9 @@ def main(args: Args):
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
+
+    env_idx = 0
+    args.seed = 15
 
     # Setting the experiment id
     if args.exp_id == "":
@@ -226,7 +221,9 @@ if __name__ == "__main__":
     clip_coef = args.clip_coef
     ent_coef = args.ent_coef
     exp_id = args.exp_id
-    for i in range(1, len(args.env_seeds)):
+    for i in range(len(args.env_seeds)):
+        if i != env_idx:
+            continue
         args.env_seed = args.env_seeds[i]
         args.batch_size = int(args.num_envs * args.num_steps)
         args.minibatch_size = int(args.batch_size // args.num_minibatches)

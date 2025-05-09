@@ -11,7 +11,7 @@ from utils import utils
 from agents.policy_guided_agent import PPOAgent
 
 
-def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, device, logger=None, writer=None, sparse_init=False):
+def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, device, logger=None, writer=None, sparse_init=False, deterministic=False):
     hidden_size = args.hidden_size
     l1_lambda = args.l1_lambda
     if not seed:
@@ -50,7 +50,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
-                action, logprob, _, value, _ = agent.get_action_and_value(next_obs, deterministic=False)
+                action, logprob, _, value, _ = agent.get_action_and_value(next_obs, deterministic=deterministic)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -126,7 +126,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                _, newlogprob, entropy, newvalue, _ = agent.get_action_and_value(b_obs[mb_inds], b_actions.long()[mb_inds], deterministic=False)
+                _, newlogprob, entropy, newvalue, _ = agent.get_action_and_value(b_obs[mb_inds], b_actions.long()[mb_inds], deterministic=deterministic)
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
