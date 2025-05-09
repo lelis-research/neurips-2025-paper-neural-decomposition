@@ -72,6 +72,7 @@ scipy==1.15.2
 seaborn==0.13.2
 six==1.17.0
 SQLAlchemy==2.0.37
+stable_baselines3==2.6.0
 sympy==1.13.1
 tensorboard==2.18.0
 tensorboard-data-server==0.7.2

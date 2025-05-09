@@ -60,18 +60,29 @@ class StepRewardWrapper(RewardWrapper):
         return reward + self.step_reward
     
 class SuccessBonus(gym.Wrapper):
-    def __init__(self, env, bonus=+5.0):
+    def __init__(self, env, bonus=+5.0, threshold=0.5):
         super().__init__(env)
         self.bonus = bonus
+        self.threshold = threshold
 
     def step(self, action):
-        obs, r, terminated, truncated, info = super().step(action)
-        print("info", info.keys())
-        if terminated and info.get("is_success", False):
-            r += self.bonus
-            print("success!")
+        obs, reward, terminated, truncated, info = self.env.step(action)
 
-        return obs, r, terminated, truncated, info
+        # extract achieved and desired goal from the observation dict
+        ag = obs.get("achieved_goal")
+        dg = obs.get("desired_goal")
+
+        if ag is not None and dg is not None:
+            distance = np.linalg.norm(ag - dg)
+            if distance < self.threshold:
+                reward += self.bonus
+                info["success"] = True
+                reward += self.bonus
+                print("success!!")
+            else:
+                info["success"] = False
+
+        return obs, reward, terminated, truncated, info
     
 class RewardShaping(gym.Wrapper):
     def step(self, action):
@@ -137,6 +148,41 @@ class CurriculumWrapper(gym.Wrapper):
 
         return obs, reward, term, trunc, info
     
+    
+class AntV5RewardWrapper(gym.Wrapper):
+    """
+    Wrap any MuJoCo Ant env (e.g. AntMaze_UMaze-v5) and
+    use Ant-v5’s native reward signal instead of the maze’s.
+    """
+    def __init__(self, env, ant_r_coef=0.1):
+        super().__init__(env)
+        # build a parallel Ant-v5 env for its reward
+        self.ant = gym.make("Ant-v5")
+        self.ant_r_coef = ant_r_coef
+
+    def reset(self, **kwargs):
+        # reset both environments
+        obs, info = super().reset(**kwargs)
+        self.ant.reset()
+        return obs, info
+
+    def step(self, action):
+        # 1) step your wrapped env (we’ll keep its reward in info)
+        obs, maze_r, terminated, truncated, info = super().step(action)
+        info['maze_reward'] = maze_r
+
+        # 2) step the Ant-v5 env for its native reward
+        _, ant_r, term2, trunc2, ant_info = self.ant.step(action)
+
+        # merge any Ant-info you want
+        info.update(ant_info)
+        info['ant_reward'] = ant_r
+        r = self.ant_r_coef * ant_r + maze_r
+
+        # 3) return the Ant-v5 reward (ignore maze_r in the returned reward)
+        return obs, ant_r, terminated, truncated, info
+    
+    
 # Dictionary mapping string keys to corresponding wrapper classes.
 WRAPPING_TO_WRAPPER = {
     "CombineGoals": CombineGoalsWrapper,
@@ -150,6 +196,7 @@ WRAPPING_TO_WRAPPER = {
     "StepReward": StepRewardWrapper,
     "SuccessBonus": SuccessBonus,
     "CurriculumWrapper": CurriculumWrapper,
-    "RewardShaping": RewardShaping
+    "RewardShaping": RewardShaping,
+    "AntReward": AntV5RewardWrapper,
 }
 

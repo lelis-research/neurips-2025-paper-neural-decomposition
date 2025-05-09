@@ -76,6 +76,7 @@ runs/
 results/
 Results/
 older_logs/
+OldResults/
 
 *.pth
 *.pt

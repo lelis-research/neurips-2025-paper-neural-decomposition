@@ -58,7 +58,7 @@ class PPOAgentOption:
         # option‐execution state
         self.current_option     = None   # index of chosen option
         self.option_step_count  = 0      # how many primitives we've executed under it
-
+        self.accum_reward       = 0.0
               
     def act(self, observation, greedy=False):
         """
@@ -79,7 +79,9 @@ class PPOAgentOption:
             self.last_log_prob     = log_prob
             self.prev_state        = state
             self.prev_option       = option_idx_tensor.squeeze(0)
+            
             self.option_step_count = 0
+            self.accum_reward      = 0.0
 
         # execute the chosen option's primitive policy
         action = self.options[self.current_option].act(observation)  # returns a torch.Tensor
@@ -94,17 +96,19 @@ class PPOAgentOption:
         Store the transition *at every primitive step*,
         but the stored 'option' and 'log_prob' come from when it was sampled.
         """
+        self.accum_reward += reward
         next_state = torch.tensor(next_observation, device=self.device, dtype=torch.float32).unsqueeze(0)
-
-        self.memory.append({
-            "state":      self.prev_state,     # (1, obs_dim)
-            "option":     self.prev_option,    # scalar tensor
-            "log_prob":   self.last_log_prob,  # scalar tensor
-            
-            "next_state": next_state,          # (1, obs_dim)
-            "reward":     reward,              # float
-            "done":       terminated or truncated,
-        })
+        if self.option_step_count >= self.options[self.current_option].max_len or terminated or truncated:
+            self.memory.append({
+                "state":      self.prev_state,     # (1, obs_dim)
+                "option":     self.prev_option,    # scalar tensor
+                "log_prob":   self.last_log_prob,  # scalar tensor
+                
+                "next_state": next_state,          # (1, obs_dim)
+                "reward":     self.accum_reward,              # float
+                "done":       terminated,
+            })
+            self.current_option = None
 
         if terminated or truncated:
             self.ep_counter += 1

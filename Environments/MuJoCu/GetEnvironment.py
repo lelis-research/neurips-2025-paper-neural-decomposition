@@ -6,32 +6,21 @@ from gymnasium.envs.registration import register
 from .Wrappers import WRAPPING_TO_WRAPPER
 
 MUJOCO_ENV_LST = [
-    "Maze_1_Sparse",
-    "Maze_2_Sparse",
-    "Maze_3_Sparse",
-    "Maze_4_Sparse",
-    "Maze_Test_Sparse",
-
-    "Maze_1_Dense",
-    "Maze_2_Dense",
-    "Maze_3_Dense",
-    "Maze_4_Dense",
-
+    "Maze_1m",
+    "Maze_2m",
+    "Maze_3m",
+    "Maze_4m",
+    
+    "Maze_1e",
+    "Maze_2e",
+    "Maze_3e",
+    "Maze_4e",
+    
     "Maze_R",
     "Maze_L",
     "Maze_U",
     "Maze_D",
     "Medium_Maze_Sparse",
-
-    "AntMaze_1_Sparse",
-    "AntMaze_2_Sparse",
-    "AntMaze_3_Sparse",
-    "AntMaze_4_Sparse",
-
-    "AntMaze_1_Dense",
-    "AntMaze_2_Dense",
-    "AntMaze_3_Dense",
-    "AntMaze_4_Dense",
 
     "AntMaze_R",
     "AntMaze_L",
@@ -40,12 +29,7 @@ MUJOCO_ENV_LST = [
 
     "AntMaze_UMaze-v5",
     "AntMaze_UMazeDense-v5",
-
-    "PointMaze_UMaze-v3",
-    "PointMaze_UMazeDense-v3",
-
     
-    "Walker2d-v4", 
     "Ant-v5",
 ]
 
@@ -107,44 +91,75 @@ maze_d =[
 ]
 
 
-maze_1 = [
+maze_1e = [
     [ 1,   1,   1,   1,  1],
-    [ 1,   0,   0,  'g', 1],
     [ 1,   0,   0,   0,  1],
-    [ 1,  'r',  0,   0,  1],
-    [ 1,   1,   1,   1,  1],
-]
-maze_2 = [
-    [ 1,   1,   1,   1,  1],
-    [ 1,  'r',  0,   0,  1],
-    [ 1,   0,   0,   0,  1],
-    [ 1,   0,   0,  'g', 1],
-    [ 1,   1,   1,   1,  1],
-]
-maze_3 = [
-    [ 1,   1,   1,   1,  1],
-    [ 1,   0,   0,  'r', 1],
-    [ 1,   0,   0,   0,  1],
-    [ 1,  'g',  0,   0,  1],
-    [ 1,   1,   1,   1,  1],
-]
-maze_4 = [
-    [ 1,   1,   1,   1,  1],
-    [ 1,  'g',  0,   0,  1],
-    [ 1,   0,   0,   0,  1],
-    [ 1,   0,   0,  'r', 1],
+    [ 1,   0,   1,   0,  1],
+    [ 1,  'r',  1,  'g', 1],
     [ 1,   1,   1,   1,  1],
 ]
 
-# maze_test = [
-#     [ 1,   1,   1,   1,  1,  1],
-#     [ 1,  'c',  0,   0, 'c', 1],
-#     [ 1,   0,   0,   0,  0,  1],
-#     [ 1,   0,   0,   0,  0,  1],
-#     [ 1,  'c',  0,   0, 'c', 1],
-#     [ 1,   1,   1,   1,  1,  1],
-# ]
-maze_test = [
+maze_2e = [
+    [ 1,   1,   1,   1,  1],
+    [ 1,  'r',  1,  'g', 1],
+    [ 1,   0,   1,   0,  1],
+    [ 1,   0,   0,   0,  1],
+    [ 1,   1,   1,   1,  1],
+]
+maze_3e = [
+    [ 1,   1,   1,   1,  1],
+    [ 1,   0,   0,   0,  1],
+    [ 1,   0,   1,   0,  1],
+    [ 1,  'g',  1,  'r', 1],
+    [ 1,   1,   1,   1,  1],
+]
+maze_4e = [
+    [ 1,   1,   1,   1,  1],
+    [ 1,  'g',  1,  'r', 1],
+    [ 1,   0,   1,   0,  1],
+    [ 1,   0,   0,   0,  1],
+    [ 1,   1,   1,   1,  1],
+]
+
+maze_1m = [
+    [ 1,   1,   1,   1,  1],
+    [ 1,  'r',  1,   0,  1],
+    [ 1,   0,   1,   0,  1],
+    [ 1,   0,   0,   0,  1],
+    [ 1,   0,   1,   0,  1],
+    [ 1,   0,   1,  'g', 1],
+    [ 1,   1,   1,   1,  1],
+]
+maze_2m = [
+    [ 1,   1,   1,   1,  1],
+    [ 1,   0,   1,  'g', 1],
+    [ 1,   0,   1,   0,  1],
+    [ 1,   0,   0,   0,  1],
+    [ 1,   0,   1,   0,  1],
+    [ 1,  'r',  1,   0,  1],
+    [ 1,   1,   1,   1,  1],
+]
+maze_3m = [
+    [ 1,   1,   1,   1,  1],
+    [ 1,  'g',  1,   0,  1],
+    [ 1,   0,   1,   0,  1],
+    [ 1,   0,   0,   0,  1],
+    [ 1,   0,   1,   0,  1],
+    [ 1,   0,   1,  'r', 1],
+    [ 1,   1,   1,   1,  1],
+]
+maze_4m = [
+    [ 1,   1,   1,   1,  1],
+    [ 1,   0,   1,  'r', 1],
+    [ 1,   0,   1,   0,  1],
+    [ 1,   0,   0,   0,  1],
+    [ 1,   0,   1,   0,  1],
+    [ 1,  'g',  1,   0,  1],
+    [ 1,   1,   1,   1,  1],
+]
+
+
+medium_maze = [
     [1, 1,  1, 1, 1, 1, 1, 1],
     [1,'r', 0, 1, 1, 0, 0, 1],
     [1, 0,  0, 1, 0, 0, 0, 1],
@@ -154,126 +169,100 @@ maze_test = [
     [1, 0,  0, 0, 1,'g',0, 1],
     [1, 1,  1, 1, 1, 1, 1, 1],
 ]
-#Maze Sparse
-register(
-    id="Maze_1_Sparse",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
-    max_episode_steps=300,
-    kwargs={
-        "maze_map": maze_1,
-        "reward_type": "sparse",   # or "dense"
-    },
-)
-register(
-    id="Maze_2_Sparse",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
-    max_episode_steps=300,
-    kwargs={
-        "maze_map": maze_2,
-        "reward_type": "sparse",   # or "dense"
-    },
-)
-register(
-    id="Maze_3_Sparse",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
-    max_episode_steps=300,
-    kwargs={
-        "maze_map": maze_3,
-        "reward_type": "sparse",   # or "dense"
-    },
-)
-register(
-    id="Maze_4_Sparse",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
-    max_episode_steps=300,
-    kwargs={
-        "maze_map": maze_4,
-        "reward_type": "sparse",   # or "dense"
-    },
-)
 
-#Maze Dense
-register(
-    id="Maze_1_Dense",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
-    max_episode_steps=300,
-    kwargs={
-        "maze_map": maze_1,
-        "reward_type": "dense",   # or "dense"
-    },
-)
-register(
-    id="Maze_2_Dense",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
-    max_episode_steps=300,
-    kwargs={
-        "maze_map": maze_2,
-        "reward_type": "dense",   # or "dense"
-    },
-)
-register(
-    id="Maze_3_Dense",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
-    max_episode_steps=300,
-    kwargs={
-        "maze_map": maze_3,
-        "reward_type": "dense",   # or "dense"
-    },
-)
-register(
-    id="Maze_4_Dense",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
-    max_episode_steps=300,
-    kwargs={
-        "maze_map": maze_4,
-        "reward_type": "dense",   # or "dense"
-    },
-)
 
 register(
     id="Medium_Maze_Sparse",                                    # your custom name
     entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
-    max_episode_steps=300,
     kwargs={
-        "maze_map": maze_test,
-        "reward_type": "sparse",   # or "dense"
+        "maze_map": medium_maze,
     },
 )
 
 register(
     id="Maze_R",                                    # your custom name
     entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
-    max_episode_steps=200,
     kwargs={
         "maze_map": maze_r,
-        "reward_type": "sparse",   # or "dense"
     },
 )
 register(
     id="Maze_L",                                    # your custom name
     entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
-    max_episode_steps=200,
     kwargs={
         "maze_map": maze_l,
-        "reward_type": "sparse",   # or "dense"
     },
 )
 register(
     id="Maze_U",                                    # your custom name
     entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
-    max_episode_steps=200,
     kwargs={
         "maze_map": maze_u,
-        "reward_type": "sparse",   # or "dense"
     },
 )
 register(
     id="Maze_D",                                    # your custom name
     entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
-    max_episode_steps=200,
     kwargs={
         "maze_map": maze_d,
-        "reward_type": "sparse",   # or "dense"
+    },
+)
+#**
+register(
+    id="Maze_1e",                                    # your custom name
+    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
+    kwargs={
+        "maze_map": maze_1e,
+    },
+)
+register(
+    id="Maze_2e",                                    # your custom name
+    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
+    kwargs={
+        "maze_map": maze_2e,
+    },
+)
+register(
+    id="Maze_3e",                                    # your custom name
+    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
+    kwargs={
+        "maze_map": maze_3e,
+    },
+)
+register(
+    id="Maze_4e",                                    # your custom name
+    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
+    kwargs={
+        "maze_map": maze_4e,
+    },
+)
+#**
+register(
+    id="Maze_1m",                                    # your custom name
+    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
+    kwargs={
+        "maze_map": maze_1m,
+    },
+)
+register(
+    id="Maze_2m",                                    # your custom name
+    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
+    kwargs={
+        "maze_map": maze_2m,
+    },
+)
+register(
+    id="Maze_3m",                                    # your custom name
+    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
+    kwargs={
+        "maze_map": maze_3m,
+    },
+)
+register(
+    id="Maze_4m",                                    # your custom name
+    entry_point="gymnasium_robotics.envs.maze.point_maze:PointMazeEnv",
+    kwargs={
+        "maze_map": maze_4m,
     },
 )
 
@@ -282,114 +271,34 @@ register(
 register(
     id="AntMaze_R",                                    # your custom name
     entry_point="gymnasium_robotics.envs.maze.ant_maze_v3:AntMazeEnv",
-    max_episode_steps=200,
     kwargs={
         "maze_map": maze_r,
-        "reward_type": "sparse",   # or "dense"
     },
 )
 register(
     id="AntMaze_L",                                    # your custom name
     entry_point="gymnasium_robotics.envs.maze.ant_maze_v3:AntMazeEnv",
-    max_episode_steps=200,
     kwargs={
         "maze_map": maze_l,
-        "reward_type": "sparse",   # or "dense"
     },
 )
 register(
     id="AntMaze_U",                                    # your custom name
     entry_point="gymnasium_robotics.envs.maze.ant_maze_v3:AntMazeEnv",
-    max_episode_steps=200,
     kwargs={
         "maze_map": maze_u,
-        "reward_type": "sparse",   # or "dense"
     },
 )
 register(
     id="AntMaze_D",                                    # your custom name
     entry_point="gymnasium_robotics.envs.maze.ant_maze_v3:AntMazeEnv",
-    max_episode_steps=200,
     kwargs={
         "maze_map": maze_d,
-        "reward_type": "sparse",   # or "dense"
     },
 )
 
 
-register(
-    id="AntMaze_1_Sparse",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.ant_maze_v3:AntMazeEnv",
-    max_episode_steps=200,
-    kwargs={
-        "maze_map": maze_1,
-        "reward_type": "sparse",   # or "dense"
-    },
-)
-register(
-    id="AntMaze_2_Sparse",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.ant_maze_v3:AntMazeEnv",
-    max_episode_steps=200,
-    kwargs={
-        "maze_map": maze_2,
-        "reward_type": "sparse",   # or "dense"
-    },
-)
-register(
-    id="AntMaze_3_Sparse",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.ant_maze_v3:AntMazeEnv",
-    max_episode_steps=200,
-    kwargs={
-        "maze_map": maze_3,
-        "reward_type": "sparse",   # or "dense"
-    },
-)
-register(
-    id="AntMaze_4_Sparse",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.ant_maze_v3:AntMazeEnv",
-    max_episode_steps=200,
-    kwargs={
-        "maze_map": maze_4,
-        "reward_type": "sparse",   # or "dense"
-    },
-)
 
-register(
-    id="AntMaze_1_Dense",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.ant_maze_v3:AntMazeEnv",
-    max_episode_steps=200,
-    kwargs={
-        "maze_map": maze_1,
-        "reward_type": "dense",   # or "dense"
-    },
-)
-register(
-    id="AntMaze_2_Dense",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.ant_maze_v3:AntMazeEnv",
-    max_episode_steps=200,
-    kwargs={
-        "maze_map": maze_2,
-        "reward_type": "dense",   # or "dense"
-    },
-)
-register(
-    id="AntMaze_3_Dense",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.ant_maze_v3:AntMazeEnv",
-    max_episode_steps=200,
-    kwargs={
-        "maze_map": maze_3,
-        "reward_type": "dense",   # or "dense"
-    },
-)
-register(
-    id="AntMaze_4_Dense",                                    # your custom name
-    entry_point="gymnasium_robotics.envs.maze.ant_maze_v3:AntMazeEnv",
-    max_episode_steps=200,
-    kwargs={
-        "maze_map": maze_4,
-        "reward_type": "dense",   # or "dense"
-    },
-)
 if __name__ == "__main__":
     env_wrapping= [
         "CombineGoals",

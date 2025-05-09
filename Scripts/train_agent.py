@@ -26,8 +26,12 @@ def train_single_seed(seed, args):
                   wrapping_lst=args.training_env_wrappers,
                   wrapping_params=args.training_wrapping_params,
                   render_mode=args.training_render_mode,
+                  max_steps=args.training_env_max_steps,
                   )
-    
+    print(f"Obs Space: {env.observation_space}")
+    print(f"Action Space: {env.action_space}")
+
+
     ppo_keys = ["gamma", "lamda",
                 "epochs", "total_steps", "rollout_steps", "num_minibatches",
                 "flag_anneal_step_size", "step_size",
