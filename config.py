@@ -168,7 +168,7 @@ class arguments:
     interpolation_resolution: int                = 100_000
 
     # ----- Option setting -----
-    tmp_seed = 50000
+    tmp_seed = 30000
     env_agent_list                               = [
                                                     {"env_name": "Maze_1m", 
                                                      "env_params": {"continuing_task": False, "reward_type": "sparse"},
@@ -196,7 +196,7 @@ class arguments:
                                                      
                                                     ]
     option_save_results:      bool               = True
-    option_exp_name:          str                = f"Options_Maze_m_Seed_{tmp_seed}"
+    option_exp_name:          str                = f"Options_FineTune_Maze_m_Seed_{tmp_seed}"
     
     # ----- option experiment settings -----
     sub_trajectory_min_len:   int                = 2
@@ -207,7 +207,7 @@ class arguments:
     hc_restarts:              int                = 20 # hill climbing restarts
     hc_neighbor_samples:      int                = 50 # number of neighbors to sample for hill climbing
     action_dif_tolerance:     float              = 0.4 # tolerance for action difference
-    baseline:                 str                = "tune" #mask, tune
+    baseline:                 str                = "tune" #mask, tune, decwhole
 
 
     # ----- test option experiment settings -----

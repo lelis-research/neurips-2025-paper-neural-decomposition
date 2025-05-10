@@ -135,6 +135,13 @@ def train_options(args):
                                 "sub_traj_env": sub_traj2["env_name"],
                             }
                             options_lst.append(Option(actor_critic.actor_mean, 0, len(sub_traj), info=info))
+                    elif args.baseline == "decwhole":
+                        epoch_pbar.close()
+                        info = {
+                            "org_policy_env": sub_traj1["env_name"],
+                            "sub_traj_env": sub_traj2["env_name"],
+                        }
+                        options_lst.append(Option(agent.actor_critic.actor_mean, 0, len(sub_traj), info=info))
                         
                     mask_pbar.update(1)
         mask_pbar.close()      
