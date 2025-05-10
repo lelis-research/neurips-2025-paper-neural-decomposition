@@ -94,6 +94,7 @@ class Args:
     """"""
     preprocess_cache: bool = True
     """"""
+    filter_options: bool = True
 
     # hill climbing arguments
     number_restarts: int = 2000
@@ -564,16 +565,17 @@ class LearnOptions:
                 for future in concurrent.futures.as_completed(futures):
                     try:
                         feature_mask, actor_mask, init_loss, final_loss, applicable = future.result()
-                        if applicable:
-                            option_candidates.append((feature_mask,
-                                                actor_mask,
-                                                future.primary_problem, 
-                                                target_problem, 
-                                                future.primary_env_seed, 
-                                                target_seed, 
-                                                future.length, 
-                                                future.primary_model_path, 
-                                                future.s))
+                        
+                        option_candidates.append((feature_mask,
+                                            actor_mask,
+                                            future.primary_problem, 
+                                            target_problem, 
+                                            future.primary_env_seed, 
+                                            target_seed, 
+                                            future.length, 
+                                            future.primary_model_path, 
+                                            future.s,
+                                            applicable))
                         self.logger.info(f'Progress: segment:{future.s} of length {future.length}, primary_problem={future.primary_problem} done. init_loss={init_loss}, final_loss={final_loss}')
                     except Exception as exc:
                         self.logger.error(f'Segment:{future.s} of length {future.length} with primary_problem={future.primary_problem} generated an exception: {exc}')
@@ -796,7 +798,10 @@ class LearnOptions:
         option_data = []
         # option_candidates = option_candidates[:10]
         for id, option_specs in enumerate(option_candidates):
-            feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment = option_specs
+            feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment, applicable = option_specs
+            if self.args.filter_options:
+                if not applicable:
+                    continue
             option_data.append((id, feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment))
 
 
