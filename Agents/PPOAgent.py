@@ -62,9 +62,7 @@ class PPOAgent:
         self.memory = []
 
         self.update_counter = 0
-        
         self.ep_counter = 0
-        self.exploration_lst = {}
         
         self.mode = 0
     
@@ -128,12 +126,6 @@ class PPOAgent:
         Called at each step: store the transition and, if the buffer is full,
         perform a PPO update using a batch of transitions.
         """
-        # obs_tup = tuple(next_observation.tolist())
-        # if obs_tup not in self.exploration_lst:
-        #     self.exploration_lst[obs_tup] = 1
-        #     # reward += 1.0
-        # else:
-        #     self.exploration_lst[obs_tup] += 1
 
         next_state = torch.tensor(next_observation, dtype=torch.float32).unsqueeze(0)
         self.memory.append({
@@ -159,7 +151,6 @@ class PPOAgent:
         Compute advantage estimates using GAE, and perform PPO updates over the collected batch.
         """
         self.update_counter += 1
-
         # Update the step size
         if self.flag_anneal_step_size:
             frac = 1.0 - (self.update_counter - 1.0) / self.total_updates
@@ -214,7 +205,7 @@ class PPOAgent:
         indices = np.arange(T)
         for epoch in range(self.epochs):
             np.random.shuffle(indices)
-
+            print(epoch)
             for start in range(0, T, self.minibatch_size):
                 end = start + self.minibatch_size
                 mb_idx = indices[start:end]
@@ -264,6 +255,7 @@ class PPOAgent:
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
                 self.optimizer.step()
+            
 
         
     def save(self, file_path):
