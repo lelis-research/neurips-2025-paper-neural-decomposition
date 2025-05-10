@@ -117,6 +117,7 @@ def train_options(args):
                         leave=False,
                         position=1,
                     )
+                    
                     if args.baseline == "mask":
                         mask = learn_mask(agent, sub_traj, num_epochs=args.mask_epochs, pbar=epoch_pbar, tol=args.action_dif_tolerance)
                         epoch_pbar.close()
@@ -126,6 +127,7 @@ def train_options(args):
                                 "sub_traj_env": sub_traj2["env_name"],
                             }
                             options_lst.append(Option(agent.actor_critic.actor_mean, mask, len(sub_traj), info=info))
+                    
                     elif args.baseline == "tune":
                         actor_critic = fine_tune_policy(agent, sub_traj, num_epochs=args.mask_epochs, pbar=epoch_pbar, tol=args.action_dif_tolerance)
                         epoch_pbar.close()
@@ -135,6 +137,7 @@ def train_options(args):
                                 "sub_traj_env": sub_traj2["env_name"],
                             }
                             options_lst.append(Option(actor_critic.actor_mean, 0, len(sub_traj), info=info))
+                    
                     elif args.baseline == "decwhole":
                         epoch_pbar.close()
                         info = {
