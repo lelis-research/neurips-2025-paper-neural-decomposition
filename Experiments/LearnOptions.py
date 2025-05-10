@@ -4,6 +4,7 @@ import torch.optim as optim
 import random
 from tqdm import tqdm
 import numpy as np
+import copy
 
 def extract_trajectory(agent, env):
     """
@@ -108,6 +109,65 @@ def learn_mask(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e-3):
     if failed:
         return None
     return mask.detach().cpu()
+
+
+def fine_tune_policy(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e-3):
+    """
+    Fine-tune a copy of agent.actor_critic so that actor_mean(state) 
+    matches the recorded actions in sub_traj.
+
+    Args:
+        agent:      PPO agent with .actor_critic, which has methods
+                    .actor_mean(state) and attributes .actor, .critic.
+        sub_traj:   List of (state_np, action_np) pairs (NumPy arrays).
+        num_epochs: How many passes through sub_traj to make.
+        lr:         Learning rate for the actor optimizer.
+        pbar:       Optional tqdm progress bar (gets updated by batch-size).
+        tol:        Tolerance for final per-step error to accept fit.
+
+    Returns:
+        actor_critic_copy (nn.Module): The fine-tuned copy, or
+        None if it fails to meet tol on the training set.
+    """
+    # 1) Clone the policy (actor_critic) so original remains untouched
+    actor_critic_copy = copy.deepcopy(agent.actor_critic)
+    actor_critic_copy.train()
+
+    # 2) Freeze critic (we only want to update the actor)
+    for p in actor_critic_copy.critic.parameters():
+        p.requires_grad = False
+
+    optimizer = optim.Adam(actor_critic_copy.actor_mean.parameters(), lr=lr)
+    loss_fn = nn.MSELoss()
+
+    # 3) Gradient-descent loop
+    for epoch in range(num_epochs):
+        total_loss = 0.0
+        for state_np, action_np in sub_traj:
+            state  = torch.from_numpy(state_np).float()
+            target = torch.from_numpy(action_np).float()
+
+            pred = actor_critic_copy.actor_mean(state)
+            loss = loss_fn(pred, target)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            total_loss += loss.item()
+
+        if pbar is not None:
+            pbar.set_postfix(loss=total_loss)
+            pbar.update(1)
+
+    # 4) Quick validation: ensure learned policy reproduces sub_traj within tol
+    for state_np, action_np in sub_traj:
+        s = torch.from_numpy(state_np).float()
+        t = torch.from_numpy(action_np).float()
+        if torch.norm(actor_critic_copy.actor_mean(s) - t) > tol:
+            return None
+
+    return actor_critic_copy
 
 
 

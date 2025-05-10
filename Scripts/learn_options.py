@@ -6,7 +6,7 @@ from functools import partial
 from concurrent.futures import ProcessPoolExecutor
 from torch.utils.tensorboard import SummaryWriter
 
-from Experiments.LearnOptions import extract_trajectory, generate_subtrajectories, learn_mask, find_best_subset, find_best_subset_stochastic
+from Experiments.LearnOptions import extract_trajectory, generate_subtrajectories, learn_mask, find_best_subset, find_best_subset_stochastic, fine_tune_policy
 from Experiments.LevinLoss import levin_loss_continuous_with_maxlen
 from Environments.GetEnvironment import get_env
 from Agents.PPOAgent import PPOAgent
@@ -117,14 +117,25 @@ def train_options(args):
                         leave=False,
                         position=1,
                     )
-                    mask = learn_mask(agent, sub_traj, num_epochs=args.mask_epochs, pbar=epoch_pbar, tol=args.action_dif_tolerance)
-                    epoch_pbar.close()
-                    if mask is not None: # if the mask is None, the learning wasn't successful
-                        info = {
-                            "org_policy_env": sub_traj1["env_name"],
-                            "sub_traj_env": sub_traj2["env_name"],
-                        }
-                        options_lst.append(Option(agent.actor_critic.actor_mean, mask, len(sub_traj), info=info))
+                    if args.baseline == "mask":
+                        mask = learn_mask(agent, sub_traj, num_epochs=args.mask_epochs, pbar=epoch_pbar, tol=args.action_dif_tolerance)
+                        epoch_pbar.close()
+                        if mask is not None: # if the mask is None, the learning wasn't successful
+                            info = {
+                                "org_policy_env": sub_traj1["env_name"],
+                                "sub_traj_env": sub_traj2["env_name"],
+                            }
+                            options_lst.append(Option(agent.actor_critic.actor_mean, mask, len(sub_traj), info=info))
+                    elif args.baseline == "tune":
+                        actor_critic = fine_tune_policy(agent, sub_traj, num_epochs=args.mask_epochs, pbar=epoch_pbar, tol=args.action_dif_tolerance)
+                        epoch_pbar.close()
+                        if actor_critic is not None: # if the mask is None, the learning wasn't successful
+                            info = {
+                                "org_policy_env": sub_traj1["env_name"],
+                                "sub_traj_env": sub_traj2["env_name"],
+                            }
+                            options_lst.append(Option(actor_critic.actor_mean, 0, len(sub_traj), info=info))
+                        
                     mask_pbar.update(1)
         mask_pbar.close()      
         torch.save(options_lst, os.path.join(exp_dir, "all_options.pt"))

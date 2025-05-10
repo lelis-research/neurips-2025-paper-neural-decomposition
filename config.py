@@ -168,34 +168,35 @@ class arguments:
     interpolation_resolution: int                = 100_000
 
     # ----- Option setting -----
+    tmp_seed = 50000
     env_agent_list                               = [
                                                     {"env_name": "Maze_1m", 
                                                      "env_params": {"continuing_task": False, "reward_type": "sparse"},
                                                      "env_wrappers": default_env_wrappers("Maze_1m")[0],
                                                      "env_wrapping_params": default_env_wrappers("Maze_1m")[1],
-                                                     "agent_path": "Maze_1m_50000_300000_sparse_success_20250509_184619"},
+                                                     "agent_path": f"Maze_1m_{tmp_seed}_300000_sparse_success"},
 
                                                      {"env_name": "Maze_2m", 
                                                      "env_params": {"continuing_task": False, "reward_type": "sparse"},
                                                      "env_wrappers": default_env_wrappers("Maze_2m")[0],
                                                      "env_wrapping_params": default_env_wrappers("Maze_2m")[1],
-                                                     "agent_path": "Maze_2m_50000_300000_sparse_success_20250509_184827"},
+                                                     "agent_path": f"Maze_2m_{tmp_seed}_300000_sparse_success"},
 
                                                      {"env_name": "Maze_3m", 
                                                      "env_params": {"continuing_task": False, "reward_type": "sparse"},
                                                      "env_wrappers": default_env_wrappers("Maze_3m")[0],
                                                      "env_wrapping_params": default_env_wrappers("Maze_3m")[1],
-                                                     "agent_path": "Maze_3m_50000_300000_sparse_success_20250509_185437"},
+                                                     "agent_path": f"Maze_3m_{tmp_seed}_300000_sparse_success"},
 
                                                      {"env_name": "Maze_4m", 
                                                      "env_params": {"continuing_task": False, "reward_type": "sparse"},
                                                      "env_wrappers": default_env_wrappers("Maze_4m")[0],
                                                      "env_wrapping_params": default_env_wrappers("Maze_4m")[1],
-                                                     "agent_path": "Maze_4m_50000_300000_sparse_success_20250509_184312"},
+                                                     "agent_path": f"Maze_4m_{tmp_seed}_300000_sparse_success"},
                                                      
                                                     ]
     option_save_results:      bool               = True
-    option_exp_name:          str                = "Options_Maze_m_Seed_50000"
+    option_exp_name:          str                = f"Options_Maze_m_Seed_{tmp_seed}"
     
     # ----- option experiment settings -----
     sub_trajectory_min_len:   int                = 2
@@ -206,6 +207,8 @@ class arguments:
     hc_restarts:              int                = 20 # hill climbing restarts
     hc_neighbor_samples:      int                = 50 # number of neighbors to sample for hill climbing
     action_dif_tolerance:     float              = 0.4 # tolerance for action difference
+    baseline:                 str                = "tune" #mask, tune
+
 
     # ----- test option experiment settings -----
     test_option_env_name:     str                = "Medium_Maze_Sparse"
