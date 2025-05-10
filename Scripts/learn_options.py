@@ -193,18 +193,20 @@ def test_options(args):
                   env_params=args.test_option_env_params,
                   wrapping_lst=args.test_option_env_wrappers,
                   wrapping_params=args.test_option_wrapping_params,
-                  render_mode=args.test_option_render_mode
+                  render_mode=args.test_option_render_mode,
+                  max_steps=args.test_option_env_max_steps
                   )
     
     ppo_keys = ["gamma", "lamda",
                 "epochs", "total_steps", "rollout_steps", "num_minibatches",
                 "flag_anneal_step_size", "step_size",
                 "entropy_coef", "critic_coef",  "clip_ratio", 
-                "flag_clip_vloss", "flag_norm_adv", "max_grad_norm"
+                "flag_clip_vloss", "flag_norm_adv", "max_grad_norm",
+                "flag_anneal_var", "var_coef",
                 ]
     agent_kwargs = {k: getattr(args, k) for k in ppo_keys}
 
-    agent = PPOAgentOption(env.observation_space, 
+    agent = PPOAgentOption(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space, 
                             best_options,
                             device=args.device,
                             **agent_kwargs

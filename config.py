@@ -89,7 +89,7 @@ def default_env_wrappers(env_name):
 @dataclass
 class arguments:
     # ----- experiment settings -----
-    mode                                         = ["train_option"] # train, test, plot, tune, train_option, test_option
+    mode                                         = ["test_option"] # train, test, plot, tune, train_option, test_option
     res_dir:                  str                = "Results"
     device:                   str                = torch.device("cpu")
 
@@ -168,7 +168,7 @@ class arguments:
     interpolation_resolution: int                = 100_000
 
     # ----- Option setting -----
-    tmp_seed = 50000
+    tmp_seed = 10000
     env_agent_list                               = [
                                                     {"env_name": "Maze_1m", 
                                                      "env_params": {"continuing_task": False, "reward_type": "sparse"},
@@ -195,8 +195,8 @@ class arguments:
                                                      "agent_path": f"Maze_4m_{tmp_seed}_300000_sparse_success"},
                                                      
                                                     ]
-    option_save_results:      bool               = False
-    option_exp_name:          str                = f"Options_Transfer_Maze_m_Seed_{tmp_seed}"
+    option_save_results:      bool               = True
+    option_exp_name:          str                = f"Options_Mask_Maze_m_Seed_{tmp_seed}"
     
     # ----- option experiment settings -----
     sub_trajectory_min_len:   int                = 2
@@ -211,13 +211,15 @@ class arguments:
 
 
     # ----- test option experiment settings -----
-    test_option_env_name:     str                = "Medium_Maze_Sparse"
-    test_option_env_params                       = {"continuing_task": False}
+    test_option_env_name:     str                = "Hard_Maze"
+    test_option_env_params                       = {"continuing_task": False, "reward_type": "sparse"}
     test_option_env_wrappers                     = default_env_wrappers(test_option_env_name)[0]
     test_option_wrapping_params                  = default_env_wrappers(test_option_env_name)[1]
+    test_option_env_max_steps                    = 500
+
     
     test_option_render_mode:   str               = None #human, None, rgb_array_list, rgb_array
-    option_save_frame_freq:    int               = 10
+    option_save_frame_freq:    int               = 1
 
     exp_options_total_steps:   int               = 300_000
     exp_options_total_episodes:int               = 0

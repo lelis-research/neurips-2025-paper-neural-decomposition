@@ -15,7 +15,32 @@ class PPOAgentOption:
         Hierarchical PPO: high‐level policy over discrete options.
         options_list: List[Option], where each Option has .max_len and .act(obs)
         """
-        # Return Calculation Params 
+        print("Initialize PPO Option Agent")
+        self.initialize_params(**kwargs)
+
+        self.observation_space = observation_space
+        self.options           = options_list
+        
+        self.option_space      = gym.spaces.Discrete(len(options_list))
+        self.device            = kwargs["device"]
+
+        # high‐level actor‐critic over options
+        self.actor_critic = ActorCriticDiscrete(observation_space, self.option_space).to(self.device)
+
+        self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=self.step_size, eps=1e-5)
+
+        # rollout buffer
+        self.memory = []
+        self.update_counter = 0
+        self.ep_counter     = 0
+
+        # option‐execution state
+        self.current_option     = None   # index of chosen option
+        self.option_step_count  = 0      # how many primitives we've executed under it
+        self.accum_reward       = 0.0
+    
+    def initialize_params(self, **kwargs):
+         # Return Calculation Params 
         self.gamma    = kwargs.get("gamma", 0.99)
         self.lamda    = kwargs.get("lamda", 0.95)
         self.epochs   = kwargs.get("epochs", 10)
@@ -38,27 +63,9 @@ class PPOAgentOption:
         self.flag_clip_critic_loss = kwargs.get("flag_clip_vloss", True)
         self.flag_norm_adv = kwargs.get("flag_norm_adv", True)
         self.max_grad_norm= kwargs.get("max_grad_norm", 0.5)
-
-        self.observation_space = observation_space
-        self.options           = options_list
         
-        self.option_space      = gym.spaces.Discrete(len(options_list))
-        self.device            = kwargs["device"]
-
-        # high‐level actor‐critic over options
-        self.actor_critic = ActorCriticDiscrete(observation_space, self.option_space).to(self.device)
-
-        self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=self.step_size, eps=1e-5)
-
-        # rollout buffer
-        self.memory = []
-        self.update_counter = 0
-        self.ep_counter     = 0
-
-        # option‐execution state
-        self.current_option     = None   # index of chosen option
-        self.option_step_count  = 0      # how many primitives we've executed under it
-        self.accum_reward       = 0.0
+        self.flag_anneal_var = kwargs.get("flag_anneal_var", True) # Anneal Variance
+        self.var_coef = kwargs.get("var_coef", 0.01) # Variance Coefficient
               
     def act(self, observation, greedy=False):
         """
@@ -76,9 +83,10 @@ class PPOAgentOption:
                 option_idx_tensor, log_prob, _ = self.actor_critic.get_action(state, greedy=greedy)
             
             self.current_option    = option_idx_tensor.item()
-            self.last_log_prob     = log_prob
+            
             self.prev_state        = state
-            self.prev_option       = option_idx_tensor.squeeze(0)
+            self.last_log_prob     = log_prob
+            self.prev_option       = option_idx_tensor
             
             self.option_step_count = 0
             self.accum_reward      = 0.0
@@ -98,6 +106,7 @@ class PPOAgentOption:
         """
         self.accum_reward += reward
         next_state = torch.tensor(next_observation, device=self.device, dtype=torch.float32).unsqueeze(0)
+        
         if self.option_step_count >= self.options[self.current_option].max_len or terminated or truncated:
             self.memory.append({
                 "state":      self.prev_state,     # (1, obs_dim)
@@ -128,18 +137,27 @@ class PPOAgentOption:
         if self.flag_anneal_step_size:
             frac = 1.0 - (self.update_counter - 1) / self.total_updates
             self.optimizer.param_groups[0]["lr"] = frac * self.step_size
+        
+        # optional anneal: ramp coefficient from 0 → var_coef over training
+        if self.flag_anneal_var:
+            frac = self.update_counter / self.total_updates     # 0–1
+            var_w = self.var_coef * frac
+        else:
+            var_w = self.var_coef
 
         # (2) unpack buffer
-        states    = torch.cat([t["state"] for t in self.memory],   0).to(self.device)
-        options   = torch.stack([t["option"] for t in self.memory]).to(self.device)
-        old_lps   = torch.stack([t["log_prob"] for t in self.memory]).squeeze().to(self.device)
-        next_s    = torch.cat([t["next_state"] for t in self.memory], 0).to(self.device)
-        rewards   = [t["reward"] for t in self.memory]
-        dones     = [t["done"]   for t in self.memory]
+        states = torch.cat([t["state"] for t in self.memory],0).to(self.device)
+        options = torch.cat([t["option"] for t in self.memory]).to(self.device)
+        old_log_probs = torch.stack([t["log_prob"] for t in self.memory]).squeeze().to(self.device)
+        
+        next_states = torch.cat([t["next_state"] for t in self.memory], 0).to(self.device)
+        rewards = [t["reward"] for t in self.memory]
+        dones = [t["done"]   for t in self.memory]
+        
 
         with torch.no_grad():
-            vals      = self.actor_critic.get_value(states).squeeze()      # (T,)
-            next_vals = self.actor_critic.get_value(next_s).squeeze()      # (T,)
+            prev_state_values = self.actor_critic.get_value(states).squeeze()      # (T,)
+            next_state_values = self.actor_critic.get_value(next_states).squeeze()      # (T,)
 
         T = len(rewards)
         advantages = np.zeros(T, dtype=np.float32)
@@ -149,14 +167,10 @@ class PPOAgentOption:
         # GAE
         for t in reversed(range(T)):
             mask = 0.0 if dones[t] else 1.0
-            delta = (
-                rewards[t]
-                + self.gamma * next_vals[t].item() * mask
-                - vals[t].item()
-            )
+            delta = rewards[t] + self.gamma * next_state_values[t].item() * mask- prev_state_values[t].item()
             gae = delta + self.gamma * self.lamda * mask * gae
             advantages[t] = gae
-            returns[t]    = gae + vals[t].item()
+            returns[t] = gae + prev_state_values[t].item()
 
         advantages = torch.tensor(advantages, dtype=torch.float32, device=self.device)
         returns    = torch.tensor(returns,    dtype=torch.float32, device=self.device)
@@ -164,47 +178,57 @@ class PPOAgentOption:
             advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
         # (3) PPO epochs
-        idxs = np.arange(T)
-        for _ in range(self.epochs):
-            np.random.shuffle(idxs)
+        indices = np.arange(T)
+        for epoch in range(self.epochs):
+            np.random.shuffle(indices)
             for start in range(0, T, self.minibatch_size):
-                mb = idxs[start : start + self.minibatch_size]
+                end = start + self.minibatch_size
+                mb_idx = indices[start:end]
 
-                bs = states[mb]
-                bo = options[mb]
-                bl = old_lps[mb]
-                br = returns[mb]
-                ba = advantages[mb]
-                bv = vals[mb]
+                batch_states = states[mb_idx]
+                batch_options = options[mb_idx]
+                batch_old_log_probs = old_log_probs[mb_idx]
+                batch_returns = returns[mb_idx]
+                batch_advantages = advantages[mb_idx]
+                batch_values = prev_state_values[mb_idx]
 
                 # new log‐prob & entropy over options
-                _, new_lps, ent = self.actor_critic.get_action(bs, bo)
-                ratio = torch.exp(new_lps - bl)
+                _, batch_new_log_probs, entropy = self.actor_critic.get_action(batch_states, batch_options)
+                ratio = torch.exp(batch_new_log_probs - batch_old_log_probs)
 
                 # actor loss
-                s1 = -ba * ratio
-                s2 = -ba * torch.clamp(ratio, 1 - self.clip_ratio, 1 + self.clip_ratio)
-                actor_loss = torch.max(s1, s2).mean()
+                surrogate1 = -batch_advantages * ratio
+                surrogate2 = -batch_advantages * torch.clamp(ratio, 1 - self.clip_ratio, 1 + self.clip_ratio)
+                actor_loss = torch.max(surrogate1, surrogate2).mean()
 
                 # critic loss
-                new_vals = self.actor_critic.get_value(bs).squeeze()
+                batch_new_values = self.actor_critic.get_value(batch_states).squeeze()
                 if self.flag_clip_critic_loss:
-                    unclipped = (br - new_vals).pow(2)
-                    clipped   = (br - (bv + torch.clamp(
-                                  new_vals - bv,
-                                  -self.clip_ratio,
-                                  self.clip_ratio
-                              ))).pow(2)
-                    critic_loss = 0.5 * torch.max(clipped, unclipped).mean()
+                    critic_loss_unclipped = (batch_returns - batch_new_values).pow(2)
+                    value_clipped = batch_values + torch.clamp(batch_new_values - batch_values, 
+                                                               -self.clip_ratio, self.clip_ratio)
+                    critic_loss_clipped = (batch_returns - value_clipped).pow(2)
+                    critic_loss = 0.5 * torch.max(critic_loss_clipped, critic_loss_unclipped).mean()
                 else:
-                    critic_loss = 0.5 * (br - new_vals).pow(2).mean()
-
-                ent_bonus = ent.mean()
-                loss = actor_loss + self.critic_coef * critic_loss - self.entropy_coef * ent_bonus
+                    critic_loss = 0.5 * (batch_returns - batch_new_values).pow(2).mean()
+                
+                entropy_bonus = entropy.mean()
+                 # log_std = self.actor_critic.actor_logstd                     # (act_dim,)
+                #   var_penalty = mean(σ²) = mean(exp(2 log σ))
+                # var_penalty = torch.exp(log_std).mean()
+                
+                # ===============================
+                
+                
+                loss = actor_loss + \
+                        self.critic_coef * critic_loss - \
+                        self.entropy_coef * entropy_bonus 
+                        # var_w * var_penalty
 
                 self.optimizer.zero_grad()
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
+                self.optimizer.step()
 
         
     def save(self, file_path):
