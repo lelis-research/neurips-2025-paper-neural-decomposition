@@ -151,7 +151,6 @@ class PPOAgent:
         Compute advantage estimates using GAE, and perform PPO updates over the collected batch.
         """
         self.update_counter += 1
-
         # Update the step size
         if self.flag_anneal_step_size:
             frac = 1.0 - (self.update_counter - 1.0) / self.total_updates
@@ -206,7 +205,7 @@ class PPOAgent:
         indices = np.arange(T)
         for epoch in range(self.epochs):
             np.random.shuffle(indices)
-
+            print(epoch)
             for start in range(0, T, self.minibatch_size):
                 end = start + self.minibatch_size
                 mb_idx = indices[start:end]
@@ -256,6 +255,7 @@ class PPOAgent:
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.actor_critic.parameters(), self.max_grad_norm)
                 self.optimizer.step()
+            
 
         
     def save(self, file_path):

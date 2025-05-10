@@ -196,6 +196,8 @@ def test_options(args):
                   render_mode=args.test_option_render_mode,
                   max_steps=args.test_option_env_max_steps
                   )
+    print(f"Obs Space: {env.observation_space}")
+    print(f"Action Space: {env.action_space}")
     
     ppo_keys = ["gamma", "lamda",
                 "epochs", "total_steps", "rollout_steps", "num_minibatches",

@@ -89,7 +89,7 @@ def default_env_wrappers(env_name):
 @dataclass
 class arguments:
     # ----- experiment settings -----
-    mode                                         = ["test_option"] # train, test, plot, tune, train_option, test_option
+    mode                                         = ["train"] # train, test, plot, tune, train_option, test_option
     res_dir:                  str                = "Results"
     device:                   str                = torch.device("cpu")
 
@@ -117,17 +117,17 @@ class arguments:
     # ----- train experiment settings -----
     agent_class:              str                = "PPOAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent
     seeds                                        = [10000, 20000, 30000, 40000, 50000]
-    exp_total_steps:          int                = 300_000
+    exp_total_steps:          int                = 500_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
     nametag:                  str                = "sparse_success_"+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    training_env_name:        str                = "Maze_3m"
+    training_env_name:        str                = "Hard_Maze"
     training_env_params                          = {"continuing_task": False, "reward_type": "sparse"} #{"include_cfrc_ext_in_observation":False}
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
     training_env_max_steps:   int                = 500
-    training_render_mode:     str                = "rgb_array" #human, None, rgb_array_list, rgb_array
+    training_render_mode:     str                = None #human, None, rgb_array_list, rgb_array
     save_frame_freq:          int                = 1000
     load_agent:               str                = None # "car-test_1000_1000000_Tanh64_20250503_222014"
 
@@ -147,7 +147,7 @@ class arguments:
     lamda:                    float              = 0.95
 
     epochs:                   int                = 10
-    total_steps:              int                = 300_000
+    total_steps:              int                = 500_000
     rollout_steps:            int                = 2048
     num_minibatches:          int                = 32
     
@@ -196,7 +196,7 @@ class arguments:
                                                      
                                                     ]
     option_save_results:      bool               = True
-    option_exp_name:          str                = f"Options_Mask_Maze_m_Seed_{tmp_seed}"
+    option_exp_name:          str                = f"Options_Transfer_Maze_m_Seed_{tmp_seed}"
     
     # ----- option experiment settings -----
     sub_trajectory_min_len:   int                = 2
@@ -218,10 +218,10 @@ class arguments:
     test_option_env_max_steps                    = 500
 
     
-    test_option_render_mode:   str               = None #human, None, rgb_array_list, rgb_array
+    test_option_render_mode:   str               = "rgb_array" #human, None, rgb_array_list, rgb_array
     option_save_frame_freq:    int               = 1
 
-    exp_options_total_steps:   int               = 300_000
+    exp_options_total_steps:   int               = 500_000
     exp_options_total_episodes:int               = 0
 
 
