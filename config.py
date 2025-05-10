@@ -11,7 +11,6 @@ from Environments.Car.GetEnvironment import CAR_ENV_LST
 def default_env_wrappers(env_name):
     if env_name in MUJOCO_ENV_LST:
         env_wrappers= [ 
-            "SuccessBonus",
             "CombineGoals", 
             
             "ClipAction", 
@@ -22,7 +21,6 @@ def default_env_wrappers(env_name):
             "ClipReward",
             ]
         wrapping_params = [
-            {"bonus":5.0}, 
             {}, 
             
             {}, 
@@ -91,7 +89,7 @@ def default_env_wrappers(env_name):
 @dataclass
 class arguments:
     # ----- experiment settings -----
-    mode                                         = ["train"] # train, test, plot, tune, train_option, test_option
+    mode                                         = ["train_option"] # train, test, plot, tune, train_option, test_option
     res_dir:                  str                = "Results"
     device:                   str                = torch.device("cpu")
 
@@ -119,12 +117,12 @@ class arguments:
     # ----- train experiment settings -----
     agent_class:              str                = "PPOAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent
     seeds                                        = [10000, 20000, 30000, 40000, 50000]
-    exp_total_steps:          int                = 1_000_000
+    exp_total_steps:          int                = 300_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
     nametag:                  str                = "sparse_success_"+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    training_env_name:        str                = "Maze_1m"
+    training_env_name:        str                = "Maze_3m"
     training_env_params                          = {"continuing_task": False, "reward_type": "sparse"} #{"include_cfrc_ext_in_observation":False}
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
@@ -149,7 +147,7 @@ class arguments:
     lamda:                    float              = 0.95
 
     epochs:                   int                = 10
-    total_steps:              int                = 1_000_000
+    total_steps:              int                = 300_000
     rollout_steps:            int                = 2048
     num_minibatches:          int                = 32
     
@@ -171,46 +169,33 @@ class arguments:
 
     # ----- Option setting -----
     env_agent_list                               = [
-                                                    {"env_name": "Maze_D", 
-                                                     "env_params": {"continuing_task": False},
-                                                     "env_wrappers": default_env_wrappers("Maze_D")[0],
-                                                     "env_wrapping_params": default_env_wrappers("Maze_D")[1],
-                                                     "agent_path": "Maze_D_1000_30000_Tanh64_20250503_222014"},
+                                                    {"env_name": "Maze_1m", 
+                                                     "env_params": {"continuing_task": False, "reward_type": "sparse"},
+                                                     "env_wrappers": default_env_wrappers("Maze_1m")[0],
+                                                     "env_wrapping_params": default_env_wrappers("Maze_1m")[1],
+                                                     "agent_path": "Maze_1m_50000_300000_sparse_success_20250509_184619"},
 
-                                                     {"env_name": "Maze_L", 
-                                                     "env_params": {"continuing_task": False},
-                                                     "env_wrappers": default_env_wrappers("Maze_L")[0],
-                                                     "env_wrapping_params": default_env_wrappers("Maze_L")[1],
-                                                     "agent_path": "Maze_L_1000_30000_Tanh64_20250503_221901"},
+                                                     {"env_name": "Maze_2m", 
+                                                     "env_params": {"continuing_task": False, "reward_type": "sparse"},
+                                                     "env_wrappers": default_env_wrappers("Maze_2m")[0],
+                                                     "env_wrapping_params": default_env_wrappers("Maze_2m")[1],
+                                                     "agent_path": "Maze_2m_50000_300000_sparse_success_20250509_184827"},
 
-                                                     {"env_name": "Maze_R", 
-                                                     "env_params": {"continuing_task": False},
-                                                     "env_wrappers": default_env_wrappers("Maze_R")[0],
-                                                     "env_wrapping_params": default_env_wrappers("Maze_R")[1],
-                                                     "agent_path": "Maze_R_1000_30000_Tanh64_20250503_221923"},
+                                                     {"env_name": "Maze_3m", 
+                                                     "env_params": {"continuing_task": False, "reward_type": "sparse"},
+                                                     "env_wrappers": default_env_wrappers("Maze_3m")[0],
+                                                     "env_wrapping_params": default_env_wrappers("Maze_3m")[1],
+                                                     "agent_path": "Maze_3m_50000_300000_sparse_success_20250509_185437"},
 
-                                                     {"env_name": "Maze_U", 
-                                                     "env_params": {"continuing_task": False},
-                                                     "env_wrappers": default_env_wrappers("Maze_U")[0],
-                                                     "env_wrapping_params": default_env_wrappers("Maze_U")[1],
-                                                     "agent_path": "Maze_U_1000_30000_Tanh64_20250503_221947"},
-                                                     
-                                                    #  {"env_name": "Ant-v5", 
-                                                    #  "env_params": {},
-                                                    #  "env_wrappers": default_env_wrappers("Ant-v5")[0],
-                                                    #  "env_wrapping_params": default_env_wrappers("Ant-v5")[1],
-                                                    #  "agent_path": "Ant-v5_1000_1000000__20250509_104255"},
-                                                     
-                                                    #  {"env_name": "Ant-v5", 
-                                                    #  "env_params": {},
-                                                    #  "env_wrappers": default_env_wrappers("Ant-v5")[0],
-                                                    #  "env_wrapping_params": default_env_wrappers("Ant-v5")[1],
-                                                    #  "agent_path": "Ant-v5_1000_1000000__20250509_113113"},
-                                                     
+                                                     {"env_name": "Maze_4m", 
+                                                     "env_params": {"continuing_task": False, "reward_type": "sparse"},
+                                                     "env_wrappers": default_env_wrappers("Maze_4m")[0],
+                                                     "env_wrapping_params": default_env_wrappers("Maze_4m")[1],
+                                                     "agent_path": "Maze_4m_50000_300000_sparse_success_20250509_184312"},
                                                      
                                                     ]
     option_save_results:      bool               = True
-    option_exp_name:          str                = "test_DLRU"
+    option_exp_name:          str                = "Options_Maze_m_Seed_50000"
     
     # ----- option experiment settings -----
     sub_trajectory_min_len:   int                = 2
@@ -220,7 +205,7 @@ class arguments:
     hc_iterations:            int                = 200 # hill climbing iterations
     hc_restarts:              int                = 20 # hill climbing restarts
     hc_neighbor_samples:      int                = 50 # number of neighbors to sample for hill climbing
-    action_dif_tolerance:     float              = 0.2 # tolerance for action difference
+    action_dif_tolerance:     float              = 0.4 # tolerance for action difference
 
     # ----- test option experiment settings -----
     test_option_env_name:     str                = "Medium_Maze_Sparse"

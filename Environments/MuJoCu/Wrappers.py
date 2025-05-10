@@ -74,7 +74,7 @@ class SuccessBonus(gym.Wrapper):
 
         if ag is not None and dg is not None:
             distance = np.linalg.norm(ag - dg)
-            if distance < self.threshold:
+            if distance < self.threshold and terminated:
                 reward += self.bonus
                 info["success"] = True
                 reward += self.bonus
