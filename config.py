@@ -118,7 +118,7 @@ class arguments:
     # ----- train experiment settings -----
     agent_class:              str                = "PPOAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent
     seeds                                        = [10000, 20000, 30000, 40000, 50000]
-    exp_total_steps:          int                = 4_000_000
+    exp_total_steps:          int                = 1_000_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
     nametag:                  str                = "sparse_success_No_Options"#+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -148,7 +148,7 @@ class arguments:
     lamda:                    float              = 0.95
 
     epochs:                   int                = 10
-    total_steps:              int                = 4_000_000
+    total_steps:              int                = 1_000_000
     rollout_steps:            int                = 2048
     num_minibatches:          int                = 32
     
@@ -223,7 +223,7 @@ class arguments:
     test_option_render_mode:   str               = "rgb_array" #human, None, rgb_array_list, rgb_array
     option_save_frame_freq:    int               = 1000
 
-    exp_options_total_steps:   int               = 4_000_000
+    exp_options_total_steps:   int               = 1_000_000
     exp_options_total_episodes:int               = 0
 
 
