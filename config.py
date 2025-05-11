@@ -117,7 +117,7 @@ class arguments:
 
     # ----- train experiment settings -----
     agent_class:              str                = "PPOAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent
-    seeds                                        = [10000]#, 20000, 30000, 40000, 50000]
+    seeds                                        = [10000, 20000, 30000, 40000, 50000]
     exp_total_steps:          int                = 4_000_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
@@ -128,7 +128,7 @@ class arguments:
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
     training_env_max_steps:   int                = 500
-    training_render_mode:     str                = "rgb_array" #human, None, rgb_array_list, rgb_array
+    training_render_mode:     str                = None #human, None, rgb_array_list, rgb_array
     save_frame_freq:          int                = 1
     load_agent:               str                = None # "car-test_1000_1000000_Tanh64_20250503_222014"
 
