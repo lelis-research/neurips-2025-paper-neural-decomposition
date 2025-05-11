@@ -192,7 +192,7 @@ def test_options(args):
     print(f"Loaded Options from: {os.path.join(option_dir, file_name)}")
     print("Num options: ", len(best_options))
     
-    test_option_dir = f"{option_dir}_{args.test_option_env_name}"
+    test_option_dir = f"{option_dir}_{args.test_option_env_name}_{file_name}"
 
     env = get_env(env_name=args.test_option_env_name,
                   env_params=args.test_option_env_params,

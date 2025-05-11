@@ -9,7 +9,7 @@ import os
 def plot_results(runs_metrics, window_size=500, interpolation_resolution=100_000,
                  nametag="",
                  fig=None, ax=None, color="blue",
-                 avg_label=None, individual_label=""):
+                 avg_label=None, individual_label="", plot_individual=True):
     """
     Plots the episodic returns for multiple runs, including individual run curves and the average curve.
     
@@ -61,15 +61,38 @@ def plot_results(runs_metrics, window_size=500, interpolation_resolution=100_000
             ep_returns_interpolated_smooth[j] = np.mean(ep_returns_interpolated[start_idx:end_idx])
         
         # Plot the individual run curve.
-        if i == 0:
-            ilabel = individual_label if individual_label!="" else "Individual Runs"
-            ax.plot(x, ep_returns_interpolated_smooth, '-', alpha=0.2, markersize=1, label=ilabel, color=color)
-        else:
-            ax.plot(x, ep_returns_interpolated_smooth, '-', alpha=0.2, markersize=1, color=color)
+        if plot_individual:
+            if i == 0:
+                ilabel = individual_label if individual_label!="" else "Individual Runs"
+                ax.plot(x, ep_returns_interpolated_smooth, '-', alpha=0.2, markersize=1, label=ilabel, color=color)
+            else:
+                ax.plot(x, ep_returns_interpolated_smooth, '-', alpha=0.2, markersize=1, color=color)
         returns_lst.append(ep_returns_interpolated_smooth)
     
     returns_lst = np.asarray(returns_lst)
     avg_returns = np.mean(returns_lst, axis=0)
+    
+    # Option A
+    # lower = np.percentile(returns_lst, 2.5, axis=0)
+    # upper = np.percentile(returns_lst, 97.5, axis=0)
+    # ax.fill_between(x,
+    #                 lower,
+    #                 upper,
+    #                 color=color,
+    #                 alpha=0.2,
+    #                 )
+
+    # Option B
+    # n = returns_lst.shape[0]
+    # sem = np.std(returns_lst, axis=0, ddof=1) / np.sqrt(n)      # standard error
+    # ci_margin = 1.96 * sem                                     # 95% CI ≈ mean ± 1.96·SEM
+    # ax.fill_between(x,
+    #                 avg_returns - ci_margin,
+    #                 avg_returns + ci_margin,
+    #                 color=color,
+    #                 alpha=0.2,
+    #                 )
+
     
     # Define the label for the average return curve.
     if avg_label is None:
@@ -84,8 +107,8 @@ def plot_results(runs_metrics, window_size=500, interpolation_resolution=100_000
     ax.set_ylabel("Episode Return")
     ax.grid(True)
     ax.legend()
-    
-    fig.savefig(f"{nametag}.png")
+    if nametag is not None:
+        fig.savefig(f"{nametag}.png")
     
     return fig, ax
 
@@ -138,3 +161,74 @@ def load_results(args):
     return runs_metrics, folders
     
 
+
+def plot_comparison(method_patterns, 
+                    res_dir,
+                    window_size,
+                    interpolation_resolution,
+                    out_fname="method_comparison.png"):
+    """
+    Overlay the average return curves of multiple methods on a single plot.
+
+    Parameters:
+    -----------
+    method_patterns : dict
+        Mapping from method‐name (str) to glob pattern (str) for its result folders.
+        e.g. {"PPO+Option":"ppo_option_*", "MaskBaseline":"mask_baseline_*"}
+    res_dir : str
+        Base results directory (the same as args.res_dir).
+    window_size : int
+        Moving‐average window for smoothing.
+    interpolation_resolution : int
+        Number of points to interpolate each run onto.
+    out_fname : str, optional
+        Filename to save the combined figure (default: "method_comparison.png").
+
+    Returns:
+    --------
+    fig, ax : matplotlib Figure and Axes
+    """
+    # create shared figure/axes
+    fig, ax = plt.subplots(figsize=(10, 6))
+    plt.tight_layout(pad=3.0)
+
+    # automatic distinct colors
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
+    for (method_name, pattern), color in zip(method_patterns.items(), colors):
+        print(f"Loading {method_name}")
+        # find all matching experiment folders
+        folders = glob.glob(f"{res_dir}/{pattern}")
+        if not folders:
+            print(f"Warning: no folders match pattern {res_dir}/{pattern}")
+            continue
+
+        # load each run's res.pkl
+        runs = []
+        for folder in folders:
+            with open(os.path.join(folder, "res.pkl"), "rb") as f:
+                runs.append(pickle.load(f))
+
+        # overlay the average return curve
+        plot_results(
+            runs,
+            window_size=window_size,
+            interpolation_resolution=interpolation_resolution,
+            nametag=None,         # skip per‐method saving
+            fig=fig, ax=ax,
+            color=color,
+            avg_label=method_name,
+            individual_label=None,
+            plot_individual=False
+        )
+
+    # finalize styling
+    ax.set_title("Comparison of Methods")
+    ax.set_xlabel("Environment Steps")
+    ax.set_ylabel("Episode Return")
+    ax.grid(True)
+    ax.legend(loc="best")
+
+    # save once
+    fig.savefig(out_fname)
+    return fig, ax
