@@ -90,7 +90,7 @@ def default_env_wrappers(env_name):
 @dataclass
 class arguments:
     # ----- experiment settings -----
-    mode                                         = ["train"] # train, test, plot, tune, train_option, test_option
+    mode                                         = ["test_option"] # train, test, plot, tune, train_option, test_option
     res_dir:                  str                = "Results"
     device:                   str                = torch.device("cpu")
 
@@ -123,13 +123,13 @@ class arguments:
     save_results:             bool               = True
     nametag:                  str                = "sparse_success_No_Options"#+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    training_env_name:        str                = "Medium_Maze"
+    training_env_name:        str                = "Large_Maze" #Medium_Maze, Large_Maze, Hard_Maze
     training_env_params                          = {"continuing_task": False, "reward_type": "sparse"} #{"include_cfrc_ext_in_observation":False}
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
     training_env_max_steps:   int                = 500
-    training_render_mode:     str                = None #human, None, rgb_array_list, rgb_array
-    save_frame_freq:          int                = 1
+    training_render_mode:     str                = "rgb_array" #human, None, rgb_array_list, rgb_array
+    save_frame_freq:          int                = 1000
     load_agent:               str                = None # "car-test_1000_1000000_Tanh64_20250503_222014"
 
     # ----- test experiment settings -----
@@ -213,7 +213,7 @@ class arguments:
     baseline:                 str                = "decwhole" #mask, tune, decwhole, transfer
 
     # ----- test option experiment settings -----
-    test_option_env_name:     str                = "Hard_Maze" #Medium_Maze, Large_Maze, Hard_Maze
+    test_option_env_name:     str                = "Medium_Maze" #Medium_Maze, Large_Maze, Hard_Maze
     test_option_env_params                       = {"continuing_task": False, "reward_type": "sparse"}
     test_option_env_wrappers                     = default_env_wrappers(test_option_env_name)[0]
     test_option_wrapping_params                  = default_env_wrappers(test_option_env_name)[1]
