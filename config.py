@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import List
 import datetime
 import torch
+import os
 
 from Environments.MiniGrid.GetEnvironment import MINIGRID_ENV_LST
 from Environments.MuJoCu.GetEnvironment import MUJOCO_ENV_LST
@@ -116,19 +117,19 @@ class arguments:
 
     # ----- train experiment settings -----
     agent_class:              str                = "PPOAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent
-    seeds                                        = [10000, 20000, 30000, 40000, 50000]
-    exp_total_steps:          int                = 500_000
+    seeds                                        = [10000]#, 20000, 30000, 40000, 50000]
+    exp_total_steps:          int                = 4_000_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
-    nametag:                  str                = "sparse_success_"+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    nametag:                  str                = "sparse_success_No_Options"#+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    training_env_name:        str                = "Hard_Maze"
+    training_env_name:        str                = "Medium_Maze"
     training_env_params                          = {"continuing_task": False, "reward_type": "sparse"} #{"include_cfrc_ext_in_observation":False}
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
     training_env_max_steps:   int                = 500
-    training_render_mode:     str                = None #human, None, rgb_array_list, rgb_array
-    save_frame_freq:          int                = 1000
+    training_render_mode:     str                = "rgb_array" #human, None, rgb_array_list, rgb_array
+    save_frame_freq:          int                = 1
     load_agent:               str                = None # "car-test_1000_1000000_Tanh64_20250503_222014"
 
     # ----- test experiment settings -----
@@ -147,7 +148,7 @@ class arguments:
     lamda:                    float              = 0.95
 
     epochs:                   int                = 10
-    total_steps:              int                = 500_000
+    total_steps:              int                = 4_000_000
     rollout_steps:            int                = 2048
     num_minibatches:          int                = 32
     
@@ -168,7 +169,8 @@ class arguments:
     interpolation_resolution: int                = 100_000
 
     # ----- Option setting -----
-    tmp_seed = 10000
+    tmp_seed = 10000 #int(os.environ.get("TMP_SEED", 10000))
+
     env_agent_list                               = [
                                                     {"env_name": "Maze_1m", 
                                                      "env_params": {"continuing_task": False, "reward_type": "sparse"},
@@ -196,7 +198,8 @@ class arguments:
                                                      
                                                     ]
     option_save_results:      bool               = True
-    option_exp_name:          str                = f"Options_Transfer_Maze_m_Seed_{tmp_seed}"
+    option_exp_name:          str                = f"Options_DecWhole_Maze_m_Seed_{tmp_seed}"
+    max_num_options:          int                = None #int(os.environ.get("MAX_NUM_OPTIONS", 5))
     
     # ----- option experiment settings -----
     sub_trajectory_min_len:   int                = 2
@@ -204,14 +207,13 @@ class arguments:
     mask_epochs:              int                = 300 # number of epochs to train the mask
     
     hc_iterations:            int                = 200 # hill climbing iterations
-    hc_restarts:              int                = 20 # hill climbing restarts
-    hc_neighbor_samples:      int                = 50 # number of neighbors to sample for hill climbing
+    hc_restarts:              int                = 500 # hill climbing restarts
+    hc_neighbor_samples:      int                = 100 # number of neighbors to sample for hill climbing
     action_dif_tolerance:     float              = 0.4 # tolerance for action difference
-    baseline:                 str                = "transfer" #mask, tune, decwhole, transfer
-
+    baseline:                 str                = "decwhole" #mask, tune, decwhole, transfer
 
     # ----- test option experiment settings -----
-    test_option_env_name:     str                = "Hard_Maze"
+    test_option_env_name:     str                = "Hard_Maze" #Medium_Maze, Large_Maze, Hard_Maze
     test_option_env_params                       = {"continuing_task": False, "reward_type": "sparse"}
     test_option_env_wrappers                     = default_env_wrappers(test_option_env_name)[0]
     test_option_wrapping_params                  = default_env_wrappers(test_option_env_name)[1]
@@ -219,9 +221,12 @@ class arguments:
 
     
     test_option_render_mode:   str               = "rgb_array" #human, None, rgb_array_list, rgb_array
-    option_save_frame_freq:    int               = 1
+    option_save_frame_freq:    int               = 1000
 
-    exp_options_total_steps:   int               = 500_000
+    exp_options_total_steps:   int               = 4_000_000
     exp_options_total_episodes:int               = 0
 
 
+
+
+    

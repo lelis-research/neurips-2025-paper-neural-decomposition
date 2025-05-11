@@ -168,16 +168,18 @@ def train_options(args):
         print("\n", "*** Total number of options: ", len(options_lst), " ***")
         
         # Select the best combination of options to reduce Levin loss
-        if not os.path.exists(os.path.join(exp_dir, "selected_options.pt")):
+        file_name = f"selected_options_nolimit.pt" if args.max_num_options is None else f"selected_options_{args.max_num_options}.pt"
+        if not os.path.exists(os.path.join(exp_dir, file_name)):
             print("\n\n", "*"*20, "SELECTING BEST OPTIONS", "*"*20)
             best_options, best_loss = find_best_subset_stochastic(options_lst, lambda x: parallel_loss_fn(all_trajectories, x, tol=args.action_dif_tolerance), 
-                                                                max_iters=args.hc_iterations, restarts=args.hc_restarts, neighbor_samples=args.hc_neighbor_samples)
+                                                                max_iters=args.hc_iterations, restarts=args.hc_restarts, neighbor_samples=args.hc_neighbor_samples,
+                                                                max_size=args.max_num_options)
             
             print("Best loss: ", best_loss)
-            torch.save(best_options, os.path.join(exp_dir, "selected_options.pt"))
+            torch.save(best_options, os.path.join(exp_dir, file_name))
         else:
             print("\n\n", "*"*20, "LOADING SELECTED OPTIONS", "*"*20)
-            best_options = torch.load(os.path.join(exp_dir, "selected_options.pt"), weights_only=False)
+            best_options = torch.load(os.path.join(exp_dir, file_name), weights_only=False)
 
     print("\n", "*** Num selected options: ", len(best_options), " ***")
     for option in best_options:
@@ -185,8 +187,11 @@ def train_options(args):
 
 def test_options(args):
     option_dir = os.path.join(args.res_dir, args.option_exp_name)
-    best_options = torch.load(os.path.join(option_dir, "selected_options.pt"), weights_only=False)
+    file_name = f"selected_options.pt" if args.max_num_options is None else f"selected_options_{args.max_num_options}.pt"
+    best_options = torch.load(os.path.join(option_dir, file_name), weights_only=False)
+    print(f"Loaded Options from: {os.path.join(option_dir, file_name)}")
     print("Num options: ", len(best_options))
+    
     test_option_dir = f"{option_dir}_{args.test_option_env_name}"
 
     env = get_env(env_name=args.test_option_env_name,

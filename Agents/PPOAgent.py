@@ -205,7 +205,6 @@ class PPOAgent:
         indices = np.arange(T)
         for epoch in range(self.epochs):
             np.random.shuffle(indices)
-            print(epoch)
             for start in range(0, T, self.minibatch_size):
                 end = start + self.minibatch_size
                 mb_idx = indices[start:end]

@@ -225,7 +225,8 @@ def find_best_subset_stochastic(
     loss_fn,
     max_iters=200,
     restarts=5,
-    neighbor_samples=20
+    neighbor_samples=20,
+    max_size=None,
 ):
     """
     Stochastic hill‐climbing: at each step we only try a random
@@ -247,7 +248,7 @@ def find_best_subset_stochastic(
     
     for r in range(restarts):
         # random start subset
-        start_size = 0 #random.randint(0, len(options))
+        start_size = 0 #if max_size is None else max_size
         subset = set(random.sample(options, start_size)) #initialize with random subset
         curr_loss = loss_fn(list(subset))
         # one climb run
@@ -260,6 +261,8 @@ def find_best_subset_stochastic(
                 if opt in subset:
                     cand = list(subset - {opt})
                 else:
+                    if max_size is not None and len(subset) >= max_size:
+                        continue
                     cand = list(subset | {opt})
                 cand_loss = loss_fn(cand)
                 
