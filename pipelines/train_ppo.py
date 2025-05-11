@@ -25,7 +25,7 @@ class Args:
     """The ID of the finished experiment; to be filled in run time"""
     exp_name: str = "train_ppoAgent_ComboGrid_Primary"
     """the name of this experiment"""
-    env_id: str = "ComboGrid"
+    env_id: str = "FourRooms"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, SimpleCrossing, FourRooms, Unlock, MultiRoom]
     """
@@ -62,6 +62,8 @@ class Args:
     """"""
     use_options: int = 0
     """"""
+    processed_options: int = 1
+    """"""
     hidden_size: int = 64
     """"""
     l1_lambda: float = 0
@@ -72,6 +74,11 @@ class Args:
     """the size of the agent's view in the mini-grid environment"""
     save_run_info: int = 0
     """save entropy and episode length along with satate dict if set to 1"""
+    sweep_early_stop: int = 0
+    """"""
+    entropy_threshold: float = 0.2
+    """"""
+    return_threshold: int = 10
 
     # Specific arguments
     total_timesteps: int = 2_000_000
@@ -126,7 +133,7 @@ class Args:
     """the mini-batch size (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
-    env_seed: int = 0
+    env_seed: int = 41
     """the seed of the environment (set in runtime)"""
     seed: int = 2
     """experiment randomness seed (set in runtime)"""

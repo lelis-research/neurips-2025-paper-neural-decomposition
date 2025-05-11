@@ -95,6 +95,8 @@ class Args:
     preprocess_cache: bool = True
     """"""
     filter_options: bool = True
+    """"""
+    processed_options: int = 0
 
     # hill climbing arguments
     number_restarts: int = 2000
@@ -306,10 +308,16 @@ def load_options(args, logger, folder=None):
     """
 
     # Load the models and iterations
-    if folder:
-        save_dir = f"binary/options/{folder}/seed={args.seed}"
+    if args.processed_options:
+        if folder:
+            save_dir = f"binary/options/{folder}/seed={args.seed}/processed"
+        else:
+            save_dir = f"binary/options/selected_options/{args.env_id}/seed={args.seed}/processed"
     else:
-        save_dir = f"binary/options/selected_options/{args.env_id}/seed={args.seed}"
+        if folder:
+            save_dir = f"binary/options/{folder}/seed={args.seed}"
+        else:
+            save_dir = f"binary/options/selected_options/{args.env_id}/seed={args.seed}"
 
     logger.info(f"Option directory: {save_dir}")
 
