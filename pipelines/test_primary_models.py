@@ -21,7 +21,7 @@ class Args:
     """The ID of the finished experiment; to be filled in run time"""
     exp_name: str = "train_ppoAgent"
     """the name of this experiment"""
-    env_id: str = "SimpleCrossing"
+    env_id: str = "ComboGrid"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, SimpleCrossing, FourRooms, Unlock, MultiRoom]
     """
@@ -35,9 +35,9 @@ class Args:
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
     
     # hyperparameter arguments
-    game_width: int = 5
+    game_width: int = 3
     """the length of the combo/mini-grid square"""
-    max_episode_length: int = 500
+    max_episode_length: int = 30
     """"""
     visitation_bonus: int = 1
     """"""
@@ -222,12 +222,13 @@ def find_hyperparam_set(args, logger, directory_paths):
                         break
                 if terminal: 
                     model_return_sum += current_length
+                    print(f"model {model} seed {seed} rnv seed {env_seed} length {current_length}")
                 else:
                     # print(f"model {model} seed {seed} not able to find the goal. Skipping this setting")
                     considering = False
                     break
             if considering:
-                print("Considering...")
+                # print("Considering...")
                 if model_return_sum < best_model_length:
                     best_model = model
                     best_model_length = model_return_sum

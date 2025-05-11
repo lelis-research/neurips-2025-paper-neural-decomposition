@@ -58,7 +58,7 @@ class Args:
     """the length of the combo/mini-grid square"""
     max_episode_length: int = 100
     """"""
-    visitation_bonus: int = 1
+    visitation_bonus: int = 0
     """"""
     use_options: int = 0
     """"""
@@ -128,7 +128,7 @@ class Args:
     """the number of iterations (computed in runtime)"""
     env_seed: int = 0
     """the seed of the environment (set in runtime)"""
-    seed: int = 16
+    seed: int = 2
     """experiment randomness seed (set in runtime)"""
     problem: str = ""
     """"""
@@ -236,6 +236,7 @@ def main(args: Args):
         raise NotImplementedError
     
     model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}/seed={args.seed}/{args.exp_id}.pt'
+    # model_path = f'binary/models/{args.env_id}/seed={args.seed}/width={args.game_width}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-{args.seed}.pt'
 
     train_ppo(envs=envs, 
               seed=args.env_seed, 

@@ -286,6 +286,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
         
         
         log_data["entropies"].append(entropy_loss.item())
+        # print(log_data)
         try:
             log_data["episode_lengths"].append(int(avg_length))
             log_data["returns"].append(int(avg_return))

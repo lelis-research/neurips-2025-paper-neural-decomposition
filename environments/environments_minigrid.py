@@ -248,7 +248,7 @@ def make_env_simple_crossing(*args, **kwargs):
 def make_env_four_rooms(*args, **kwargs):
     def thunk():
         env = MiniGridWrap(
-                env = FourRoomsEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], seed=kwargs['seed'], render_mode="rgb_array"),
+                env = FourRoomsEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], render_mode="rgb_array"),
                 seed=kwargs['seed'],
                 n_discrete_actions=3,
                 view_size=kwargs['view_size'],

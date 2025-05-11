@@ -88,7 +88,7 @@ class Args:
     """"""
     view_size: int = 5
     """the size of the agent's view in the mini-grid environment"""
-    max_episode_length: int = 1000
+    max_episode_length: int = 500
     """the maximum length of an episode"""
     l1_lambda: float = 0
     """"""
@@ -116,7 +116,7 @@ class Args:
     selection_type: str = "local_search"
 
     # Script arguments
-    seed: int = 1
+    seed: int = 3
     """The seed used for reproducibilty of the script"""
     torch_deterministic: bool = True
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
@@ -246,7 +246,7 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     return trajectories
 
 
-def save_options(options: List[GruAgent], trajectories: dict, args: Args, logger):
+def save_options(options: List[GruAgent], trajectories: dict, args: Args, logger, processed=False):
     """
     Save the options (masks, models, and number of iterations) to the specified directory.
 
@@ -255,7 +255,10 @@ def save_options(options: List[GruAgent], trajectories: dict, args: Args, logger
         trajectories (Dict[str, Trajectory]): The trajectories corresponding to the these options
         save_dir (str): The directory where the options will be saved.
     """
-    save_dir = f"binary/options/selected_options/{args.env_id}/seed={args.seed}"
+    if processed:
+        save_dir = f"binary/options/selected_options/{args.env_id}/seed={args.seed}/processed"
+    else:
+        save_dir = f"binary/options/selected_options/{args.env_id}/seed={args.seed}"
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     else:
@@ -792,6 +795,39 @@ class LearnOptions:
 
         return agent_id, cache_per_problem
     
+    def postprocess_option_set(self, options, trajectories):
+        temp_set = set()
+        best_set = set(i for i in options)
+        best_loss = 0
+        for problem_name, trajectory in trajectories.items():
+                best_loss += self.levin_loss.compute_loss_cached(list(best_set), 
+                                                        trajectory, 
+                                                        problem_name, 
+                                                        None, 
+                                                        self.number_actions, 
+                                                        [],
+                                                        self.logger)[0]
+        flag = False
+        while not flag:
+            flag = True
+            for option in copy.deepcopy(best_set):
+                temp_set = best_set - {option}
+                temp_loss = 0
+                for problem_name, trajectory in trajectories.items():
+                    temp_loss += self.levin_loss.compute_loss_cached(list(temp_set), 
+                                                            trajectory, 
+                                                            problem_name, 
+                                                            None, 
+                                                            self.number_actions, 
+                                                            [],
+                                                            self.logger)[0]
+                if temp_loss < best_loss:
+                    self.logger.info(f"Removed option {option}. Prev loss: {best_loss} New loss: {temp_loss}")
+                    best_loss = temp_loss
+                    best_set = copy.deepcopy(temp_set)
+                    flag = False
+        return best_set
+    
     def select_by_local_search(self, option_candidates, trajectories):
         all_options = []
         futures = []
@@ -890,6 +926,15 @@ class LearnOptions:
                     self.logger.info(f"Restart {completed} of {restarts}. Restart Loss: {best_cost}, Best Loss: {best_levin_loss_total}")
                 except Exception as exc:
                     self.logger.error(f'Exception: {exc}')
+
+        try:
+            best_selected_options_processed = self.postprocess_option_set(best_selected_options, trajectories)
+            best_selected_options_agents = []
+            for agent_id in list(best_selected_options_processed):
+                best_selected_options_agents.append(copy.deepcopy(self.option_id_to_agent[agent_id]))
+            save_options(best_selected_options_agents, trajectories, self.args, self.logger, processed=True)
+        except Exception as exc:
+            self.logger.error(f'Exception in postprocessing option set: {exc}')
 
         self.levin_loss.remove_cache()
         best_selected_options_agents = []
@@ -1156,12 +1201,14 @@ def main():
                                     mask_type=args.mask_type, 
                                     mask_transform_type=args.mask_transform_type, 
                                     selection_type=args.selection_type)
-    module_extractor.discover()
-    # with open(f"binary/options/all_options/{args.env_id}/seed={args.seed}/all_options.pkl", 'rb') as f:
-    #     options = pickle.load(f)
-    # trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
-    # agents = module_extractor.select_by_local_search(options, trajectories)
-    # save_options(agents, trajectories, args, logger)
+    # module_extractor.discover()
+    with open(f"binary/options/all_options/{args.env_id}/seed={args.seed}/all_options.pkl", 'rb') as f:
+        options = pickle.load(f)
+    # options, _ = load_options(args, logger)
+    trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
+    # agents = module_extractor.postprocess_option_set(options, trajectories)
+    agents = module_extractor.select_by_local_search(options, trajectories)
+    save_options(agents, trajectories, args, logger)
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()
     # whole_dec_options_training_data_levin_loss()

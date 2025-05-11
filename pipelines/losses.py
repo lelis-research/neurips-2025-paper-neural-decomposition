@@ -192,8 +192,15 @@ class LevinLossActorCritic:
                     M[j] = min(M[j - 1] + 1, M[j])
                 if j < len(t):
                     for i in range(len(options)):
+
                         option_id = options[i]
-                        if target_problems_per_agent[option_id] == problem_name:
+                        # if not isinstance(options[i], int):
+                        #     actions = self._run(copy.deepcopy(t[j][0]), [options[i].feature_mask, options[i].actor_mask], options[i], options[i].option_size)
+                        #     is_applicable = self.is_applicable(t, actions, j, options[i].option_size)
+                        #     if is_applicable:
+                        #         M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
+
+                        if target_problems_per_agent is not None and target_problems_per_agent[option_id] == problem_name:
                             continue
                         try:
                             if j not in self.option_cache[option_id][problem_name]:
