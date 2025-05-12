@@ -30,7 +30,7 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 @dataclass
 class Args:
     # exp_name: str = "extract_learnOption_noReg_excludeGoal"
-    exp_name: str = "extract_learnOption_unfiltered"
+    exp_name: str = "extract_learnOption_filtered"
     # exp_name: str = "debug"
     # exp_name: str = "extract_decOptionWhole_sparseInit"
     # exp_name: str = "extract_learnOptions_randomInit_discreteMasks"
@@ -96,7 +96,7 @@ class Args:
     """"""
     input_update_frequency: int = 1
     """"""
-    mask_type: str = "input"
+    mask_type: str = "both"
     """It's one of these: [internal, input, both]"""
     mask_transform_type: str = "softmax"
     """It's either `softmax` or `quantize`"""
@@ -107,7 +107,7 @@ class Args:
     # reg_coef: float = 0.0
     # reg_coef: float = 110.03 # Combogrid 4 environments
     reg_coef: float = 0
-    filtering_inapplicable: bool = False
+    filtering_inapplicable: bool = True
     max_num_options: int = 10
     # max_num_options: int = 5
 
@@ -149,7 +149,7 @@ def process_args() -> Args:
         if 'selection_type' in vars(args):
             args.exp_id += f'_selectType{args.selection_type}'
         args.exp_id += f'_reg{args.reg_coef}' # TODO: not conditioned correctly
-        args.exp_id += f'maxNumOptions{args.max_num_options}'
+        # args.exp_id += f'maxNumOptions{args.max_num_options}'
 
     # updating log path
     args.log_path = os.path.join(args.log_path, args.exp_id, f"seed={str(args.seed)}")
@@ -954,6 +954,10 @@ class LearnOptions:
                 data = pickle.load(f)
                 option_candidates = data['option_candidates']
                 trajectories = data['trajectories']
+                trajectories = regenerate_trajectories(self.args, verbose=True, logger=self.logger)
+            if self.args.filtering_inapplicable and self.args.env_id == "ComboGrid":
+                assert len(option_candidates) < 3300, f"Filtering inapplicable options is not working, {len(option_candidates)} options found. Please check the filtering logic."
+            
 
         ### SANITY CHECK:
         # for i, option in enumerate(option_candidates):
@@ -1000,7 +1004,7 @@ class LearnOptions:
                                             problem_str=problem, 
                                             number_actions=3,
                                             cache_enabled=False)[0]
-        self.logger.info(f"Levin loss: {levin_loss}")
+        self.logger.info(f"Levin loss: {overal_loss}")
         for i in range(len(selected_options)):
             options_cpy = copy.deepcopy(selected_options)
             options_cpy = options_cpy[:i] + options_cpy[i+1:]
@@ -1267,10 +1271,11 @@ class LearnOptions:
             #             self.levin_loss.cache[option.get_option_id()][problem][s] = (is_applicable, actions)
             #     if i % 100 == 0:
             #         self.logger.info(f"Cache size: {len(self.levin_loss.cache)}, applicable_count: {applicable_count}")
-            self.logger.info(f"Saving option cache to {self.option_cache_path}")
-            os.makedirs(os.path.dirname(self.option_cache_path), exist_ok=True)
-            with open(self.option_cache_path, 'wb') as f:
-                pickle.dump(self.levin_loss.cache, f, protocol=pickle.HIGHEST_PROTOCOL)
+            
+            # self.logger.info(f"Saving option cache to {self.option_cache_path}")
+            # os.makedirs(os.path.dirname(self.option_cache_path), exist_ok=True)
+            # with open(self.option_cache_path, 'wb') as f:
+            #     pickle.dump(self.levin_loss.cache, f, protocol=pickle.HIGHEST_PROTOCOL)
         self.logger.info(f"Cache created. size: {len(self.levin_loss.cache)}")
 
         all_possible_sequences = {}
