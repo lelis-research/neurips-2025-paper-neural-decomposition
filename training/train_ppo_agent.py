@@ -20,10 +20,13 @@ def try_agent_deterministicly(agent: PPOAgent, options, args, env_seed):
     else:
         raise NotImplementedError
     env = get_single_environment(args, seed=env_seed, problem=problem, is_test=True, options=options)
-    trajectory = agent.run(env, 500, deterministic=True)
-    if trajectory.get_length() == OPTIMAL_TRAJECTORY_LENGTHS[env_seed]:
-        return True
-    return False
+    trajectory, infos = agent.run(env, 500, deterministic=True)
+    steps = infos['steps']
+    print(f"Trajectory length: {trajectory.get_length()}")
+    print(infos)
+    print(f"Steps: {steps}, Optimal trajectory length: {OPTIMAL_TRAJECTORY_LENGTHS[env_seed]}")
+    return steps == OPTIMAL_TRAJECTORY_LENGTHS[env_seed]
+
 
 def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, device, options=None, logger=None, writer=None, parameter_sweeps=False, deterministic=False):
     hidden_size = args.hidden_size
@@ -90,7 +93,8 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                 for info in infos["final_info"]:
                     if info and "episode" in info:  # Check if the episode data is available
                         returns.append(info["episode"]["r"])  # Collect episodic returns
-                        lengths.append(info["episode"]["l"])  # Collect episodic lengths
+                        # lengths.append(info["episode"]["l"])  # Collect episodic lengths
+                        lengths.append(info["steps"])  # Collect episodic lengths
 
                 # Log the average episodic return and length, if any episodes ended
                 if returns:
