@@ -19,8 +19,7 @@ def extract_trajectory(agent, env):
     """
     full_trajectory = []
     observation, info = env.reset(seed=0)
-
-    while True:
+    while True:       
         action = agent.act(observation, greedy=True)
         full_trajectory.append([observation, action])
 

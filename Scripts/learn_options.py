@@ -75,6 +75,7 @@ def train_options(args):
                             env_params=env_agent["env_params"],
                             wrapping_lst=env_agent["env_wrappers"],
                             wrapping_params=env_agent["env_wrapping_params"],
+                            max_steps=env_agent["env_max_steps"],
                             )
                 agent_path = os.path.join(args.res_dir, env_agent["agent_path"], "final.pt")
                 agent = PPOAgent.load(agent_path) 

@@ -90,7 +90,7 @@ def default_env_wrappers(env_name):
 @dataclass
 class arguments:
     # ----- experiment settings -----
-    mode                                         = ["train"] # train, test, plot, tune, train_option, test_option
+    mode                                         = ["train_option"] # train, test, plot, tune, train_option, test_option
     res_dir:                  str                = "Results"
     device:                   str                = torch.device("cpu")
 
@@ -182,37 +182,41 @@ class arguments:
     interpolation_resolution: int                = 100_000
 
     # ----- Option setting -----
-    tmp_seed = 50000 #int(os.environ.get("TMP_SEED", 10000))
+    tmp_seed = 280000 #int(os.environ.get("TMP_SEED", 10000))
 
     env_agent_list                               = [
                                                     {"env_name": "Maze_1m", 
                                                      "env_params": {"continuing_task": False, "reward_type": "sparse"},
                                                      "env_wrappers": default_env_wrappers("Maze_1m")[0],
                                                      "env_wrapping_params": default_env_wrappers("Maze_1m")[1],
-                                                     "agent_path": f"Maze_1m_{tmp_seed}_300000_sparse_success"},
+                                                     "agent_path": f"Maze_1m_{tmp_seed}_300000_sparse_success",
+                                                     "env_max_steps":500},
 
                                                      {"env_name": "Maze_2m", 
                                                      "env_params": {"continuing_task": False, "reward_type": "sparse"},
                                                      "env_wrappers": default_env_wrappers("Maze_2m")[0],
                                                      "env_wrapping_params": default_env_wrappers("Maze_2m")[1],
-                                                     "agent_path": f"Maze_2m_{tmp_seed}_300000_sparse_success"},
+                                                     "agent_path": f"Maze_2m_{tmp_seed}_300000_sparse_success",
+                                                     "env_max_steps":500},
 
                                                      {"env_name": "Maze_3m", 
                                                      "env_params": {"continuing_task": False, "reward_type": "sparse"},
                                                      "env_wrappers": default_env_wrappers("Maze_3m")[0],
                                                      "env_wrapping_params": default_env_wrappers("Maze_3m")[1],
-                                                     "agent_path": f"Maze_3m_{tmp_seed}_300000_sparse_success"},
+                                                     "agent_path": f"Maze_3m_{tmp_seed}_300000_sparse_success",
+                                                     "env_max_steps":500},
 
                                                      {"env_name": "Maze_4m", 
                                                      "env_params": {"continuing_task": False, "reward_type": "sparse"},
                                                      "env_wrappers": default_env_wrappers("Maze_4m")[0],
                                                      "env_wrapping_params": default_env_wrappers("Maze_4m")[1],
-                                                     "agent_path": f"Maze_4m_{tmp_seed}_300000_sparse_success"},
+                                                     "agent_path": f"Maze_4m_{tmp_seed}_300000_sparse_success",
+                                                     "env_max_steps":500},
                                                      
                                                     ]
     option_save_results:      bool               = True
-    option_exp_name:          str                = f"Options_Mask_Maze_m_Seed_{tmp_seed}"
-    max_num_options:          int                = 10 #int(os.environ.get("MAX_NUM_OPTIONS", 5))
+    option_exp_name:          str                = f"Options_FineTune_Maze_m_Seed_{tmp_seed}"
+    max_num_options:          int                = None #int(os.environ.get("MAX_NUM_OPTIONS", 5))
     
     # ----- option experiment settings -----
     sub_trajectory_min_len:   int                = 2
@@ -223,7 +227,7 @@ class arguments:
     hc_restarts:              int                = 500 # hill climbing restarts
     hc_neighbor_samples:      int                = 100 # number of neighbors to sample for hill climbing
     action_dif_tolerance:     float              = 0.4 # tolerance for action difference
-    baseline:                 str                = "mask" #mask, tune, decwhole, transfer
+    baseline:                 str                = "tune" #mask, tune, decwhole, transfer
 
     # ----- test option experiment settings -----
     test_option_env_name:     str                = "Large_Maze" #Medium_Maze, Large_Maze, Hard_Maze
