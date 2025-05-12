@@ -11,7 +11,8 @@ from environments.environments_combogrid import PROBLEM_NAMES as COMMBOGRID_NAME
 @dataclass
 class Args:
     # exp_id: str = "extract_learnOption_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinput_mskTransformsoftmax_selectTypelocal_search"
-    exp_id: str = "extract_learnOption_unfiltered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeboth_mskTransformsoftmax_selectTypelocal_search_reg0"
+    # exp_id: str = "extract_learnOption_unfiltered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeboth_mskTransformsoftmax_selectTypelocal_search_reg0"
+    exp_id: str = "extract_learnOption_filtered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeboth_mskTransformsoftmax_selectTypelocal_search_reg0"
     """The ID of the finished experiment"""
     # env_id: str = "MiniGrid-SimpleCrossingS9N1-v0"
     env_id: str = "ComboGrid"
@@ -54,27 +55,40 @@ def main(args: Args):
     assert all(option.mask_transform_type == mask_transform_type for option in options)
     
     loss = LevinLossActorCritic(logger, mask_type=mask_type, mask_transform_type=mask_transform_type)
-    # levin_loss = loss.compute_loss([option.mask for option in options],
-    #                                options,
-    #                                "",
-    #                                trajectories,
-    #                                3,
-    #                                [option.option_size for option in options],)
     
-    # logger.info(f"Levin loss: {levin_loss}")
-    logger.info(f"Logs saved on {args.log_path}")
+    def get_levin_loss(options, trajectories):
+        cost = 0
+        for problem, trajectory in trajectories.items():
+            cost += loss.compute_loss_cached(options, 
+                                            trajectory, 
+                                            problem_str=problem, 
+                                            number_actions=3,
+                                            cache_enabled=False)[0]
+        return cost
+    
+    levin_loss = get_levin_loss(options, trajectories)
+    
+    import copy
+    logger.info(f"Levin loss: {levin_loss}")
+    for i in range(len(options)):
+        options_cpy = copy.deepcopy(options)
+        options_cpy = options_cpy[:i] + options_cpy[i+1:]
+        levin_loss = get_levin_loss(options_cpy, trajectories)
+        logger.info(f"Levin loss without option #{i}: {levin_loss}")
+    
+    # logger.info(f"Logs saved on {args.log_path}")
 
-    logger.info("Testing on each grid cell")
-    for seed, problem in zip(args.env_seeds, args.problems):
-        logger.info(f"Testing on each cell..., {problem}")
-        loss.evaluate_on_each_cell(options=options, 
-                                   trajectories=trajectories,
-                                   problem_test=problem, 
-                                   args=args, 
-                                   seed=seed, 
-                                   logger=logger)
+    # logger.info("Testing on each grid cell")
+    # for seed, problem in zip(args.env_seeds, args.problems):
+    #     logger.info(f"Testing on each cell..., {problem}")
+    #     loss.evaluate_on_each_cell(options=options, 
+    #                                trajectories=trajectories,
+    #                                problem_test=problem, 
+    #                                args=args, 
+    #                                seed=seed, 
+    #                                logger=logger)
 
-    utils.logger_flush(logger)
+    # utils.logger_flush(logger)
 
 
 if __name__ == "__main__":

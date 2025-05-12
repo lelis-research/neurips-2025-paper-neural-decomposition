@@ -92,6 +92,8 @@ class Args:
     reg_coef: float = 0.0
     # reg_coef: float = 110.03
     filtering_inapplicable: bool = False
+    max_num_options: int = 10
+    # max_num_options: int = 5
 
     # Script arguments
     seed: int = 0
@@ -126,6 +128,7 @@ def process_args() -> Args:
         if 'selection_type' in vars(args):
             args.exp_id += f'_selectType{args.selection_type}'
         args.exp_id += f'_reg{args.reg_coef}' # TODO: not conditioned correctly
+        args.exp_id += f'maxNumOptions{args.max_num_options}'
 
     # updating log path
     args.log_path = os.path.join(args.log_path, args.exp_id, f"seed={str(args.seed)}")
@@ -570,7 +573,7 @@ class FineTuning:
 
         restarts = 200
         max_steps = 500
-        max_num_options = 10
+        max_num_options = self.args.max_num_options
         best_selected_options = []
         best_levin_loss_total = float('Inf')
         completed = 0

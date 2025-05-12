@@ -96,7 +96,7 @@ class Args:
     """"""
     input_update_frequency: int = 1
     """"""
-    mask_type: str = "internal"
+    mask_type: str = "input"
     """It's one of these: [internal, input, both]"""
     mask_transform_type: str = "softmax"
     """It's either `softmax` or `quantize`"""
@@ -108,6 +108,8 @@ class Args:
     # reg_coef: float = 110.03 # Combogrid 4 environments
     reg_coef: float = 0
     filtering_inapplicable: bool = False
+    max_num_options: int = 10
+    # max_num_options: int = 5
 
     # Script arguments
     seed: int = 0
@@ -147,6 +149,7 @@ def process_args() -> Args:
         if 'selection_type' in vars(args):
             args.exp_id += f'_selectType{args.selection_type}'
         args.exp_id += f'_reg{args.reg_coef}' # TODO: not conditioned correctly
+        args.exp_id += f'maxNumOptions{args.max_num_options}'
 
     # updating log path
     args.log_path = os.path.join(args.log_path, args.exp_id, f"seed={str(args.seed)}")
@@ -989,6 +992,28 @@ class LearnOptions:
         
         assert len(selected_options) > 0
 
+        # Removing redundant options
+        overal_loss = 0
+        for problem, trajectory in trajectories.items():
+            overal_loss += self.levin_loss.compute_loss_cached(selected_options, 
+                                            trajectory, 
+                                            problem_str=problem, 
+                                            number_actions=3,
+                                            cache_enabled=False)[0]
+        self.logger.info(f"Levin loss: {levin_loss}")
+        for i in range(len(selected_options)):
+            options_cpy = copy.deepcopy(selected_options)
+            options_cpy = options_cpy[:i] + options_cpy[i+1:]
+            cost = 0
+            for problem, trajectory in trajectories.items():
+                cost += self.levin_loss.compute_loss_cached(options_cpy, 
+                                                trajectory, 
+                                                problem_str=problem, 
+                                                number_actions=3,
+                                                cache_enabled=False)[0]
+            levin_loss = cost
+            self.logger.info(f"Levin loss without option #{i}: {levin_loss}")
+
         # printing selected options
         self.logger.info("Selected options:")
         for i in range(len(selected_options)):
@@ -1270,7 +1295,7 @@ class LearnOptions:
 
         restarts = 200
         max_steps = 500
-        max_num_options = 10
+        max_num_options = self.args.max_num_options
         best_selected_options = []
         best_levin_loss_total = float('Inf')
         completed = 0
@@ -1328,6 +1353,43 @@ class LearnOptions:
 
         best_selected_options = [all_options[idx] for idx in best_selected_options]
         self.levin_loss.remove_cache()
+
+        # Removing redundant options
+        def get_levin_loss(options, trajectories):
+            cost = 0
+            for problem, trajectory in trajectories.items():
+                cost += self.levin_loss.compute_loss_cached(options, 
+                                                trajectory, 
+                                                problem_str=problem, 
+                                                number_actions=3,
+                                                cache_enabled=False)[0]
+            return cost
+    
+        best_levin_loss = get_levin_loss(best_selected_options, trajectories)
+        
+        self.logger.info(f"Levin loss: {best_levin_loss}")
+        options = copy.deepcopy(best_selected_options)
+        while True:
+            done = True
+            best_loss_so_far = best_levin_loss
+            for i in range(len(options)):
+                options_cpy = copy.deepcopy(options)
+                options_cpy = options_cpy[:i] + options_cpy[i+1:]
+                levin_loss = get_levin_loss(options_cpy, trajectories)
+                if levin_loss < best_loss_so_far:
+                    best_loss_so_far = levin_loss
+                    best_options_so_far = options_cpy
+                    redundant_idx = i
+                    done = False
+            if not done:
+                best_levin_loss = best_loss_so_far
+                options = best_options_so_far
+                self.logger.info(f"Levin loss without option #{redundant_idx}: {best_levin_loss}")
+            else:
+                break
+                    
+
+
         return list(best_selected_options)
 
     def _train_mask_iter(self, trajectories, problem, s, length, agent: PPOAgent):
