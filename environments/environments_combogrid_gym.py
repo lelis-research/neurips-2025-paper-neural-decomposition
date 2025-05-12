@@ -7,7 +7,7 @@ from typing import List, Any
 from gymnasium.envs.registration import register
 
 class ComboGym(gym.Env):
-    def __init__(self, rows=3, columns=3, problem="TL-BR", options=None, reward_per_step=-1, reward_terminated=1):
+    def __init__(self, rows=3, columns=3, problem="TL-BR", options=None, reward_per_step=-1, reward_goal=1):
         self._game = Game(rows, columns, problem)
         self._rows = rows
         self._columns = columns
@@ -18,7 +18,7 @@ class ComboGym(gym.Env):
         self.action_space = gym.spaces.Discrete(self.n_discrete_actions)
         self.n_steps = 0
         self.reward_per_step = reward_per_step
-        self.reward_terminated = reward_terminated
+        self.reward_goal = reward_goal
         
         if options is not None:
             self.setup_options(options)
@@ -46,8 +46,8 @@ class ComboGym(gym.Env):
             nonlocal truncated
             self._game.apply_action(action)
             self.n_steps += 1
-            terminated = self._game.is_over()
-            reward = self.reward_terminated if terminated else self.reward_per_step 
+            terminated, is_goal = self._game.is_over()
+            reward = self.reward_goal if is_goal else self.reward_per_step 
             if self.n_steps == 500:
                 truncated = True
             return self.get_observation(), reward, terminated, truncated, {}
@@ -56,7 +56,11 @@ class ComboGym(gym.Env):
             reward_sum = 0
             option = self.options[action - self.n_discrete_actions]
             for _ in range(option.option_size):
-                option_action, _ = option.get_action_with_mask(torch.tensor(self.get_observation(), dtype=torch.float32).view(1, -1))
+                x_tensor = torch.tensor(self.get_observation(), dtype=torch.float32).view(1, -1)
+                if option.mask:
+                    option_action, _ = option.get_action_with_mask(x_tensor)
+                else:
+                    option_action = option.get_action_and_value(x_tensor, deterministic=True)[0]
                 obs, reward, terminated, truncated, _ = process_action(option_action)
                 reward_sum += reward
                 if terminated or truncated:
@@ -67,8 +71,8 @@ class ComboGym(gym.Env):
     
     def is_over(self, loc=None):
         if loc:
-            return loc == self._game.problem.goal
-        return self._game.is_over()
+            return [loc == goal for goal in self._game.get_goals()]
+        return self._game.is_over()[0]
     
     def get_observation_space(self):
         return self._rows * self._columns * 2 + 9

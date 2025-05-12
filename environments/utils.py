@@ -21,13 +21,13 @@ def get_single_environment(args, seed, problem=None, is_test=False, options=None
         if not problem:
             problem = COMBO_PROBLEM_NAMES[seed]
         reward_per_step = 0
-        reward_terminated = 10 if is_test else 1
+        reward_goal = 10 if is_test else 1
         env = ComboGym(rows=args.game_width, 
                        columns=args.game_width, 
                        problem=problem, 
                        options=options,
                        reward_per_step=reward_per_step, 
-                       reward_terminated=reward_terminated)
+                       reward_goal=reward_goal)
     else:
         raise NotImplementedError
     return env
@@ -51,12 +51,12 @@ def get_single_environment_builder(args, seed, problem=None, options=None, is_te
         if not problem:
             problem = COMBO_PROBLEM_NAMES[seed]
         reward_per_step = 0
-        reward_terminated = 10 if is_test else 1
+        reward_goal = 10 if is_test else 1
         env_fn = make_env_combogrid(rows=args.game_width, 
                                     columns=args.game_width, 
                                     problem=problem, 
                                     reward_per_step=reward_per_step, 
-                                    reward_terminated=reward_terminated,
+                                    reward_goal=reward_goal,
                                     options=options)
     elif args.env_id == "MiniGrid-FourRooms-v0":
         env_fn = make_env_four_rooms(view_size=args.game_width, seed=seed, options=options)

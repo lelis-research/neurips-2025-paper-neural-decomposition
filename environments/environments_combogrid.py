@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import gc
+import copy
 
 
 SEEDS = {
@@ -29,7 +30,7 @@ OPTIMAL_TRAJECTORY_LENGTHS = {
     seed: 24 for seed in range(12)
 }
 OPTIMAL_TRAJECTORY_LENGTHS.update({
-    12: 54,
+    12: 42,
     13: 30
 })
 
@@ -43,6 +44,7 @@ class Problem:
         self.rows = rows
         self.columns = columns
         self.initial, self.goals = self._parse_problem(problem_str)
+        self.init_goals = copy.deepcopy(self.goals)
         self.reset()
 
     def _parse_problem(self, problem_str):
@@ -73,7 +75,7 @@ class Problem:
         
         return (row, col)
     
-    def update_goal(self) -> bool:
+    def remove_goal(self, loc) -> bool:
         """
         Updates the goal coordinations.
 
@@ -82,17 +84,16 @@ class Problem:
         Returns:
             bool: True if all goals have been reached, False otherwise.
         """
+        try:
+            self.goals.remove(loc)
+        except ValueError:
+            raise Exception(f"Goal {loc} not found in the list of goals.")
 
-        if self.goal_idx == len(self.goals) - 1:
-            return True
-        
-        self.goal_idx += 1
-        self.goal = self.goals[self.goal_idx]
-        return False
+        finished = len(self.goals) == 0
+        return finished
     
     def reset(self):
-        self.goal_idx = 0
-        self.goal = self.goals[self.goal_idx]
+        self.goals = copy.deepcopy(self.init_goals)
 
     def is_goal(self, loc):
         return any([(loc[0] == goal[0]) and (loc[1]==goal[1]) for goal in self.goals])
@@ -139,13 +140,16 @@ class Game:
         self._x, self._y = init_loc if init_loc else initial
         self._matrix_unit[self._x][self._y] = 1
         self._state = []
-        self.set_goal()   
+        self.setup_goals()   
         gc.collect()
 
-    def set_goal(self):
+    def setup_goals(self):
         self._matrix_goal = np.zeros((self._rows, self._columns))
-        goal = self.problem.goal
-        self._matrix_goal[goal[0]][goal[1]] = 1
+        for goal in self.problem.goals:
+            self._matrix_goal[goal[0]][goal[1]] = 1
+
+    def get_goals(self):
+        return self.problem.goals
 
     def __repr__(self) -> str:
         str_map = ""
@@ -173,8 +177,6 @@ class Game:
                      str_map += " B "
                 elif self._matrix_goal[i][j] == 1:
                      str_map += " G "
-                elif self.problem.is_goal((i,j)):
-                     str_map += " g "
                 elif (i,j) in options and tuple(options[(i,j)]) in self._action_pattern:
                     str_map += f" {option_letters[self._action_pattern[tuple(options[(i,j)])]]} "
                 elif self._matrix_unit[i][j] == 1:
@@ -191,11 +193,12 @@ class Game:
         return np.concatenate((self._matrix_unit.ravel(), one_hot_matrix_state.ravel(), self._matrix_goal.ravel()))
     
     def is_over(self):
-        if self._matrix_goal[self._x][self._y] == 1:
-            done = self.problem.update_goal()
-            self.set_goal()
-            return done
-        return False
+        is_goal = self._matrix_goal[self._x][self._y] == 1
+        finished = False
+        if is_goal:
+            finished = self.problem.remove_goal((self._x, self._y))
+            self._matrix_goal[self._x][self._y] = 0
+        return finished, is_goal
     
     def get_actions(self):
         return [0, 1, 2]

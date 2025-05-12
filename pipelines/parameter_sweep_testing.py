@@ -22,7 +22,7 @@ from environments.environments_combogrid_gym import make_env as make_env_combogr
 
 @dataclass
 class Args:
-    exp_id: str = "extract_learnOption_filteredOptionSet_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinput_mskTransformsoftmax_selectTypelocal_search_reg0"
+    exp_id: str = "extract_fineTuning_notFiltered_ComboGrid_gw5_h64_l10_envsd0,1,2,3_selectTypelocal_search_reg0.0"
     """The ID of the finished experiment"""
     env_id: str = "ComboGrid"
     """the id of the environment corresponding to the trained agent
@@ -48,14 +48,15 @@ class Args:
     # Testing specific arguments
     test_exp_id: str = ""
     """The ID of the new experiment"""
-    test_exp_name: str = "test_learnOptions_filteredOptionSet"
+    test_exp_name: str = "test_fine_tuning_unfiltered"
+    # test_exp_name: str = "test_no_options"
     """the name of this experiment"""
     test_env_id: str = "ComboGrid"
     """the id of the environment for testing
     choices from [ComboGrid, MiniGrid-FourRooms-v0]"""
     test_problems: List[str] = tuple()
     """"""
-    test_env_seeds: Union[List[int], str] = (13,)
+    test_env_seeds: Union[List[int], str] = (12,)
     """the seeds of the environment for testing"""
     total_timesteps: int = 2_000_000
     """total timesteps for testing"""
@@ -177,7 +178,7 @@ def train_ppo_with_options(options: List[PPOAgent], test_exp_id: str, env_seed: 
         "hyperparameters",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in hyperparameters.items()])),
     )
-    options_info = {f"option{i}":(option.mask.tolist(), option.option_size, option.problem_id) for i, option in enumerate(options)}
+    options_info = {f"option{i}":(option.mask, option.option_size, option.problem_id) for i, option in enumerate(options)}
     writer.add_text(
         "options_setting",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in options_info.items()])),)
@@ -210,6 +211,11 @@ def main(args: Args):
         args.log_path = os.path.join(mod_args.log_path, test_exp_sub_id)
         logger, mod_args.log_path = utils.get_logger("test_options_logger", mod_args.log_level, args.log_path)
         
+        logger.info(f"Testing with {mod_args.method} on {problem}, env_seed={seed}")
+        logger.info(f"Learning rate: {mod_args.learning_rate}, {type(mod_args.learning_rate)}")
+        logger.info(f"Clip coefficient: {mod_args.clip_coef}, {type(mod_args.clip_coef)}")
+        logger.info(f"Entropy coefficient: {mod_args.ent_coef}, {type(mod_args.ent_coef)}")
+
         if mod_args.method == "no_options":
             options = []
         else:
@@ -256,4 +262,11 @@ if __name__ == "__main__":
     elif args.test_env_id == "MiniGrid-FourRooms-v0":
         args.test_problems = [args.test_env_id + str(seed) for seed in args.test_env_seeds]
 
+    if isinstance(args.learning_rate, str):
+        args.learning_rate = [float(args.learning_rate)]
+    if isinstance(args.clip_coef, str):
+        args.clip_coef = [float(args.clip_coef)]
+    if isinstance(args.ent_coef, str):
+        args.ent_coef = [float(args.ent_coef)]
+    
     main(args)
