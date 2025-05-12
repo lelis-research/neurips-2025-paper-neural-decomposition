@@ -50,22 +50,22 @@ class ComboGym(gym.Env):
             reward = self.reward_goal if is_goal else self.reward_per_step 
             if self.n_steps == 500:
                 truncated = True
-            return self.get_observation(), reward, terminated, truncated, {}
+            return self.get_observation(), reward, terminated, truncated, {"steps": self.n_steps}
     
         if self.options and action >= self.n_discrete_actions:
             reward_sum = 0
             option = self.options[action - self.n_discrete_actions]
             for _ in range(option.option_size):
                 x_tensor = torch.tensor(self.get_observation(), dtype=torch.float32).view(1, -1)
-                if option.mask:
+                if option.mask is not None:
                     option_action, _ = option.get_action_with_mask(x_tensor)
                 else:
                     option_action = option.get_action_and_value(x_tensor, deterministic=True)[0]
                 obs, reward, terminated, truncated, _ = process_action(option_action)
                 reward_sum += reward
                 if terminated or truncated:
-                    return obs, reward_sum, terminated, truncated, {}
-            return obs, reward_sum, terminated, truncated, {}
+                    return obs, reward_sum, terminated, truncated, {"steps": self.n_steps}
+            return obs, reward_sum, terminated, truncated, {"steps": self.n_steps}
         else:
             return process_action(action)
     

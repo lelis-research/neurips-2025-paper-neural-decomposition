@@ -392,6 +392,7 @@ class PPOAgent(nn.Module):
         o = env.get_observation()
         
         done = False
+        steps = 0
 
         if verbose: print('Beginning Trajectory')
         while not done:
@@ -403,18 +404,18 @@ class PPOAgent(nn.Module):
                 print(env, a)
                 print()
 
-            next_o, _, terminal, truncated, _ = env.step(a.item())
+            next_o, _, terminal, truncated, info = env.step(a.item())
+            steps = info["steps"]
             
             current_length += 1
-            if (length_cap is not None and current_length > length_cap) or \
-                terminal or truncated:
+            if (length_cap is not None and current_length > length_cap) or terminal or truncated:
                 done = True     
 
             o = next_o   
         
         self._h = None
         if verbose: print("End Trajectory \n\n")
-        return trajectory
+        return trajectory, {"steps": steps, "truncated": truncated, "terminal": terminal, "current_length": current_length}
     
     def _get_action_with_both_masks_softmax(self, x_tensor, input_mask, internal_mask):
         prob_actions, logits = self._both_masked_forward_softmax(x_tensor, input_mask, internal_mask)

@@ -108,8 +108,8 @@ class Args:
     # reg_coef: float = 110.03 # Combogrid 4 environments
     reg_coef: float = 0
     filtering_inapplicable: bool = False
-    max_num_options: int = 10
-    # max_num_options: int = 5
+    # max_num_options: int = 10
+    max_num_options: int = 5
 
     # Script arguments
     seed: int = 0
@@ -191,7 +191,7 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
         
         agent.load_state_dict(torch.load(model_path))
 
-        trajectory = agent.run(env, verbose=verbose)
+        trajectory, _ = agent.run(env, verbose=verbose)
         trajectories[problem] = trajectory
 
         if verbose:
@@ -991,28 +991,6 @@ class LearnOptions:
             raise ValueError(f"Invalid selection type: {self.selection_type}")
         
         assert len(selected_options) > 0
-
-        # Removing redundant options
-        overal_loss = 0
-        for problem, trajectory in trajectories.items():
-            overal_loss += self.levin_loss.compute_loss_cached(selected_options, 
-                                            trajectory, 
-                                            problem_str=problem, 
-                                            number_actions=3,
-                                            cache_enabled=False)[0]
-        self.logger.info(f"Levin loss: {levin_loss}")
-        for i in range(len(selected_options)):
-            options_cpy = copy.deepcopy(selected_options)
-            options_cpy = options_cpy[:i] + options_cpy[i+1:]
-            cost = 0
-            for problem, trajectory in trajectories.items():
-                cost += self.levin_loss.compute_loss_cached(options_cpy, 
-                                                trajectory, 
-                                                problem_str=problem, 
-                                                number_actions=3,
-                                                cache_enabled=False)[0]
-            levin_loss = cost
-            self.logger.info(f"Levin loss without option #{i}: {levin_loss}")
 
         # printing selected options
         self.logger.info("Selected options:")

@@ -873,7 +873,7 @@ class LevinLossActorCritic:
                         if env.is_over(loc=(i,j)):
                             continue
                         env.reset(init_loc=(i,j), init_dir=direction)
-                        trajectory = agent.run(env, length_cap=agent.option_size - 1)
+                        trajectory, _ = agent.run(env, length_cap=agent.option_size - 1)
                         actions = trajectory.get_action_sequence()
                         action_seq[(i,j)] = actions
 

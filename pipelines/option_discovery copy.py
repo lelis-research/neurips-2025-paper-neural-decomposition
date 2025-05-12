@@ -187,7 +187,7 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
         
         agent.load_state_dict(torch.load(model_path))
 
-        trajectory = agent.run(env, verbose=verbose)
+        trajectory, _ = agent.run(env, verbose=verbose)
         trajectories[problem] = trajectory
 
         if verbose:
