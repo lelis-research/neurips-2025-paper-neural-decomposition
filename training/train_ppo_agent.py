@@ -21,11 +21,12 @@ def try_agent_deterministicly(agent: PPOAgent, options, args, env_seed):
         raise NotImplementedError
     env = get_single_environment(args, seed=env_seed, problem=problem, is_test=True, options=options)
     trajectory, infos = agent.run(env, 500, deterministic=True)
-    steps = infos['steps']
+    reward = infos["reward"]
+    entropy = infos["entropy"]
     print(f"Trajectory length: {trajectory.get_length()}")
     print(infos)
-    print(f"Steps: {steps}, Optimal trajectory length: {OPTIMAL_TRAJECTORY_LENGTHS[env_seed]}")
-    return steps == OPTIMAL_TRAJECTORY_LENGTHS[env_seed]
+    print(f"Steps: {infos['steps']}, Optimal trajectory length: {OPTIMAL_TRAJECTORY_LENGTHS[env_seed]}")
+    return reward == OPTIMAL_TEST_REWARD[env_seed] and entropy < 0.5
 
 
 def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, device, options=None, logger=None, writer=None, parameter_sweeps=False, deterministic=False):
@@ -77,7 +78,8 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
-
+            global_step += (infos['action_size'] - 1).sum()
+                
 
             # if "final_info" in infos:
             #     for info in infos["final_info"]:
@@ -237,6 +239,11 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             logger.info(f"Global steps: {global_step}")
             logger.info(f"SPS: {int(global_step / (time.time() - start_time))}")
             utils.logger_flush(logger)
+        if global_step > args.total_timesteps:
+            logger.info(f"Global steps: {global_step}")
+            logger.info(f"SPS: {int(global_step / (time.time() - start_time))}")
+            logger.info("Training finished.")
+            break
 
     envs.close()
     # writer.close()
