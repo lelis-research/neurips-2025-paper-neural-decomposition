@@ -21,13 +21,14 @@ from environments.environments_combogrid_gym import make_env as make_env_combogr
 
 @dataclass
 class Args:
-    exp_id: str = "extract_learnOption_filteredOptionSet_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinput_mskTransformsoftmax_selectTypelocal_search_reg0"
+    # exp_id: str = "extract_learnOption_filteredOptionSet_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinput_mskTransformsoftmax_selectTypelocal_search_reg0"
+    exp_id: str = "extract_learnOption_filtered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeboth_mskTransformsoftmax_selectTypelocal_search_reg0"
     """The ID of the finished experiment"""
     env_id: str = "ComboGrid"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
-    method: str = "learn-options-filtered"
+    method: str = "no_options"
     """Determines the baseline that is being tested; Choices: ['no_options']"""
     cuda: bool = True
     """if toggled, cuda will be enabled by default"""
@@ -47,7 +48,7 @@ class Args:
     # Testing specific arguments
     test_exp_id: str = ""
     """The ID of the new experiment"""
-    test_exp_name: str = "parameter_search_learnOptions_filteredOptionSet"
+    test_exp_name: str = "test_no_options"
     """the name of this experiment"""
     test_env_id: str = "ComboGrid"
     """the id of the environment for testing
@@ -175,7 +176,7 @@ def train_ppo_with_options(options: List[PPOAgent], test_exp_id: str, env_seed: 
         "hyperparameters",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in hyperparameters.items()])),
     )
-    options_info = {f"option{i}":(option.mask.tolist(), option.option_size, option.problem_id) for i, option in enumerate(options)}
+    options_info = {f"option{i}":(option.mask, option.option_size, option.problem_id) for i, option in enumerate(options)}
     writer.add_text(
         "options_setting",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in options_info.items()])),)
@@ -203,7 +204,7 @@ def main(args: Args):
         options, _ = load_options(args, logger)
 
     for option in options:
-        print((option.mask.tolist(), option.option_size, option.problem_id))
+        print((option.mask, option.option_size, option.problem_id))
 
     # Custom parameters for each problem
     lrs = args.learning_rate
@@ -249,5 +250,12 @@ if __name__ == "__main__":
         args.test_problems = [COMBOGRID_NAMES[i] for i in args.test_env_seeds]
     elif args.test_env_id == "MiniGrid-FourRooms-v0":
         args.test_problems = [args.test_env_id + str(seed) for seed in args.test_env_seeds]
+
+    if isinstance(args.learning_rate, str):
+        args.learning_rate = [float(args.learning_rate)]
+    if isinstance(args.clip_coef, str):
+        args.clip_coef = [float(args.clip_coef)]
+    if isinstance(args.ent_coef, str):
+        args.ent_coef = [float(args.ent_coef)]
 
     main(args)

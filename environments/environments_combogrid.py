@@ -34,6 +34,14 @@ OPTIMAL_TRAJECTORY_LENGTHS.update({
     13: 30
 })
 
+OPTIMAL_TRAJECTORY_REWARD = {
+    seed: 24 for seed in range(12)
+}
+OPTIMAL_TEST_REWARD = {
+        12: 40,
+        13: 20
+    }
+
 DIRECTIONS = {(0,0,1): "U",
               (0,1,2): "D",
               (2,1,0): "L",

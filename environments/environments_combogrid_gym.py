@@ -71,7 +71,7 @@ class ComboGym(gym.Env):
     
     def is_over(self, loc=None):
         if loc:
-            return [loc == goal for goal in self._game.get_goals()]
+            return any([loc == goal for goal in self._game.get_goals()])
         return self._game.is_over()[0]
     
     def get_observation_space(self):

@@ -7,7 +7,7 @@ import gymnasium as gym
 import numpy as np
 import torch.nn as nn
 import torch.optim as optim
-from environments.environments_combogrid import PROBLEM_NAMES as COMBO_PROBLEM_NAMES, OPTIMAL_TRAJECTORY_LENGTHS
+from environments.environments_combogrid import PROBLEM_NAMES as COMBO_PROBLEM_NAMES, OPTIMAL_TRAJECTORY_LENGTHS, OPTIMAL_TEST_REWARD
 from environments.utils import get_single_environment
 from utils import utils
 from agents.policy_guided_agent import PPOAgent
@@ -67,7 +67,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
 
             # ALGO LOGIC: action logic
             with torch.no_grad():
-                action, logprob, _, value, _ = agent.get_action_and_value(next_obs, deterministic=deterministic)
+                action, logprob, entropy, value, _ = agent.get_action_and_value(next_obs, deterministic=deterministic)
                 values[step] = value.flatten()
             actions[step] = action
             logprobs[step] = logprob
@@ -108,8 +108,8 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                     if writer:
                         writer.add_scalar("Charts/episodic_return", avg_return, global_step)
                         writer.add_scalar("Charts/episodic_length", avg_length, global_step)
-                    logger.info(f"global_step={global_step}, episodic_return={avg_return}, episodic_length={avg_length}")
-                    if parameter_sweeps and avg_length - OPTIMAL_TRAJECTORY_LENGTHS[seed] < 10: # FIX: just works for ComboGrid
+                    logger.info(f"global_step={global_step}, episodic_return={avg_return}, episodic_length={avg_length}, entropy={entropy.mean()}")
+                    if parameter_sweeps and OPTIMAL_TEST_REWARD[seed] - avg_return < 10 and entropy.mean() < 0.15: # FIX: just works for ComboGrid
                         logger.info("Trying deterministically ...")
                         if try_agent_deterministicly(agent, options, args, seed):
                             logger.info(f"Optimal trajectory found on step {global_step}")
