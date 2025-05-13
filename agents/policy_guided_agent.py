@@ -395,16 +395,20 @@ class PPOAgent(nn.Module):
         steps = 0
 
         if verbose: print('Beginning Trajectory')
+        total_reward = 0
+        total_entropy = []
         while not done:
             o = torch.tensor(o, dtype=torch.float32)
-            a, _, _, _, logits = self.get_action_and_value(o, deterministic=deterministic)
+            a, _, entropy, _, logits = self.get_action_and_value(o, deterministic=deterministic)
             trajectory.add_pair(copy.deepcopy(env), a.item(), logits, detach=detach_tensors)
 
             if verbose:
                 print(env, a)
                 print()
 
-            next_o, _, terminal, truncated, info = env.step(a.item())
+            next_o, reward, terminal, truncated, info = env.step(a.item())
+            total_reward += reward
+            total_entropy.append(entropy.item())
             steps = info["steps"]
             
             current_length += 1
@@ -415,7 +419,7 @@ class PPOAgent(nn.Module):
         
         self._h = None
         if verbose: print("End Trajectory \n\n")
-        return trajectory, {"steps": steps, "truncated": truncated, "terminal": terminal, "current_length": current_length}
+        return trajectory, {"steps": steps, "truncated": truncated, "terminal": terminal, "current_length": current_length, "reward": total_reward, "entropy": sum(total_entropy)/len(total_entropy)}
     
     def _get_action_with_both_masks_softmax(self, x_tensor, input_mask, internal_mask):
         prob_actions, logits = self._both_masked_forward_softmax(x_tensor, input_mask, internal_mask)
