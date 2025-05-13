@@ -199,6 +199,7 @@ def plot_comparison(method_patterns,
         print(f"Loading {method_name}")
         # find all matching experiment folders
         folders = glob.glob(f"{res_dir}/{pattern}")
+        print(f"{len(folders)} experiments found")
         if not folders:
             print(f"Warning: no folders match pattern {res_dir}/{pattern}")
             continue

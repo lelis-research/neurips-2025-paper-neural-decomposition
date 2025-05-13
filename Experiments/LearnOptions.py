@@ -5,6 +5,7 @@ import random
 from tqdm import tqdm
 import numpy as np
 import copy
+from multiprocessing import Pool
 
 def extract_trajectory(agent, env):
     """
@@ -169,7 +170,6 @@ def fine_tune_policy(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e
     return actor_critic_copy
 
 
-
 def find_best_subset(options, loss_fn, max_iters=100, restarts=10):
     """
     Find a subset of `options` that (approximately) minimizes `loss_fn` using
@@ -292,4 +292,81 @@ def find_best_subset_stochastic(
                 # and continue hopping back to the next restart
                 break
     pbar.close()
+    return best_subset, best_loss
+
+
+def _one_restart(args):
+    """
+    Perform one stochastic hill‐climb restart.
+    Returns (best_subset, best_loss).
+    """
+    options, loss_fn, max_iters, neighbor_samples, max_size, seed = args
+    random.seed(seed)
+
+    # start from empty (or random size if you like)
+    subset = set()
+    curr_loss = loss_fn([])
+    best_subset = list(subset)
+    best_loss = curr_loss
+
+    for _ in range(max_iters):
+        print(_)
+        candidates = random.sample(options, 
+                                k=min(neighbor_samples, len(options)))
+        improved = False
+        for opt in candidates:
+            if opt in subset:
+                cand = list(subset - {opt})
+            else:
+                if max_size is not None and len(subset) >= max_size:
+                    continue
+                cand = list(subset | {opt})
+            cand_loss = loss_fn(cand)
+            if cand_loss < curr_loss:
+                subset, curr_loss = set(cand), cand_loss
+                improved = True
+                break
+
+        if curr_loss < best_loss:
+            best_subset, best_loss = list(subset), curr_loss
+
+        if not improved:
+            break
+
+    return best_subset, best_loss
+    
+def find_best_subset_stochastic_parallel(
+    options,
+    loss_fn,
+    max_iters=200,
+    restarts=5,
+    neighbor_samples=20,
+    max_size=None,
+    num_workers=4,
+):
+    """
+    Parallelized over restarts.
+    """
+    # prepare args for each restart (use different seeds if you want)
+    base_seed = random.randrange(1_000_000)
+    tasks = [
+        (options, loss_fn, max_iters, neighbor_samples, max_size, base_seed + r)
+        for r in range(restarts)
+    ]
+
+    best_subset, best_loss = [], float('inf')
+    no_option_loss = loss_fn([])
+
+    with Pool(processes=num_workers) as pool:
+        for subset_r, loss_r in tqdm(
+            pool.imap_unordered(_one_restart, tasks),
+            total=restarts,
+            desc="Restarts",
+            unit="run"
+        ):
+            # track global best
+            if loss_r < best_loss:
+                best_loss = loss_r
+                best_subset = subset_r
+
     return best_subset, best_loss

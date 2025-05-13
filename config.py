@@ -118,12 +118,12 @@ class arguments:
     # ----- train experiment settings -----
     agent_class:              str                = "PPOAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent
     seeds                                        = list(range(60_000, 31*10_000, 10_000))
-    exp_total_steps:          int                = 300_000
+    exp_total_steps:          int                = 1_000_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
-    nametag:                  str                = "sparse_success"#+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    nametag:                  str                = "sparse_success_No_Options"#+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    training_env_name:        str                = "Maze_1m" # Medium_Maze, Large_Maze, Hard_Maze
+    training_env_name:        str                = "Large_Maze" # Medium_Maze, Large_Maze, Hard_Maze
     training_env_params                          = {"continuing_task": False, "reward_type": "sparse"} #{"include_cfrc_ext_in_observation":False}
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
@@ -148,7 +148,7 @@ class arguments:
     lamda:                    float              = 0.95
 
     epochs:                   int                = 10
-    total_steps:              int                = 300_000
+    total_steps:              int                = 1_000_000
     rollout_steps:            int                = 2048
     num_minibatches:          int                = 32
     
@@ -182,7 +182,7 @@ class arguments:
     interpolation_resolution: int                = 100_000
 
     # ----- Option setting -----
-    tmp_seed = 280000 #int(os.environ.get("TMP_SEED", 10000))
+    tmp_seed = int(os.environ.get("TMP_SEED", 60000))
 
     env_agent_list                               = [
                                                     {"env_name": "Maze_1m", 
@@ -215,10 +215,10 @@ class arguments:
                                                      
                                                     ]
     option_save_results:      bool               = True
-    option_exp_name:          str                = f"Options_FineTune_Maze_m_Seed_{tmp_seed}"
+    option_exp_name:          str                = f"Options_DecWhole_Maze_m_Seed_{tmp_seed}"
     max_num_options:          int                = None #int(os.environ.get("MAX_NUM_OPTIONS", 5))
     
-    # ----- option experiment settings -----
+    # ----- train option experiment settings -----
     sub_trajectory_min_len:   int                = 2
     sub_trajectory_max_len:   int                = 24
     mask_epochs:              int                = 300 # number of epochs to train the mask
@@ -227,10 +227,11 @@ class arguments:
     hc_restarts:              int                = 500 # hill climbing restarts
     hc_neighbor_samples:      int                = 100 # number of neighbors to sample for hill climbing
     action_dif_tolerance:     float              = 0.4 # tolerance for action difference
-    baseline:                 str                = "tune" #mask, tune, decwhole, transfer
+    baseline:                 str                = "decwhole" #mask, tune, decwhole, transfer
+    num_worker:               int                = 32
 
     # ----- test option experiment settings -----
-    test_option_env_name:     str                = "Large_Maze" #Medium_Maze, Large_Maze, Hard_Maze
+    test_option_env_name:     str                = os.environ.get("TEST_OPTION_ENV_NAME", "Hard_Maze") #Medium_Maze, Large_Maze, Hard_Maze
     test_option_env_params                       = {"continuing_task": False, "reward_type": "sparse"}
     test_option_env_wrappers                     = default_env_wrappers(test_option_env_name)[0]
     test_option_wrapping_params                  = default_env_wrappers(test_option_env_name)[1]

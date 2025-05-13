@@ -1,13 +1,13 @@
-#!/usr/bin/env bash
+#!/opt/homebrew/bin/bash
 set -euo pipefail
 
 # max concurrent jobs
-JOB_LIMIT=32
+JOB_LIMIT=4
 
 # parameter grids
-seeds=(10000 20000 30000 40000 50000)
+seeds=( $(seq 60000 10000 300000) )
 opts=(5 10)
-envs=("Medium_Maze" "Large_Maze" "Hard_Maze")
+envs=("Medium_Maze" "Large_Maze")
 
 # make sure your config.py reads these three from env:
 #   TMP_SEED, MAX_NUM_OPTIONS, TEST_OPTION_ENV_NAME
@@ -18,27 +18,47 @@ envs=("Medium_Maze" "Large_Maze" "Hard_Maze")
 
 mkdir -p logs
 
+# for seed in "${seeds[@]}"; do
+#   for opt in "${opts[@]}"; do
+#     for env in "${envs[@]}"; do
+#       (
+#         export TMP_SEED=$seed
+#         export MAX_NUM_OPTIONS=$opt
+#         export TEST_OPTION_ENV_NAME=$env
+
+#         echo "→ [seed=${seed}, opt=${opt}, env=${env}] starting"
+#         python main.py \
+#           > "logs/test_options_seed_${seed}_opt${opt}_env${env}.log" 2>&1
+#         echo "→ [seed=${seed}, opt=${opt}, env=${env}] done"
+#       ) &
+
+#       # throttle to $JOB_LIMIT concurrent jobs
+#       if [[ $(jobs -r -p | wc -l) -ge $JOB_LIMIT ]]; then
+#         wait -n
+#       fi
+#     done
+#   done
+# done
+
 for seed in "${seeds[@]}"; do
-  for opt in "${opts[@]}"; do
-    for env in "${envs[@]}"; do
-      (
-        export TMP_SEED=$seed
-        export MAX_NUM_OPTIONS=$opt
-        export TEST_OPTION_ENV_NAME=$env
+  for env in "${envs[@]}"; do
+    (
+      export TMP_SEED=$seed
+      export TEST_OPTION_ENV_NAME=$env
 
-        echo "→ [seed=${seed}, opt=${opt}, env=${env}] starting"
-        python main.py \
-          > "logs/test_options_seed_${seed}_opt${opt}_env${env}.log" 2>&1
-        echo "→ [seed=${seed}, opt=${opt}, env=${env}] done"
-      ) &
+      echo "→ [seed=${seed}, env=${env}] starting"
+      python main.py \
+        > "logs/test_options_seed_${seed}_env${env}.log" 2>&1
+      echo "→ [seed=${seed}, env=${env}] done"
+    ) &
 
-      # throttle to $JOB_LIMIT concurrent jobs
-      if [[ $(jobs -r -p | wc -l) -ge $JOB_LIMIT ]]; then
-        wait -n
-      fi
-    done
+    # throttle to $JOB_LIMIT concurrent jobs
+    if [[ $(jobs -r -p | wc -l) -ge $JOB_LIMIT ]]; then
+      wait -n
+    fi
   done
 done
+
 
 # wait for any remaining jobs
 wait

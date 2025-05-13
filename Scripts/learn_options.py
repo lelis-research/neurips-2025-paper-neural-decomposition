@@ -3,10 +3,12 @@ import torch
 import pickle
 from tqdm import tqdm
 from functools import partial
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from torch.utils.tensorboard import SummaryWriter
+from multiprocessing import Pool
 
-from Experiments.LearnOptions import extract_trajectory, generate_subtrajectories, learn_mask, find_best_subset, find_best_subset_stochastic, fine_tune_policy
+
+from Experiments.LearnOptions import extract_trajectory, generate_subtrajectories, learn_mask, fine_tune_policy, find_best_subset_stochastic_parallel
 from Experiments.LevinLoss import levin_loss_continuous_with_maxlen
 from Environments.GetEnvironment import get_env
 from Agents.PPOAgent import PPOAgent
@@ -35,19 +37,68 @@ def loss_fn(all_traj, options_lst, tol=1e-3):
 
 def parallel_loss_fn(all_traj, options_lst, num_workers=4, tol=1e-3):
     """
-    Parallel computation of loss over all_traj using a picklable partial.
+    Parallel computation of loss over all_traj using threads
+    (so it can be called from inside a multiprocessing worker).
     """
-    # bake in options_lst and tol
     worker_fn = partial(
         levin_loss_continuous_with_maxlen,
         options=options_lst,
         tol=tol
     )
     n = len(all_traj)
-    with ProcessPoolExecutor(max_workers=num_workers) as pool:
-        # map the single-argument worker_fn over all_traj
+    # use threads rather than processes
+    with ThreadPoolExecutor(max_workers=num_workers) as pool:
         losses = list(pool.map(worker_fn, all_traj))
     return sum(losses) / n
+
+def train_one_option(args):
+    """
+    Worker function to process one (i,j,sub_traj) task.
+    Returns either an Option or None.
+    """
+    i, j, sub_traj1_env, sub_traj2_env, agent, sub_traj, baseline, mask_epochs, tol = args
+    # create a local tqdm just for the epochs if you really need it,
+    # otherwise you can omit per-task bars.
+    if baseline == "mask":
+        mask = learn_mask(agent, sub_traj,
+                          num_epochs=mask_epochs,
+                          tol=tol)
+        if mask is None:
+            return None
+        info = {
+            "org_policy_env": sub_traj1_env,
+            "sub_traj_env": sub_traj2_env,
+        }
+        return Option(agent.actor_critic.actor_mean,
+                      mask,
+                      len(sub_traj),
+                      info=info)
+
+    elif baseline == "tune":
+        actor_critic = fine_tune_policy(agent, sub_traj,
+                                        num_epochs=mask_epochs,
+                                        tol=tol)
+        if actor_critic is None:
+            return None
+        info = {
+            "org_policy_env": sub_traj1_env,
+            "sub_traj_env": sub_traj2_env,
+        }
+        return Option(actor_critic.actor_mean,
+                      0,
+                      len(sub_traj),
+                      info=info)
+
+    elif baseline == "decwhole":
+        info = {
+            "org_policy_env": sub_traj1_env,
+            "sub_traj_env": sub_traj2_env,
+        }
+        return Option(agent.actor_critic.actor_mean,
+                      0,
+                      len(sub_traj),
+                      info=info)
+    return None
 
 def train_options(args):
     exp_dir = os.path.join(args.res_dir, args.option_exp_name)
@@ -108,57 +159,35 @@ def train_options(args):
         
         # Train the masks or fine-tuning for options
         if not os.path.exists(os.path.join(exp_dir, "all_options.pt")):        
-            print("\n\n", "*"*20, "TRAINING MASKS", "*"*20)
-            # get a mask for each sub-trajectory
-
-            options_lst = []
+            print("\n\n", "*"*20, "TRAINING OPTIONS", "*"*20)
+            # get an option for each sub-trajectory
             
-            # count total masks (i.e. total sub_trajs across all agent/traj pairs, excluding i==j)
-            total_masks = (len(all_sub_trajectories) - 1) * sum(len(d["sub_traj"]) for d in all_sub_trajectories)
-            mask_pbar = tqdm(total=total_masks, desc="Masks", position=0)
+            tasks = []
             for i, sub_traj1 in enumerate(all_sub_trajectories):
-                agent = sub_traj1["agent"]
-                for j, sub_traj2  in enumerate(all_sub_trajectories):
+                for j, sub_traj2 in enumerate(all_sub_trajectories):
                     if i == j:
                         continue
-                    for sub_traj in sub_traj2["sub_traj"]:
-                        epoch_pbar = tqdm(
-                            total=args.mask_epochs,
-                            desc=f"Agent {i}, Traj {j}",
-                            leave=False,
-                            position=1,
-                        )
-                        
-                        if args.baseline == "mask":
-                            mask = learn_mask(agent, sub_traj, num_epochs=args.mask_epochs, pbar=epoch_pbar, tol=args.action_dif_tolerance)
-                            epoch_pbar.close()
-                            if mask is not None: # if the mask is None, the learning wasn't successful
-                                info = {
-                                    "org_policy_env": sub_traj1["env_name"],
-                                    "sub_traj_env": sub_traj2["env_name"],
-                                }
-                                options_lst.append(Option(agent.actor_critic.actor_mean, mask, len(sub_traj), info=info))
-                        
-                        elif args.baseline == "tune":
-                            actor_critic = fine_tune_policy(agent, sub_traj, num_epochs=args.mask_epochs, pbar=epoch_pbar, tol=args.action_dif_tolerance)
-                            epoch_pbar.close()
-                            if actor_critic is not None: # if the mask is None, the learning wasn't successful
-                                info = {
-                                    "org_policy_env": sub_traj1["env_name"],
-                                    "sub_traj_env": sub_traj2["env_name"],
-                                }
-                                options_lst.append(Option(actor_critic.actor_mean, 0, len(sub_traj), info=info))
-                        
-                        elif args.baseline == "decwhole":
-                            epoch_pbar.close()
-                            info = {
-                                "org_policy_env": sub_traj1["env_name"],
-                                "sub_traj_env": sub_traj2["env_name"],
-                            }
-                            options_lst.append(Option(agent.actor_critic.actor_mean, 0, len(sub_traj), info=info))
-                            
-                        mask_pbar.update(1)
-            mask_pbar.close()      
+                    for sub in sub_traj2["sub_traj"]:
+                        tasks.append((
+                            i,
+                            j,
+                            sub_traj1["env_name"],
+                            sub_traj2["env_name"],
+                            sub_traj1["agent"],
+                            sub,
+                            args.baseline,
+                            args.mask_epochs,
+                            args.action_dif_tolerance
+                        ))
+
+            options_lst = []
+            # 2) Spawn a pool and process with a progress bar
+            with Pool(processes=args.num_worker) as pool:
+                for opt in tqdm(pool.imap_unordered(train_one_option, tasks),
+                                total=len(tasks),
+                                desc="Building Options"):
+                    if opt is not None:
+                        options_lst.append(opt)
             torch.save(options_lst, os.path.join(exp_dir, "all_options.pt"))
         else:
             print("\n\n", "*"*20, "LOADING MASKS", "*"*20)
@@ -172,9 +201,18 @@ def train_options(args):
         file_name = f"selected_options_nolimit.pt" if args.max_num_options is None else f"selected_options_{args.max_num_options}.pt"
         if not os.path.exists(os.path.join(exp_dir, file_name)):
             print("\n\n", "*"*20, "SELECTING BEST OPTIONS", "*"*20)
-            best_options, best_loss = find_best_subset_stochastic(options_lst, lambda x: parallel_loss_fn(all_trajectories, x, tol=args.action_dif_tolerance), 
-                                                                max_iters=args.hc_iterations, restarts=args.hc_restarts, neighbor_samples=args.hc_neighbor_samples,
-                                                                max_size=args.max_num_options)
+            loss_fn = partial(
+                parallel_loss_fn,
+                all_trajectories,
+                tol=args.action_dif_tolerance
+            )
+            best_options, best_loss = find_best_subset_stochastic_parallel(options_lst, 
+                                                                           loss_fn=loss_fn, 
+                                                                            max_iters=args.hc_iterations, 
+                                                                            restarts=args.hc_restarts, 
+                                                                            neighbor_samples=args.hc_neighbor_samples,
+                                                                            max_size=args.max_num_options, 
+                                                                            num_workers=args.num_worker)
             
             print("Best loss: ", best_loss)
             torch.save(best_options, os.path.join(exp_dir, file_name))
@@ -193,7 +231,7 @@ def test_options(args):
     print(f"Loaded Options from: {os.path.join(option_dir, file_name)}")
     print("Num options: ", len(best_options))
     
-    test_option_dir = f"{option_dir}_{args.test_option_env_name}_{file_name}"
+    test_option_dir = f"{option_dir}_{args.test_option_env_name}_{file_name[:-3]}"
 
     env = get_env(env_name=args.test_option_env_name,
                   env_params=args.test_option_env_params,
