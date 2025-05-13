@@ -35,9 +35,9 @@ class Args:
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
     
     # hyperparameter arguments
-    game_width: int = 3
+    game_width: int = 4
     """the length of the combo/mini-grid square"""
-    max_episode_length: int = 30
+    max_episode_length: int = 35
     """"""
     visitation_bonus: int = 1
     """"""
@@ -154,6 +154,7 @@ def find_hyperparam_set(args, logger, directory_paths):
                 continue
             init_index = model.find("seed")
             seed = int(model[init_index:][len("seed")+1:model[init_index:].find(os.sep)])
+            if seed > 3: continue
             random.seed(seed)
             np.random.seed(seed)
             torch.manual_seed(seed)

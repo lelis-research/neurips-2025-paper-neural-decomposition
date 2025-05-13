@@ -76,6 +76,9 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
         else:
             ent_coef = args.ent_coef
 
+        returns = []
+        lengths = []
+        goals = []
         for step in range(0, args.num_steps):
             global_step += args.num_envs
             obs[step] = next_obs
@@ -105,37 +108,34 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             #             wandb.log({"Charts/episodic_return": info["episode"]["r"], 
             #                        "Charts/episodic_length": info["episode"]["l"]}, step=global_step)
             if "final_info" in infos:
-                returns = []
-                lengths = []
-                goals = []
                 for i, info in enumerate(infos["final_info"]["n_steps"]): # Check if the episode data is available
                     if info != 0: # Collect episodic lengths
                         lengths.append(info) 
-                    if infos["final_info"]["episode"]["r"][i] != 0: # Collect episodic returns
+                    # if infos["final_info"]["episode"]["r"][i] != 0: # Collect episodic returns
                         returns.append(infos["final_info"]["episode"]["r"][i])  
                     if 'goals' in infos["final_info"] and infos["final_info"]["goals"][i] != 0:
                         goals.append(infos["final_info"]["goals"][i])
                         
 
                 # Log the average episodic return and length, if any episodes ended
-                if returns:
-                    avg_return = sum(returns) / len(returns)
-                    avg_length = sum(lengths) / len(lengths)
-                    if (len(goals) != 0):
-                        avg_goal = sum(goals) / len(goals)
-                    else:
-                        avg_goal = 0
-                    if args.track:
-                        wandb.log({
-                            "Charts/episodic_return_avg": avg_return, 
-                            "Charts/episodic_length_avg": avg_length,
-                            "Charts/episodic_goal_avg": avg_goal,
-                        }, step=global_step)
-                    if writer:
-                        writer.add_scalar("Charts/episodic_return", avg_return, global_step)
-                        writer.add_scalar("Charts/episodic_length", avg_length, global_step)
-                        writer.add_scalar("Charts/episodic_goal", avg_goal, global_step)
-                    logger.info(f"global_step={global_step}, episodic_return={avg_return}, episodic_length={avg_length}, episodic_goal={avg_goal}")
+        if returns:
+            avg_return = sum(returns) / len(returns)
+            avg_length = sum(lengths) / len(lengths)
+            if (len(goals) != 0):
+                avg_goal = sum(goals) / len(goals)
+            else:
+                avg_goal = 0
+            if args.track:
+                wandb.log({
+                    "Charts/episodic_return_avg": avg_return, 
+                    "Charts/episodic_length_avg": avg_length,
+                    "Charts/episodic_goal_avg": avg_goal,
+                }, step=global_step)
+            if writer:
+                writer.add_scalar("Charts/episodic_return", avg_return, global_step)
+                writer.add_scalar("Charts/episodic_length", avg_length, global_step)
+                writer.add_scalar("Charts/episodic_goal", avg_goal, global_step)
+            logger.info(f"global_step={global_step}, episodic_return={avg_return}, episodic_length={avg_length}, episodic_goal={avg_goal}")
             
 
         
@@ -286,10 +286,9 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
         
         
         log_data["entropies"].append(entropy_loss.item())
-        # print(log_data)
         try:
             log_data["episode_lengths"].append(int(avg_length))
-            log_data["returns"].append(int(avg_return))
+            log_data["returns"].append(float(avg_return))
             log_data["goals"].append(int(avg_goal))
         except:
             log_data["episode_lengths"].append(0)
@@ -298,8 +297,13 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
         log_data["steps"].append(int(global_step))
 
         log_data["test_lengths"].append(int(test_length))
-        log_data["test_returns"].append(int(test_return))
-        
+        log_data["test_returns"].append(float(test_return))
+        # print(log_data)
+        if args.sweep_early_stop == 1:
+            if entropy_loss.item() < args.entropy_threshold and test_return >= args.return_threshold:
+               logger.info(f"Entropy threshold is met. Entropy: {entropy_loss.item()}. Step: {global_step}. Stopping training..") 
+               break
+
         if iteration % 1000 == 0:
             logger.info(f"Global steps: {global_step}")
             logger.info(f"SPS: {int(global_step / (time.time() - start_time))}")
@@ -327,6 +331,8 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
         }
         torch.save(checkpoint, model_file_name)
     else:
+        if args.sweep_early_stop == 1:
+            model_file_name = model_file_name[:-3] + f"step{global_step}.pt"
         torch.save(agent.state_dict(), model_file_name) # overrides the file if already exists
     logger.info(f"Saved on {model_file_name}")
     

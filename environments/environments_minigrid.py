@@ -200,16 +200,16 @@ def get_simplecross_env(*args, **kwargs):
 
 def get_fourrooms_env(*args, **kwargs):
     env = MiniGridWrap(
-                env = FourRoomsEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], seed=kwargs['seed'], render_mode="rgb_array"),
+                env = FourRoomsEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], render_mode="rgb_array"),
                 seed=kwargs['seed'],
                 n_discrete_actions=3,
                 view_size=kwargs['view_size'],
                 show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
                 options=None if 'options' not in kwargs else kwargs['options'])
     env.reset(seed=kwargs['seed'])
-    if kwargs['visitation_bonus'] == 1:
+    if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
         env = PositionBonus(env, scale=0.001)
-    env = gym.wrappers.RecordEpisodeStatistics(env)
+    # env = gym.wrappers.RecordEpisodeStatistics(env)
     return env
 
 def get_unlock_env(*args, **kwargs):

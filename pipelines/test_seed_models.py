@@ -137,11 +137,11 @@ def check_seeds(args, logger, directory_path):
             pass 
             # print(f"model {model} seed {seed} rnv seed {env_seed} length {current_length}")
         else:
-            if env_seed != 0:
-                no_good_seeds.add(seed)
-                print(f"IGNORE SEED {seed} ENV SEED {env_seed}")
+            no_good_seeds.add(seed)
+            print(f"IGNORE SEED {seed} ENV SEED {env_seed}")
     print(no_good_seeds)
-
+    print(len(no_good_seeds))
+    print(set(range(1,100))-no_good_seeds)
 
 
 
@@ -154,6 +154,24 @@ def main():
     # if args.env_id == "ComboGrid":
     #     directory_path = directory_path + f"/width={args.game_width}"
     models = check_seeds(args, logger, directory_path)
+
+    # directory_paths = []
+    # separator = os.path.sep
+    # for x in os.listdir('binary'):
+    #     if x.startswith(f'models_sweep_{args.env_id}') and os.path.isdir(os.path.join('binary', x)):
+    #         directory_paths.append(os.path.join('binary', x))
+    # for directory_path in directory_paths:
+    #     models = find_pytorch_models(directory_path)
+    #     logger.info(f"Found {len(models)} PyTorch models in {directory_path}.")
+    #     env_seed = int(directory_path.strip().split("_")[-1])
+    #     for model in models:
+    #         init_index = model.find("seed")
+    #         seed = int(model[init_index:][len("seed")+1:model[init_index:].find(os.sep)])
+    #         if seed < 4: continue
+    #         source_file = model
+    #         destination_file = f'binary{separator}models{separator}{args.env_id}{separator}seed={seed}{separator}width=3{separator}{args.env_id.lower()}-{PROBLEM_NAMES[env_seed] if args.env_id == "ComboGrid" else env_seed}-{seed}.pt'
+    #         os.makedirs(os.path.dirname(destination_file), exist_ok=True)
+    #         shutil.copy(source_file, destination_file)
 
 
 

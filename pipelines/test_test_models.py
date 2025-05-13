@@ -37,7 +37,7 @@ def main():
     logger, _ = utils.get_logger('sweep_selector_logger', args.log_level, log_path)
     directory_paths = []
     for x in os.listdir('binary'):
-        if x.startswith(f'models_sweep_{args.env_id}_12') and os.path.isdir(os.path.join('binary', x)):
+        if x.startswith(f'models_sweep_{args.env_id}') and os.path.isdir(os.path.join('binary', x)):
             directory_paths.append(os.path.join('binary', x))
     
     if args.env_id == "FourRooms":
@@ -64,6 +64,8 @@ def main():
             random.seed(seed)
             np.random.seed(seed)
             torch.manual_seed(seed)
+            args.seed = seeds
+            options, _ = load_options(args, logger, folder=option_folder)
             torch.backends.cudnn.deterministic = args.torch_deterministic
 
             #load agent
@@ -77,7 +79,7 @@ def main():
             elif args.env_id == "Unlock":
                 env = get_unlock_env(seed=env_seed, view_size=3, n_discrete_actions=5, args=args)
             elif args.env_id == "FourRooms":
-                env = get_fourrooms_env(seed=env_seed, view_size=5, args=args)
+                env = get_fourrooms_env(seed=env_seed, view_size=5, args=args, options=options if use_options == 1 else None)
                 
             
             checkpoint = torch.load(model, weights_only=True)

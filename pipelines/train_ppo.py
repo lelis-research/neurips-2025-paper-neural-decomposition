@@ -79,6 +79,8 @@ class Args:
     entropy_threshold: float = 0.2
     """"""
     return_threshold: int = 10
+    """"""
+    exp_mode: str = None
 
     # Specific arguments
     total_timesteps: int = 2_000_000
@@ -160,12 +162,13 @@ def main(args: Args):
 
     options = None
     if args.use_options == 1:
+        fld = "selected_options" if args.exp_mode == None else f"selected_options_{args.exp_mode}"
         if args.env_id == "FourRooms":
-            option_folder = f"selected_options/SimpleCrossing"
+            option_folder = f"{fld}/SimpleCrossing"
         elif args.env_id == "ComboGrid":
-            option_folder = f"selected_options/ComboGrid"
+            option_folder = f"{fld}/ComboGrid"
         elif args.env_id == "MultiRoom":
-            option_folder = f"selected_options/Unlock"
+            option_folder = f"{fld}/Unlock"
         options, _ = load_options(args, logger, folder=option_folder)
 
     if args.track:
@@ -242,8 +245,9 @@ def main(args: Args):
     else:
         raise NotImplementedError
     
-    model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}/seed={args.seed}/{args.exp_id}.pt'
-    # model_path = f'binary/models/{args.env_id}/seed={args.seed}/width={args.game_width}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-{args.seed}.pt'
+    model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}{"_"+args.exp_mode if args.exp_mode != None else ""}/seed={args.seed}/{args.exp_id}.pt'
+    if args.save_run_info == 1:
+        model_path = f'binary/models/{args.env_id}{"_"+args.exp_mode if args.exp_mode != None else ""}/seed={args.seed}/width={args.game_width}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-{args.seed}.pt'
 
     train_ppo(envs=envs, 
               seed=args.env_seed, 
