@@ -1,3 +1,6 @@
+import torch.multiprocessing as mp
+mp.set_sharing_strategy('file_system')
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -310,7 +313,6 @@ def _one_restart(args):
     best_loss = curr_loss
 
     for _ in range(max_iters):
-        print(_)
         candidates = random.sample(options, 
                                 k=min(neighbor_samples, len(options)))
         improved = False

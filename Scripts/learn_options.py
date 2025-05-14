@@ -29,7 +29,7 @@ class Option():
 
         return action
 
-def loss_fn(all_traj, options_lst, tol=1e-3):
+def seq_loss_fn(all_traj, options_lst, tol=1e-3):
     loss = 0
     for e, traj in enumerate(all_traj):
         loss += levin_loss_continuous_with_maxlen(traj, options_lst, tol=tol) / len(all_traj)
@@ -156,7 +156,7 @@ def train_options(args):
             all_trajectories = traj_data["all_trajectories"]
             
         print("\n","*** Total num sub-trajectories: ", sum([len(d["sub_traj"]) for d in all_sub_trajectories]), " ***")
-        
+
         # Train the masks or fine-tuning for options
         if not os.path.exists(os.path.join(exp_dir, "all_options.pt")):        
             print("\n\n", "*"*20, "TRAINING OPTIONS", "*"*20)
@@ -202,7 +202,7 @@ def train_options(args):
         if not os.path.exists(os.path.join(exp_dir, file_name)):
             print("\n\n", "*"*20, "SELECTING BEST OPTIONS", "*"*20)
             loss_fn = partial(
-                parallel_loss_fn,
+                seq_loss_fn,
                 all_trajectories,
                 tol=args.action_dif_tolerance
             )
