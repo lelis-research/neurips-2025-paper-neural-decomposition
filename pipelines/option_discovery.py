@@ -225,7 +225,7 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     trajectories = {}
     
     for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{args.env_id}/seed={args.seed}/{model_directory}-{args.seed}.pt'
+        model_path = f'binary/models/{args.env_id}/width={args.game_width}/seed={args.seed}/{model_directory}-{args.seed}.pt'
         env = get_single_environment(args, seed)
         # env = gym.vector.SyncVectorEnv(
         #     [make_env(problem=problem, rows=args.game_width, columns=args.game_width) for i in range(1)],
@@ -401,7 +401,7 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
 
 
     for primary_seed, primary_problem, primary_model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{args.env_id}/seed={args.seed}/{primary_model_directory}-{args.seed}.pt'
+        model_path = f'binary/models/{args.env_id}/width={args.game_width}/seed={args.seed}/{primary_model_directory}-{args.seed}.pt'
         primary_env = get_single_environment(args, seed=primary_seed)
         primary_agent = GruAgent(primary_env, h_size=args.hidden_size, env_id=args.env_id)
         primary_agent.load_state_dict(torch.load(model_path, weights_only=True))
@@ -499,7 +499,7 @@ def neural_augmentation_option(args: Args, logger: logging.Logger):
     options = []
     trajectories = []
     for primary_seed, primary_problem, primary_model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{args.env_id}/seed={args.seed}/{primary_model_directory}-{args.seed}.pt'
+        model_path = f'binary/models/{args.env_id}/width={args.game_width}/seed={args.seed}/{primary_model_directory}-{args.seed}.pt'
         primary_env = get_single_environment(args, seed=primary_seed)
         primary_agent = GruAgent(primary_env, h_size=args.hidden_size, env_id=args.env_id)
         primary_agent.load_state_dict(torch.load(model_path, weights_only=True))
@@ -609,7 +609,7 @@ class LearnOptions:
             t_length = trajectories[target_problem].get_length()
 
             for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
-                model_path = f'binary/models/{self.args.env_id}/seed={self.args.seed}/{primary_model_directory}-{self.args.seed}.pt'
+                model_path = f'binary/models/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/{primary_model_directory}-{self.args.seed}.pt'
                 primary_env = get_single_environment(self.args, seed=primary_seed)
                 primary_agent = GruAgent(primary_env, h_size=self.args.hidden_size, env_id=self.args.env_id)
                 primary_agent.load_state_dict(torch.load(model_path, weights_only=True))
@@ -898,6 +898,7 @@ class LearnOptions:
             for i in range(len(options)):
                 options_cpy = copy.deepcopy(options)
                 options_cpy = options_cpy[:i] + options_cpy[i+1:]
+                temp_loss = 0
                 for problem_name, trajectory in trajectories.items():
                     temp_loss += self.levin_loss.compute_loss_cached(list(options_cpy), 
                                                             trajectory, 
@@ -911,7 +912,7 @@ class LearnOptions:
                     best_options_so_far = options_cpy
                     redundant_idx = i
                     flag = False
-            if not done:
+            if not flag:
                 best_loss = best_loss_so_far
                 options = best_options_so_far
                 self.logger.info(f"Levin loss without option #{redundant_idx}: {best_loss}")
@@ -932,8 +933,8 @@ class LearnOptions:
             option_data.append((id, feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment))
 
 
-        if os.path.exists(f"binary/options/option_caches/{self.args.env_id}/width={args.game_width}/seed={self.args.seed}/option_cache.pkl"):
-            with open(f"binary/options/option_caches/{self.args.env_id}/width={args.game_width}/seed={self.args.seed}/option_cache.pkl", "rb") as f:
+        if os.path.exists(f"binary/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/option_cache.pkl"):
+            with open(f"binary/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/option_cache.pkl", "rb") as f:
                 self.option_cache = pickle.load(f)
         else:
             if self.args.preprocess_cache:
@@ -946,8 +947,8 @@ class LearnOptions:
                 del results
                 gc.collect()
                 try:
-                    os.makedirs(f"binary/options/option_caches/{self.args.env_id}/width={args.game_width}/seed={self.args.seed}", exist_ok=True)
-                    with open(f"binary/options/option_caches/{self.args.env_id}/width={args.game_width}/seed={self.args.seed}/option_cache.pkl", "wb") as f:
+                    os.makedirs(f"binary/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}", exist_ok=True)
+                    with open(f"binary/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/option_cache.pkl", "wb") as f:
                         pickle.dump(self.option_cache, f)
                 except:
                     pass 
@@ -982,7 +983,7 @@ class LearnOptions:
         
         restarts = self.args.number_restarts
         max_steps = 1000
-        max_num_options = args.max_num_options
+        max_num_options = self.args.max_num_options
         best_selected_options = []
         best_levin_loss_total = float('Inf')
         completed = 0
@@ -1174,7 +1175,7 @@ def evaluate_all_masks_levin_loss(args: Args, logger: logging.Logger):
             logger.info(f'Evaluating Problem: {problem}')
             model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
             env = get_single_environment(args, seed=seed)
-            agent = GruAgent(envs=env, hidden_size=args.hidden_size, env_id=args.env_id)
+            agent = GruAgent(envs=env, h_size=args.hidden_size, env_id=args.env_id)
             agent.load_state_dict(torch.load(model_path, weights_only=True))
 
 
@@ -1292,7 +1293,7 @@ def main():
     module_extractor.discover()
     # with open(f"binary/options/all_options/{args.env_id}/seed={args.seed}/all_options.pkl", 'rb') as f:
     #     options = pickle.load(f)
-    # neural_augmentation_option(args, logger)
+    neural_augmentation_option(args, logger)
     # options, _ = load_options(args, logger)
     # trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
     # agents = module_extractor.postprocess_option_set(options, trajectories)
@@ -1300,7 +1301,7 @@ def main():
     # save_options(agents, trajectories, args, logger)
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()
-    # whole_dec_options_training_data_levin_loss(args, logger)
+    whole_dec_options_training_data_levin_loss(args, logger)
     # hill_climbing_all_segments()
     # learn_options(args, logger)
 

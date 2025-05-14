@@ -134,14 +134,14 @@ def check_seeds(args, logger, directory_path):
             if terminal or truncated or current_length > length_cap:
                 break
         if terminal:
-            pass 
-            # print(f"model {model} seed {seed} rnv seed {env_seed} length {current_length}")
+            # pass 
+            print(f"model {model} seed {seed} rnv seed {env_seed} length {current_length}")
         else:
             no_good_seeds.add(seed)
-            print(f"IGNORE SEED {seed} ENV SEED {env_seed}")
+            # print(f"IGNORE SEED {seed} ENV SEED {env_seed}")
     print(no_good_seeds)
     print(len(no_good_seeds))
-    print(set(range(1,100))-no_good_seeds)
+    print(set(range(1,200))-no_good_seeds)
 
 
 

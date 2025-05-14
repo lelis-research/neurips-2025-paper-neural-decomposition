@@ -34,9 +34,9 @@ def load_options(env_id, seed, hidden_size=64, game_width=3, folder=None):
     # Load the models and iterations
 
     if folder:
-        save_dir = f"binary/options/{folder}/seed={seed}"
+        save_dir = f"binary/options/{folder}/width={game_width}/seed={seed}"
     else:
-        save_dir = f"binary/options/selected_options/{env_id}/seed={seed}"
+        save_dir = f"binary/options/selected_options/{env_id}/width={game_width}/seed={seed}"
 
 
     model_files = sorted([f for f in os.listdir(save_dir) if f.startswith('ppo_model_option_') and f.endswith('.pt')])
@@ -58,7 +58,7 @@ def load_options(env_id, seed, hidden_size=64, game_width=3, folder=None):
             else:
                 seed = int(checkpoint['problem'][-1])
                 game_width = game_width
-            envs = get_simplecross_env(view_size=game_width, seed=seed)
+            envs = get_simplecross_env(view_size=5, seed=seed)
         elif env_id == "Unlock" or env_id == "MultiRoom":
             if 'environment_args' in checkpoint:
                 seed = int(checkpoint['environment_args']['seed'])

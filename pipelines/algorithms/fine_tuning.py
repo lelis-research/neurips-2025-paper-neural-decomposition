@@ -33,7 +33,8 @@ class Args:
     # exp_name: str = "extract_learnOptions_randomInit_discreteMasks"
     # exp_name: str = "extract_learnOptions_randomInit_pitisFunction"
     """the name of this experiment"""
-    env_seeds: Union[List, str, Tuple] = (0,1,2,3)
+    # env_seeds: Union[List, str, Tuple] = (0,1,2,3)
+    env_seeds: Union[List, str, Tuple] = (1,5,15)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
     # model_paths: List[str] = (
     #     'train_GruAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
@@ -51,10 +52,16 @@ class Args:
     #     'train_GruAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2',
     #     )
     model_paths: List[str] = (
-        'width=3/combogrid-TL-BR',
-        'width=3/combogrid-TR-BL',
-        'width=3/combogrid-BR-TL',
-        'width=3/combogrid-BL-TR',
+        'combogrid-TL-BR',
+        'combogrid-TR-BL',
+        'combogrid-BR-TL',
+        'combogrid-BL-TR',
+    )
+
+    model_paths: List[str] = (
+    'simplecrossing-1',
+    'simplecrossing-5',
+    'simplecrossing-15',
     )
 
     # These attributes will be filled in the runtime
@@ -64,7 +71,7 @@ class Args:
     """the name of the problems the agents were trained on; To be filled in runtime"""
 
     # Algorithm specific arguments
-    env_id: str = "ComboGrid"
+    env_id: str = "SimpleCrossing"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
@@ -72,13 +79,15 @@ class Args:
     """"The number of CPUTs used in this experiment."""
     
     # hyperparameters
-    game_width: int = 3
+    game_width: int = 9
     """the length of the combo/mini grid square"""
     hidden_size: int = 64
     """"""
     l1_lambda: float = 0
     """"""
     number_actions: int = 3
+    max_episode_length: int = 500
+    view_size: int = 5
 
     # learning
     fine_tuning_steps: int = 3_000
@@ -140,7 +149,7 @@ def process_args() -> Args:
     
     if args.env_id == "ComboGrid":
         args.problems = [COMBO_PROBLEM_NAMES[seed] for seed in args.env_seeds]
-    elif args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
+    elif args.env_id == "SimpleCrossing":
         args.problems = [args.env_id + f"_{seed}" for seed in args.env_seeds]
         
     return args
@@ -222,7 +231,7 @@ class FineTuning:
                 for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
                     if primary_problem == target_problem:
                         continue
-                    model_path = f'binary/models/{self.args.env_id}/seed={self.args.seed}/{primary_model_directory}-{self.args.seed}.pt'
+                    model_path = f'binary/models/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/{primary_model_directory}-{self.args.seed}.pt'
                     primary_env = get_single_environment(self.args, seed=primary_seed)
                     primary_agent = GruAgent(primary_env, h_size=self.args.hidden_size, env_id=primary_problem)
                     primary_agent.load_state_dict(torch.load(model_path, weights_only=True))

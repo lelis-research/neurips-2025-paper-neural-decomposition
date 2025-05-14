@@ -58,7 +58,7 @@ class Args:
     """the length of the combo/mini-grid square"""
     max_episode_length: int = 30
     """"""
-    visitation_bonus: int = 1
+    visitation_bonus: int = 0
     """"""
     use_options: int = 0
     """"""
@@ -79,6 +79,8 @@ class Args:
     entropy_threshold: float = 0.2
     """"""
     return_threshold: int = 10
+    """"""
+    exp_mode: str = None
 
     # Specific arguments
     total_timesteps: int = 2_000_000
@@ -104,7 +106,7 @@ class Args:
     """the lambda for the general advantage estimation for testing"""
     num_minibatches: int = 4
     """the number of mini-batches for testing"""
-    update_epochs: int = 6
+    update_epochs: int = 8
     """the K epochs to update the policy for testing"""
     norm_adv: bool = True
     """Toggles advantages normalization for testing"""
@@ -259,8 +261,8 @@ def main(args: Args):
     else:
         raise NotImplementedError
     
-    # model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}/seed={args.seed}/{args.exp_id}.pt'
-    model_path = f'binary/models/{args.env_id}/width={args.game_width}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-{args.seed}.pt'
+    model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}_{args.use_options}/seed={args.seed}/{args.exp_id}.pt'
+    # model_path = f'binary/models/{args.env_id}/width={args.game_width}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-{args.seed}.pt'
 
     train_ppo(envs=envs, 
               seed=args.env_seed, 
@@ -283,7 +285,7 @@ if __name__ == "__main__":
         args.exp_id = f'{args.exp_name}_{args.env_id}_option{args.use_options}' + \
         f'_gw{args.game_width}_h{args.hidden_size}_actor-lr{args.actor_lr}_critic-lr{args.critic_lr}' +\
         f'_ent-coef{args.ent_coef}_clip-coef{args.clip_coef}_visit-bonus{args.visitation_bonus}' +\
-        f'_ep-len{args.max_episode_length}-ent_an{args.anneal_entropy}'
+        f'_ep-len{args.max_episode_length}-ent_an{args.anneal_entropy}-gae{args.gae_lambda}'
     
     
     # Parameter specification for each problem
