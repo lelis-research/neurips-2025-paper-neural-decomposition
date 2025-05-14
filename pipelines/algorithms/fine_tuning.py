@@ -92,8 +92,8 @@ class Args:
     reg_coef: float = 0.0
     # reg_coef: float = 110.03
     filtering_inapplicable: bool = False
-    max_num_options: int = 10
-    # max_num_options: int = 5
+    # max_num_options: int = 10
+    max_num_options: int = 5
 
     # Script arguments
     seed: int = 0
@@ -503,6 +503,20 @@ class FineTuning:
         
         return best_cost, selected_options, {"total_loss_calculations": total_loss_calculations, "steps":steps}
 
+    def _compute_option_applicability(self, option, trajectories):
+        result = {problem: {} for problem in trajectories.keys()}
+        applicable_count = 0
+        for problem, trajectory in trajectories.items():
+            t_len = trajectory.get_length()
+            t = trajectory.get_trajectory()
+            for s in range(t_len):
+                actions = self.levin_loss._run(copy.deepcopy(t[s][0]), option, option.option_size)
+                is_applicable = (len(actions) == option.option_size) and self.levin_loss.is_applicable(t, actions, s)
+                if is_applicable:
+                    applicable_count += 1
+                result[problem][s] = (is_applicable, actions)
+        return result, applicable_count
+
     def select_by_local_search(self, option_candidates, trajectories):
 
         all_options = []
@@ -527,25 +541,31 @@ class FineTuning:
             with open(self.option_cache_path, 'rb') as f:
                 self.levin_loss.cache = pickle.load(f)
         else:
-            applicable_count = 0
-            for i, option in enumerate(all_options):
-                option_id = option.get_option_id()
-                for problem, trajectory in trajectories.items():
-                    t_len = trajectory.get_length()
-                    t = trajectory.get_trajectory()
-                    for s in range(t_len):
-                        if option_id not in self.levin_loss.cache:
-                            self.levin_loss.cache[option_id] = {}
-                        if problem not in self.levin_loss.cache[option_id]:
-                            self.levin_loss.cache[option_id][problem] = {}
-                        actions = self.levin_loss._run(copy.deepcopy(t[s][0]), option, option.option_size)
-                        is_applicable = (len(actions) == option.option_size) and self.levin_loss.is_applicable(t, actions, s)
-                        if is_applicable:
-                            applicable_count += 1
-                        self.levin_loss.cache[option.get_option_id()][problem][s] = (is_applicable, actions)
+            with concurrent.futures.ProcessPoolExecutor(max_workers=self.args.cpus) as executor:
+                # Submit tasks to the executor with all required arguments
+                futures = set()
+                for i, option in enumerate(all_options):
+                    future = executor.submit(
+                        self._compute_option_applicability, option, trajectories)
+                    future.option_id = option.get_option_id()
+                    futures.add(future)
+                self.logger.info(f"Logging Checkpoint 1.")
 
-                if i % 100 == 0:
-                    self.logger.info(f"Cache size: {len(self.levin_loss.cache)}, applicable_count: {applicable_count}")
+                # Process the results as they complete
+                total_applicable_count = 0
+                progress = 0
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        option_id = future.option_id
+                        self.levin_loss.cache[option_id], n_applicable = future.result()
+                        total_applicable_count += n_applicable
+                        progress += 1
+                        if progress % 100 == 0:
+                            self.logger.info(f"Cache size: {len(self.levin_loss.cache)}, applicable_count: {total_applicable_count}")
+                    except Exception as exc:
+                        self.logger.error(f'Exception: {exc}')
+                        traceback.print_exc()
+                        return
             self.logger.info(f"Saving option cache to {self.option_cache_path}")
             with open(self.option_cache_path, 'wb') as f:
                 pickle.dump(self.levin_loss.cache, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -631,7 +651,42 @@ class FineTuning:
 
         best_selected_options = [all_options[idx] for idx in best_selected_options]
         self.levin_loss.remove_cache()
-        return list(best_selected_options)
+        
+        # Removing redundant options
+        def get_levin_loss(options, trajectories):
+            cost = 0
+            for problem, trajectory in trajectories.items():
+                cost += self.levin_loss.compute_loss_cached(options, 
+                                                trajectory, 
+                                                problem_str=problem, 
+                                                number_actions=3,
+                                                cache_enabled=False)[0]
+            return cost
+    
+        best_levin_loss = get_levin_loss(best_selected_options, trajectories)
+        
+        self.logger.info(f"Levin loss: {best_levin_loss}")
+        options = copy.deepcopy(best_selected_options)
+        while True:
+            done = True
+            best_loss_so_far = best_levin_loss
+            for i in range(len(options)):
+                options_cpy = copy.deepcopy(options)
+                options_cpy = options_cpy[:i] + options_cpy[i+1:]
+                levin_loss = get_levin_loss(options_cpy, trajectories)
+                if levin_loss < best_loss_so_far:
+                    best_loss_so_far = levin_loss
+                    best_options_so_far = options_cpy
+                    redundant_idx = i
+                    done = False
+            if not done:
+                best_levin_loss = best_loss_so_far
+                options = best_options_so_far
+                self.logger.info(f"Levin loss without option #{redundant_idx}: {best_levin_loss}")
+            else:
+                break
+
+        return list(options)
 
 
 class LevinLossActorCritic:
