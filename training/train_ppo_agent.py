@@ -78,7 +78,8 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
-            global_step += (infos['action_size'] - 1).sum()
+            if args.method != "no_options":
+                global_step += (infos['action_size'] - 1).sum()
                 
 
             # if "final_info" in infos:

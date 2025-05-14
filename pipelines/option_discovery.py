@@ -30,13 +30,14 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 @dataclass
 class Args:
     # exp_name: str = "extract_learnOption_noReg_excludeGoal"
-    exp_name: str = "extract_learnOption_unfiltered"
+    exp_name: str = "extract_learnOption_filtered"
     # exp_name: str = "debug"
     # exp_name: str = "extract_decOptionWhole_sparseInit"
     # exp_name: str = "extract_learnOptions_randomInit_discreteMasks"
     # exp_name: str = "extract_learnOptions_randomInit_pitisFunction"
     """the name of this experiment"""
     env_seeds: Union[List, str, Tuple] = (0,1,2,3)
+    # env_seeds: Union[List, str, Tuple] = (0,1,2)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
     # model_paths: List[str] = (
     #     'train_ppoAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
@@ -107,7 +108,7 @@ class Args:
     # reg_coef: float = 0.0
     # reg_coef: float = 110.03 # Combogrid 4 environments
     reg_coef: float = 0
-    filtering_inapplicable: bool = False
+    filtering_inapplicable: bool = True
     # max_num_options: int = 10
     max_num_options: int = 5
 
