@@ -154,7 +154,6 @@ def find_hyperparam_set(args, logger, directory_paths):
                 continue
             init_index = model.find("seed")
             seed = int(model[init_index:][len("seed")+1:model[init_index:].find(os.sep)])
-            if seed > 3: continue
             random.seed(seed)
             np.random.seed(seed)
             torch.manual_seed(seed)

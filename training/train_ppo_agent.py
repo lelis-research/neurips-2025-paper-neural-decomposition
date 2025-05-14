@@ -16,13 +16,12 @@ import pandas as pd
 from agents.recurrent_agent import GruAgent
 
 
-def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, device, logger=None, writer=None):
+def train_ppo(envs, seed, args, model_file_name, device, logger=None, writer=None):
     hidden_size = args.hidden_size
     temp_saved = False
     l1_lambda = args.l1_lambda
     if not seed:
         seed = args.env_seed
-    test_env = copy.deepcopy(envs.envs[0].unwrapped)
     agent = GruAgent(envs, h_size=hidden_size, greedy=False, env_id=args.env_id).to(device)
     optimizer = optim.Adam([
     {"params": agent.critic.parameters(), "lr": args.critic_lr},   # larger LR
@@ -182,7 +181,11 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                 mb_inds = flatinds[:, mbenvinds].ravel()
 
                 # Initial RNN state per env trajectory
-                mb_rnn_states = b_rnn_states[mbenvinds, :, 0, :].permute(1, 0, 2).contiguous()  # shape [num_layers, batch, hidden]
+                t_i, env_i = np.unravel_index(mb_inds, (args.num_steps, args.num_envs))
+
+                # Extract corresponding GRU states
+                mb_rnn_states = b_rnn_states[env_i, :, t_i, :]           # [B, L, H]
+                mb_rnn_states = mb_rnn_states.permute(1, 0, 2).contiguous()  # [L, B, H]
 
                 _, newlogprob, entropy, newvalue, _, _ = agent.get_action_and_value(
                     b_obs[mb_inds],
@@ -237,23 +240,23 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
 
         #Run the greedy policy to evaluate model performance
-        test_agent = GruAgent(test_env, h_size=hidden_size, greedy=True, env_id=args.env_id).to(device)
-        test_agent.load_state_dict(copy.deepcopy(agent.state_dict()))
-        test_agent.eval()
-        test_rnn_state = test_agent.init_hidden()
-        test_done = torch.zeros(1).to(device)
-        test_obs = test_env.reset(seed=seed)[0]
-        test_length = 0
-        test_return = 0
-        while True:
-            test_obs = torch.tensor(test_obs, dtype=torch.float32).to(device)
-            test_action, _, _, _, test_rnn_state, _ = test_agent.get_action_and_value(test_obs, test_rnn_state, test_done)
-            next_test_obs, temp_reward, test_terminal, test_truncated, test_info = test_env.step(test_action.item())
-            test_obs = next_test_obs
-            test_length = test_info["n_steps"]
-            test_return += temp_reward
-            if test_terminal or test_truncated or test_length > args.max_episode_length:
-                break
+        # test_agent = GruAgent(test_env, h_size=hidden_size, greedy=True, env_id=args.env_id).to(device)
+        # test_agent.load_state_dict(copy.deepcopy(agent.state_dict()))
+        # test_agent.eval()
+        # test_rnn_state = test_agent.init_hidden()
+        # test_done = torch.zeros(1).to(device)
+        # test_obs = test_env.reset(seed=seed)[0]
+        # test_length = 0
+        # test_return = 0
+        # while True:
+        #     test_obs = torch.tensor(test_obs, dtype=torch.float32).to(device)
+        #     test_action, _, _, _, test_rnn_state, _ = test_agent.get_action_and_value(test_obs, test_rnn_state, test_done)
+        #     next_test_obs, temp_reward, test_terminal, test_truncated, test_info = test_env.step(test_action.item())
+        #     test_obs = next_test_obs
+        #     test_length = test_info["n_steps"]
+        #     test_return += temp_reward
+        #     if test_terminal or test_truncated or test_length > args.max_episode_length:
+        #         break
         
         if writer:
             # TRY NOT TO MODIFY: record rewards for plotting purposes
@@ -280,8 +283,8 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                 # "losses/l1_reg": l1_reg.item(),
                 "losses/explained_variance": explained_var,
                 "Charts/SPS": int(global_step / (time.time() - start_time)),
-                "Charts/test_return": test_return,
-                "Charts/test_length": test_length,
+                # "Charts/test_return": test_return,
+                # "Charts/test_length": test_length,
             }, step=global_step)
         
         
@@ -296,8 +299,8 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             log_data["goals"].append(0)
         log_data["steps"].append(int(global_step))
 
-        log_data["test_lengths"].append(int(test_length))
-        log_data["test_returns"].append(float(test_return))
+        # log_data["test_lengths"].append(int(test_length))
+        # log_data["test_returns"].append(float(test_return))
         # print(log_data)
         if args.sweep_early_stop == 1:
             if entropy_loss.item() < args.entropy_threshold and test_return >= args.return_threshold:

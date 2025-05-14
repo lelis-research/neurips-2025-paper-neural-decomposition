@@ -51,10 +51,10 @@ class Args:
     #     'train_GruAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2',
     #     )
     model_paths: List[str] = (
-        'combogrid-TL-BR',
-        'combogrid-TR-BL',
-        'combogrid-BR-TL',
-        'combogrid-BL-TR',
+        'width=3/combogrid-TL-BR',
+        'width=3/combogrid-TR-BL',
+        'width=3/combogrid-BR-TL',
+        'width=3/combogrid-BL-TR',
     )
 
     # These attributes will be filled in the runtime
@@ -72,7 +72,7 @@ class Args:
     """"The number of CPUTs used in this experiment."""
     
     # hyperparameters
-    game_width: int = 5
+    game_width: int = 3
     """the length of the combo/mini grid square"""
     hidden_size: int = 64
     """"""
@@ -93,7 +93,7 @@ class Args:
     # reg_coef: float = 110.03
 
     # Script arguments
-    seed: int = 1
+    seed: int = 23
     """The seed used for reproducibilty of the script"""
     torch_deterministic: bool = True
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
@@ -154,8 +154,8 @@ class FineTuning:
         self.number_actions = args.number_actions
 
         if args.option_candidates_path == "":
-            args.option_candidates_path = "binary/options_candidates_fine_tuning/"
-            self.option_candidates_path = os.path.join(args.option_candidates_path, args.exp_id, f"seed={args.seed}", "data.pkl")
+            args.option_candidates_path = "binary/all_options_fine_tuning/"
+            self.option_candidates_path = os.path.join(args.option_candidates_path, args.exp_id, f"seed={args.seed}", f"width={args.game_width}", "data.pkl")
         else:
             self.option_candidates_path = os.path.join(args.option_candidates_path, f"seed={args.seed}", "data.pkl")
 
@@ -278,7 +278,7 @@ class FineTuning:
                 utils.logger_flush(self.logger)
             self.logger.debug("\n")
             self.logger.info("Saving parameters ... ")
-            os.makedirs(os.path.dirname(self.option_candidates_path))
+            os.makedirs(os.path.dirname(self.option_candidates_path), exist_ok=True)
             with open(self.option_candidates_path, 'wb') as f:
                 pickle.dump({'option_candidates': option_candidates, 'trajectories': trajectories}, f, protocol=pickle.HIGHEST_PROTOCOL)
         else:
@@ -466,9 +466,9 @@ class FineTuning:
             name_list = [problem for _ in range(len(trajectory._sequence))]
             joint_problem_name_list = joint_problem_name_list + name_list
 
-        restarts = 200
-        max_steps = 500
-        max_num_options = 10
+        restarts = 2000
+        max_steps = 1000
+        max_num_options = 5
         best_selected_options = []
         best_levin_loss_total = float('Inf')
         completed = 0

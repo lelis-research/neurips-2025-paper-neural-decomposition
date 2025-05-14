@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --cpus-per-task=1   # maximum CPU cores per GPU request: 6 on Cedar, 16 on Graham.
-#SBATCH --mem-per-cpu=6G       # memory per node
-#SBATCH --time=8:00:00      # time (DD-HH:MM)
-#SBATCH --output=outputsSweepComboPrim-1/%A-%a.out  # %N for node name, %j for jobID
+#SBATCH --cpus-per-task=8   # maximum CPU cores per GPU request: 6 on Cedar, 16 on Graham.
+#SBATCH --mem=5G       # memory per node
+#SBATCH --time=1:30:00      # time (DD-HH:MM)
+#SBATCH --output=outputsSweepcomboprimAsync4x4/%A-%a.out  # %N for node name, %j for jobID
 #SBATCH --mail-user=behdin@ualberta.ca
 #SBATCH --mail-type=ALL
 #SBATCH --account=aip-lelis
@@ -11,17 +11,19 @@
 
 source /home/iprnb/venvs/neural-decomposition/bin/activate
 
-module load flexiblas
 export FLEXIBLAS=imkl
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
 
 
-seeds=(4 5 6 7 8)
+seeds=(1 2 3)
 learning_rates=(0.01 0.005 0.001 0.0005)
-clip_coef=(0.05 0.1 0.15 0.2 0.3)
+clip_coef=(0.01 0.05 0.1 0.15 0.2 0.3)
 ent_coefs=(0.01 0.02 0.03 0.05 0.1 0.2)
-max_length=(50)
+max_length=(30)
 visit_bonus=(1)
-use_option=(0 1)
+use_option=(0)
 env_id=(0 1 2 3)
 
 
@@ -81,11 +83,15 @@ ENVID="${env_id[${env_id_index}]}"
 OMP_NUM_THREADS=1 python3.11 ~/scratch/neurips-2025-paper-neural-decomposition/pipelines/train_ppo.py \
     --seed "${SD}" \
     --actor_lr "${LR}"\
+    --critic_lr "${LR}"\
     --max_episode_length "${MAXLEN}"\
     --ent_coef "${ENT}"\
     --clip_coef "${CLIP}"\
     --visitation_bonus "${VISIT}"\
-    --anneal_entropy "${OPTION}"\
+    --use_options "${OPTION}"\
     --env_seed "${ENVID}"\
     --env_id "ComboGrid" \
-    --total_timesteps 4500000
+    --game_width 4\
+    --total_timesteps 1000000\
+    --processed_options 0\
+    --save_run_info 1

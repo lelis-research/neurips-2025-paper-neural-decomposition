@@ -74,7 +74,7 @@ class Args:
     """the name of the problems the agents were trained on; To be filled in runtime"""
 
     # Algorithm specific arguments
-    env_id: str = "ComboGrid"
+    env_id: str = "SimpleCrossing"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, SimpleCrossing, FourRooms]
     """
@@ -96,7 +96,9 @@ class Args:
     """"""
     filter_options: bool = True
     """"""
-    processed_options: int = 0
+    processed_options: int = 1
+    """"""
+    max_num_options: int = 5
 
     # hill climbing arguments
     number_restarts: int = 2000
@@ -186,17 +188,16 @@ def process_args() -> Args:
         args.env_seeds = [0, 1, 2, 3]
         args.problems = [COMBO_PROBLEM_NAMES[seed] for seed in args.env_seeds]
         args.model_paths = (
-        f'width={args.game_width}/combogrid-TL-BR',
-        f'width={args.game_width}/combogrid-TR-BL',
-        f'width={args.game_width}/combogrid-BR-TL',
-        f'width={args.game_width}/combogrid-BL-TR',
+        f'combogrid-TL-BR',
+        f'combogrid-TR-BL',
+        f'combogrid-BR-TL',
+        f'combogrid-BL-TR',
     )
     elif args.env_id == "SimpleCrossing":
-        args.env_seeds = [1, 3, 5, 15]
+        args.env_seeds = [1, 5, 15]
         args.problems = [args.env_id + f"_{seed}" for seed in args.env_seeds]
         args.model_paths = (
         'simplecrossing-1',
-        'simplecrossing-3',
         'simplecrossing-5',
         'simplecrossing-15',
         )
@@ -248,7 +249,7 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     return trajectories
 
 
-def save_options(options: List[GruAgent], trajectories: dict, args: Args, logger, processed=None, folder = None):
+def save_options(options: List[GruAgent], trajectories: dict, args: Args, logger, folder = None):
     """
     Save the options (masks, models, and number of iterations) to the specified directory.
 
@@ -259,11 +260,8 @@ def save_options(options: List[GruAgent], trajectories: dict, args: Args, logger
     """
     if folder == None:
         folder = "selected_options"
+    save_dir = f"binary/options/{folder}/{args.env_id}/width={args.game_width}/seed={args.seed}"
 
-    if processed:
-        save_dir = f"binary/options/{folder}/{args.env_id}/seed={args.seed}/{'width='+str(args.game_width)+'/'if args.env_id == 'ComboGrid' else ''}processed"
-    else:
-        save_dir = f"binary/options/{folder}/{args.env_id}/seed={args.seed}{'/width='+str(args.game_width)+'/'if args.env_id == 'ComboGrid' else ''}"
 
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
@@ -312,16 +310,10 @@ def load_options(args, logger, folder=None):
     """
 
     # Load the models and iterations
-    if args.processed_options:
-        if folder:
-            save_dir = f"binary/options/{folder}/seed={args.seed}/{'width='+str(args.game_width)+'/'if args.env_id == 'ComboGrid' else ''}processed"
-        else:
-            save_dir = f"binary/options/selected_options/{args.env_id}/seed={args.seed}/{'width='+str(args.game_width)+'/'if args.env_id == 'ComboGrid' else ''}processed"
-    else:
-        if folder:
-            save_dir = f"binary/options/{folder}/seed={args.seed}{'/width='+str(args.game_width)+'/'if args.env_id == 'ComboGrid' else ''}"
-        else:
-            save_dir = f"binary/options/selected_options/{args.env_id}/seed={args.seed}{'/width='+str(args.game_width)+'/'if args.env_id == 'ComboGrid' else ''}"
+
+    if folder == None:
+        folder = "selected_options"
+    save_dir = f"binary/options/{folder}/{args.env_id}/width={args.game_width}/seed={args.seed}"
 
     logger.info(f"Option directory: {save_dir}")
 
@@ -402,8 +394,8 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
     cachce_loaded = False
     id = 0
 
-    if os.path.exists(f"binary/options/option_caches_dec-whole/{args.env_id}/seed={args.seed}/width={args.game_width}/option_cache.pkl"):
-        with open(f"binary/options/option_caches_dec-whole/{args.env_id}/seed={args.seed}/width={args.game_width}/option_cache.pkl", "rb") as f:
+    if os.path.exists(f"binary/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}/option_cache.pkl"):
+        with open(f"binary/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}/option_cache.pkl", "rb") as f:
             option_cache = pickle.load(f)
             cachce_loaded = True
 
@@ -441,8 +433,8 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
                 option_cache[id] = copy.deepcopy(cache_per_problem)
             id += 1
     try:
-        os.makedirs(f"binary/options/option_caches_dec-whole/{args.env_id}/seed={args.seed}/width={args.game_width}", exist_ok=True)
-        with open(f"binary/options/option_caches_dec-whole/{args.env_id}/seed={args.seed}/width={args.game_width}/option_cache.pkl", "wb") as f:
+        os.makedirs(f"binary/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}", exist_ok=True)
+        with open(f"binary/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}/option_cache.pkl", "wb") as f:
             pickle.dump(option_cache, f)
     except:
         pass
@@ -457,7 +449,7 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
     module_extractor.option_id_to_agent = option_id_to_agent
     restarts = args.number_restarts
     max_steps = 1000
-    max_num_options = 10
+    max_num_options = args.max_num_options
     best_selected_options = []
     best_levin_loss_total = float('Inf')
     completed = 0
@@ -494,18 +486,14 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
                 logger.error(f'Exception: {exc}')
 
     try:
-        best_selected_options_processed = module_extractor.postprocess_option_set(best_selected_options, trajectories)
+        best_selected_options_processed = module_extractor.postprocess_option_set(copy.deepcopy(best_selected_options), trajectories)
         best_selected_options_agents = []
         for agent_id in list(best_selected_options_processed):
             best_selected_options_agents.append(copy.deepcopy(option_id_to_agent[agent_id]))
-        save_options(best_selected_options_agents, trajectories, args, logger, processed=True, folder="selected_options_dec-whole")
+        save_options(best_selected_options_agents, trajectories, args, logger, folder="selected_options_dec-whole")
     except Exception as exc:
         logger.error(f'Exception in postprocessing option set: {exc}')
 
-    best_selected_options_agents = []
-    for agent_id in list(best_selected_options):
-        best_selected_options_agents.append(copy.deepcopy(option_id_to_agent[agent_id]))  
-    save_options(best_selected_options_agents, trajectories, args, logger, processed=False, folder="selected_option_dec-whole")  
 
 def neural_augmentation_option(args: Args, logger: logging.Logger):
     options = []
@@ -526,7 +514,7 @@ def neural_augmentation_option(args: Args, logger: logging.Logger):
         primary_agent.to_option(copy.deepcopy(mask), copy.deepcopy(mask), len(trajectory.get_action_sequence()), primary_problem)
         options.append(copy.deepcopy(primary_agent))
     
-    save_options(options, trajectories, args, logger, args.processed_options, folder="selected_options_augmented")
+    save_options(options, trajectories, args, logger, folder="selected_options_augmented")
 
 
 
@@ -894,32 +882,41 @@ class LearnOptions:
         best_set = set(i for i in options)
         best_loss = 0
         for problem_name, trajectory in trajectories.items():
-                best_loss += self.levin_loss.compute_loss_cached(list(best_set), 
-                                                        trajectory, 
-                                                        problem_name, 
-                                                        None, 
-                                                        self.number_actions, 
-                                                        [],
-                                                        self.logger)[0]
+            best_loss += self.levin_loss.compute_loss_cached(list(best_set), 
+                                                    trajectory, 
+                                                    problem_name, 
+                                                    None, 
+                                                    self.number_actions, 
+                                                    [],
+                                                    self.logger)[0]
         flag = False
         while not flag:
             flag = True
-            for option in copy.deepcopy(best_set):
-                temp_set = best_set - {option}
-                temp_loss = 0
+            if len(best_set) == 1:
+                break
+            best_loss_so_far = best_loss
+            for i in range(len(options)):
+                options_cpy = copy.deepcopy(options)
+                options_cpy = options_cpy[:i] + options_cpy[i+1:]
                 for problem_name, trajectory in trajectories.items():
-                    temp_loss += self.levin_loss.compute_loss_cached(list(temp_set), 
+                    temp_loss += self.levin_loss.compute_loss_cached(list(options_cpy), 
                                                             trajectory, 
                                                             problem_name, 
                                                             None, 
                                                             self.number_actions, 
                                                             [],
                                                             self.logger)[0]
-                if temp_loss < best_loss:
-                    self.logger.info(f"Removed option {option}. Prev loss: {best_loss} New loss: {temp_loss}")
-                    best_loss = temp_loss
-                    best_set = copy.deepcopy(temp_set)
+                if temp_loss < best_loss_so_far:
+                    best_loss_so_far = temp_loss
+                    best_options_so_far = options_cpy
+                    redundant_idx = i
                     flag = False
+            if not done:
+                best_loss = best_loss_so_far
+                options = best_options_so_far
+                self.logger.info(f"Levin loss without option #{redundant_idx}: {best_loss}")
+            else:
+                break
         return best_set
     
     def select_by_local_search(self, option_candidates, trajectories):
@@ -935,8 +932,8 @@ class LearnOptions:
             option_data.append((id, feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment))
 
 
-        if os.path.exists(f"binary/options/option_caches/{self.args.env_id}/seed={self.args.seed}/option_cache.pkl"):
-            with open(f"binary/options/option_caches/{self.args.env_id}/seed={self.args.seed}/option_cache.pkl", "rb") as f:
+        if os.path.exists(f"binary/options/option_caches/{self.args.env_id}/width={args.game_width}/seed={self.args.seed}/option_cache.pkl"):
+            with open(f"binary/options/option_caches/{self.args.env_id}/width={args.game_width}/seed={self.args.seed}/option_cache.pkl", "rb") as f:
                 self.option_cache = pickle.load(f)
         else:
             if self.args.preprocess_cache:
@@ -949,8 +946,8 @@ class LearnOptions:
                 del results
                 gc.collect()
                 try:
-                    os.makedirs(f"binary/options/option_caches/{self.args.env_id}/seed={self.args.seed}", exist_ok=True)
-                    with open(f"binary/options/option_caches/{self.args.env_id}/seed={self.args.seed}/option_cache.pkl", "wb") as f:
+                    os.makedirs(f"binary/options/option_caches/{self.args.env_id}/width={args.game_width}/seed={self.args.seed}", exist_ok=True)
+                    with open(f"binary/options/option_caches/{self.args.env_id}/width={args.game_width}/seed={self.args.seed}/option_cache.pkl", "wb") as f:
                         pickle.dump(self.option_cache, f)
                 except:
                     pass 
@@ -985,7 +982,7 @@ class LearnOptions:
         
         restarts = self.args.number_restarts
         max_steps = 1000
-        max_num_options = 10
+        max_num_options = args.max_num_options
         best_selected_options = []
         best_levin_loss_total = float('Inf')
         completed = 0
@@ -1022,18 +1019,15 @@ class LearnOptions:
                     self.logger.error(f'Exception: {exc}')
 
         try:
-            best_selected_options_processed = self.postprocess_option_set(best_selected_options, trajectories)
+            best_selected_options_processed = self.postprocess_option_set(copy.deepcopy(best_selected_options), trajectories)
             best_selected_options_agents = []
             for agent_id in list(best_selected_options_processed):
                 best_selected_options_agents.append(copy.deepcopy(self.option_id_to_agent[agent_id]))
-            save_options(best_selected_options_agents, trajectories, self.args, self.logger, processed=True)
+            save_options(best_selected_options_agents, trajectories, self.args, self.logger)
         except Exception as exc:
             self.logger.error(f'Exception in postprocessing option set: {exc}')
 
         self.levin_loss.remove_cache()
-        best_selected_options_agents = []
-        for agent_id in list(best_selected_options):
-            best_selected_options_agents.append(copy.deepcopy(self.option_id_to_agent[agent_id]))
 
         self.levin_loss.print_output_subpolicy_trajectory(best_selected_options_agents, trajectories, self.logger)
 
@@ -1295,7 +1289,7 @@ def main():
                                     mask_type=args.mask_type, 
                                     mask_transform_type=args.mask_transform_type, 
                                     selection_type=args.selection_type)
-    # module_extractor.discover()
+    module_extractor.discover()
     # with open(f"binary/options/all_options/{args.env_id}/seed={args.seed}/all_options.pkl", 'rb') as f:
     #     options = pickle.load(f)
     # neural_augmentation_option(args, logger)
@@ -1306,7 +1300,7 @@ def main():
     # save_options(agents, trajectories, args, logger)
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()
-    whole_dec_options_training_data_levin_loss(args, logger)
+    # whole_dec_options_training_data_levin_loss(args, logger)
     # hill_climbing_all_segments()
     # learn_options(args, logger)
 

@@ -7,16 +7,67 @@ import tyro
 import random
 import numpy as np
 import pandas as pd
+from dataclasses import dataclass
 sys.path.append("/home/iprnb/scratch/neurips-2025-paper-neural-decomposition")
 sys.path.append("C:\\Users\\Parnian\\Projects\\neurips-2025-paper-neural-decomposition")
 from environments.environments_combogrid import PROBLEM_NAMES
 from agents.recurrent_agent import GruAgent
 from pipelines.option_discovery import get_single_environment, load_options
 from environments.environments_minigrid import get_simplecross_env, make_env_simple_crossing, get_unlock_env, get_fourrooms_env
-from pipelines.train_ppo import Args
 from utils import utils
 
+@dataclass
+class Args:
+    exp_id: str = ""
+    """The ID of the finished experiment; to be filled in run time"""
+    exp_name: str = "train_ppoAgent"
+    """the name of this experiment"""
+    env_id: str = "ComboGrid"
+    """the id of the environment corresponding to the trained agent
+    choices from [ComboGrid, SimpleCrossing, FourRooms, Unlock, MultiRoom]
+    """
 
+    """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'.
+    This determines the exact environments that will be separately used for training.
+    """
+    cuda: bool = True
+    """if toggled, cuda will be enabled by default"""
+    torch_deterministic: bool = True
+    """if toggled, `torch.backends.cudnn.deterministic=False`"""
+    
+    # hyperparameter arguments
+    game_width: int = 3
+    """the length of the combo/mini-grid square"""
+    max_episode_length: int = 35
+    """"""
+    visitation_bonus: int = 1
+    """"""
+    use_options: int = 0
+    """"""
+    hidden_size: int = 64
+    """"""
+    l1_lambda: float = 0
+    """"""
+    number_actions: int = 3
+    """"""
+    view_size: int = 5
+    """the size of the agent's view in the mini-grid environment"""
+    save_run_info: int = 0
+    """save entropy and episode length along with satate dict if set to 1"""
+    processed_options: int = 1
+
+ 
+    env_seed: int = 12
+    """the seed of the environment (set in runtime)"""
+    seed: int = 2
+    """experiment randomness seed (set in runtime)"""
+    problem: str = ""
+    """"""
+    log_path: str = "outputs/logs/"
+    """The name of the log file"""
+    
+    log_level: str = "INFO"
+    """The logging level"""
 
 entropy_threshold = 0.1  # low entropy means confident policy
 length_threshold = 50    # goal reached in ~25 steps
@@ -37,130 +88,140 @@ def main():
     logger, _ = utils.get_logger('sweep_selector_logger', args.log_level, log_path)
     directory_paths = []
     for x in os.listdir('binary'):
-        if x.startswith(f'models_sweep_{args.env_id}') and os.path.isdir(os.path.join('binary', x)):
+        if x == (f'models_sweep_{args.env_id}_12_dec-whole') and os.path.isdir(os.path.join('binary', x)):
             directory_paths.append(os.path.join('binary', x))
     
     if args.env_id == "FourRooms":
             option_folder = f"selected_options/SimpleCrossing"
     elif args.env_id == "ComboGrid":
         option_folder = f"selected_options/ComboGrid"
-    options, _ = load_options(args, logger, folder=option_folder)
+    # options, _ = load_options(args, logger, folder=option_folder)
 
     best_models = []
     for directory_path in directory_paths:
         models = find_pytorch_models(directory_path)
         logger.info(f"Found {len(models)} PyTorch models in {directory_path}.")
-        env_seed = int(directory_path.strip().split("_")[-1])
+        env_seed = int(directory_path.strip().split("_")[-2])
         best_model_per_seed_no_option = {} 
         best_model_per_seed_with_option = {}
         
         best_seed = None
         best_length = float('inf')
+        models_per_seed = {}
+
         for model in models:
-            #set seed for reproducibility
+            if args.env_id == "ComboGrid" and "actor" not in model:
+                continue
             init_index = model.find("seed")
             seed = int(model[init_index:][len("seed")+1:model[init_index:].find(os.sep)])
-            use_options = int(model[model.find("option")+len("option")])
             random.seed(seed)
             np.random.seed(seed)
             torch.manual_seed(seed)
-            args.seed = seeds
-            options, _ = load_options(args, logger, folder=option_folder)
-            torch.backends.cudnn.deterministic = args.torch_deterministic
+            torch.backends.cudnn.deterministic = args.torch_deterministic   
 
-            #load agent
-            if args.env_id == "ComboGrid":
-                if use_options == 1:
-                    env = get_single_environment(seed=env_seed, args=args, options=options)
-                else:
-                    env = get_single_environment(seed=env_seed, args=args)
-            elif args.env_id == "SimpleCrossing":
-                env = get_single_environment(seed=env_seed, args=args)
-            elif args.env_id == "Unlock":
-                env = get_unlock_env(seed=env_seed, view_size=3, n_discrete_actions=5, args=args)
-            elif args.env_id == "FourRooms":
-                env = get_fourrooms_env(seed=env_seed, view_size=5, args=args, options=options if use_options == 1 else None)
-                
-            
-            checkpoint = torch.load(model, weights_only=True)
-            if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
-                state_dict = checkpoint['state_dict']
-                episode_lengths = checkpoint['episode_lengths']
-                entropies = checkpoint['policy_entropies']
-                steps = ['steps']
-            else:
-                state_dict = checkpoint
-            
-            agent = GruAgent(env, h_size=args.hidden_size, env_id=args.env_id)
-            agent.load_state_dict(state_dict)
-            agent.eval()
+            if seed not in models_per_seed:
+                models_per_seed[seed] = []
+            if model.find("step") == -1:
+                continue
+            step = int(model[model.find("step")+len("step"):model.find(".pt")])
+            step_index = model.find("step")
+            model = model[:step_index]
+            model = model.split(os.path.sep)[-1]
+            models_per_seed[seed].append((model, step))
+        
+        seeds = list(models_per_seed.keys())
+        
+        best_model = None
+        best_model_length = float("inf")
 
-            #evaluate agent
-            next_rnn_state = agent.init_hidden()
-            next_done = torch.zeros(1)
-            o, _ = env.reset()
-            length_cap = 70
-            current_length = 0
+        best_model_no_option = None
+        best_model_length_no_option = float("inf")
 
-            while True:
-                o = torch.tensor(o, dtype=torch.float32)
-                a, _, _, _, next_rnn_state, _ = agent.get_action_and_value(o, next_rnn_state, next_done)
-                next_o, _, terminal, truncated, _ = env.step(a.item())
-                o = next_o  
-                current_length += 1
-                # print("Step: ", current_length, "Action: ", a.item())
-                if terminal or truncated or current_length > length_cap:
+        for model, _ in models_per_seed[seeds[0]]:
+            model_return_sum = 0
+            use_options = int(model[model.find("option")+len("option")])
+            considering = True
+            for seed in seeds:
+                if model not in [m for m, _ in models_per_seed[seed]]:
+                    print(f'model {model} not in seed {seed}')
+                    considering = False
                     break
-            if terminal:
-                if use_options == 1:
-                    best_model_per_seed = best_model_per_seed_with_option
-                else:   
-                    best_model_per_seed = best_model_per_seed_no_option
-                if seed not in best_model_per_seed: 
-                    best_model_per_seed[seed] = {"length": float("inf"), 'model': None}
-                #Calculate the approximate step where the model converged to an acceptable policy
+                else:
+                    for m, s in models_per_seed[seed]:
+                        if m == model:
+                            model_return_sum += s
+                        break
+                    continue
+
+                random.seed(seed)
+                np.random.seed(seed)
+                torch.manual_seed(seed)
+                torch.backends.cudnn.deterministic = args.torch_deterministic
+                args.seed = seed
+                if use_options: 
+                    options, _ = load_options(args, logger, folder=option_folder)
+                else:
+                    options = None
+
+                #load agent
+                if args.env_id == "ComboGrid":
+                    if use_options == 1:
+                        env = get_single_environment(seed=env_seed, args=args, options=options)
+                    else:
+                        env = get_single_environment(seed=env_seed, args=args)
+                elif args.env_id == "SimpleCrossing":
+                    env = get_single_environment(seed=env_seed, args=args)
+                elif args.env_id == "Unlock":
+                    env = get_unlock_env(seed=env_seed, view_size=3, n_discrete_actions=5, args=args)
+                elif args.env_id == "FourRooms":
+                    env = get_fourrooms_env(seed=env_seed, view_size=5, args=args, options=options)
+                    
+                
+                checkpoint = torch.load(model, weights_only=True)
                 if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
-                        if "convergence_step" not in best_model_per_seed[seed]:
-                            best_model_per_seed[seed]['convergence_step'] = float("inf")
-                        print(len(episode_lengths), len(entropies), len(steps))
-                        log_data = pd.DataFrame({
-                        'episode_length': episode_lengths,
-                        'policy_entropy': entropies
-                    })
-                        converged = (
-                    (log_data['policy_entropy'] < entropy_threshold) &
-                    (log_data['episode_length'] < length_threshold)
-                    )
-                        rolling_sum = converged.rolling(window=sustain_steps).sum()
-                        rolling_sum[rolling_sum == sustain_steps].first_valid_index()
-                        # Find first step where the window shows sustained convergence
-                        first_converged_index = rolling_sum[rolling_sum == sustain_steps].first_valid_index()
-                        if first_converged_index is not None:
-                            convergence_step = first_converged_index
-                        else:
-                            convergence_step = float("inf")
-                        print(f"Convergence step is {convergence_step}.")
-                        
-                        if best_model_per_seed[seed]['model'] is None or (current_length <= best_model_per_seed[seed]['length'] and convergence_step <= best_model_per_seed[seed]['convergence_step']):
-                            best_model_per_seed[seed]['model'] = model
-                            best_model_per_seed[seed]['length'] = current_length
-                            best_model_per_seed[seed]['convergence_step'] = convergence_step
-                else:            
-                    if best_model_per_seed[seed]['model'] is None or current_length < best_model_per_seed[seed]['length']:
-                        best_model_per_seed[seed]['model'] = model
-                        best_model_per_seed[seed]['length'] = current_length
-        if len(best_model_per_seed_no_option) != 0:
-            for best_seed in best_model_per_seed:
-                logger.info(f"Best model for seed {best_seed} and env {PROBLEM_NAMES[env_seed] if args.env_id == 'ComboGrid' else env_seed} is {best_model_per_seed_no_option[best_seed]['model']} with length {best_model_per_seed_no_option[best_seed]['length']} \
-                            Convergence rate is {best_model_per_seed_no_option[best_seed]['convergence_step'] if 'convergence_step' in best_model_per_seed_no_option[best_seed] else 'NA'}.")
+                    state_dict = checkpoint['state_dict']
+                    episode_lengths = checkpoint['episode_lengths']
+                    entropies = checkpoint['policy_entropies']
+                    steps = ['steps']
+                else:
+                    state_dict = checkpoint
                 
-                best_models.append((best_model_per_seed_no_option[best_seed]['model'], env_seed, best_seed, 0))
-        if len(best_model_per_seed_with_option) != 0:
-            for best_seed in best_model_per_seed_with_option:
-                logger.info(f"Best model for seed {best_seed} and env {PROBLEM_NAMES[env_seed] if args.env_id == 'ComboGrid' else env_seed} is {best_model_per_seed_with_option[best_seed]['model']} with length {best_model_per_seed_with_option[best_seed]['length']} \
-                            Convergence rate is {best_model_per_seed_with_option[best_seed]['convergence_step'] if 'convergence_step' in best_model_per_seed_with_option[best_seed] else 'NA'}.")
-                
-                best_models.append((best_model_per_seed_with_option[best_seed]['model'], env_seed, best_seed, 1))
+                agent = GruAgent(env, h_size=args.hidden_size, env_id=args.env_id)
+                agent.load_state_dict(state_dict)
+                agent.eval()
+
+                #evaluate agent
+                next_rnn_state = agent.init_hidden()
+                next_done = torch.zeros(1)
+                o, _ = env.reset()
+                length_cap = 50
+                current_length = 0
+
+                while True:
+                    o = torch.tensor(o, dtype=torch.float32)
+                    a, _, _, _, next_rnn_state, _ = agent.get_action_and_value(o, next_rnn_state, next_done)
+                    next_o, _, terminal, truncated, _ = env.step(a.item())
+                    o = next_o  
+                    current_length += 1
+                    # print("Step: ", current_length, "Action: ", a.item())
+                    if terminal or truncated or current_length > length_cap:
+                        break
+                if terminal:
+                    model_return_sum += current_length
+                else:
+                    considering = False
+                    break
+            if considering:
+                if use_options == 1:
+                    if model_return_sum < best_model_length:
+                        best_model = model
+                        best_model_length = model_return_sum
+                else:
+                    if model_return_sum < best_model_length_no_option:
+                        best_model_no_option = model
+                        best_model_length = model_return_sum
+        print(f"Best model no option env {env_seed}: ", {best_model_no_option})
+        print(f"Best model option env {env_seed}: ", {best_model})
 
     separator = os.path.sep
     # Copy the best models to the binary/models directory
