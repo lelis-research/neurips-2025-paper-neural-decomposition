@@ -5,7 +5,7 @@ import torch
 import copy
 
 
-def agent_environment_step_loop(env, agent, total_steps, training=True, writer=None, save_frame_freq=1, greedy=False):
+def agent_environment_step_loop(env, agent, total_steps, training=True, writer=None, save_frame_freq=1, greedy=False, verbose=True):
     """
     Runs the training loop for the agent in the given environment over a specified number of timesteps.
     Returns a list of dictionaries containing the episodic return and episode length.
@@ -77,13 +77,14 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
             "episode_return": episode_return_org,
             "episode_length": episode_length,
         })
-        print(f"Episode: {episode_counter} Timestep: {timestep} Return Org: {episode_return_org:.2f} Return Wrapped: {episode_return_wrapped:.2f}")
+        if verbose:
+            print(f"Episode: {episode_counter} Timestep: {timestep} Return Org: {episode_return_org:.2f} Return Wrapped: {episode_return_wrapped:.2f}")
         episode_counter += 1  
-    
-    print("Best Episode Return Org: ", best_ep)
+    if verbose:
+        print("Best Episode Return Org: ", best_ep)
     return results, best_agent
 
-def agent_environment_episode_loop(env, agent, total_episodes, training=True, writer=None, save_frame_freq=1, greedy=False):
+def agent_environment_episode_loop(env, agent, total_episodes, training=True, writer=None, save_frame_freq=1, greedy=False, verbose=True):
     """
     Runs the training loop for the agent in the given environment over a specified number of timesteps.
     Returns a list of dictionaries containing the episodic return and episode length.
@@ -152,7 +153,8 @@ def agent_environment_episode_loop(env, agent, total_episodes, training=True, wr
             "episode_return": episode_return_org,
             "episode_length": episode_length,
         })
-        print(f"Episode: {episode_counter} Timestep: {timestep} Return Org: {episode_return_org:.2f} Return Wrapped: {episode_return_wrapped:.2f}")
-
-    print("Best Episode Return Org: ", best_ep)
+        if verbose:
+            print(f"Episode: {episode_counter} Timestep: {timestep} Return Org: {episode_return_org:.2f} Return Wrapped: {episode_return_wrapped:.2f}")
+    if verbose:
+        print("Best Episode Return Org: ", best_ep)
     return results, best_agent

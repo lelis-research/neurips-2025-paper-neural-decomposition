@@ -90,30 +90,34 @@ def default_env_wrappers(env_name):
 @dataclass
 class arguments:
     # ----- experiment settings -----
-    mode                                         = ["train_option"] # train, test, plot, tune, train_option, test_option
+    mode                                         = ["tune"] # train, test, plot, tune, train_option, test_option
     res_dir:                  str                = "Results"
     device:                   str                = torch.device("cpu")
 
     # ----- tune experiment settings -----
+    tuning_nametag:           str                = "NoOptions"
     num_trials:               int                = 200    
-    steps_per_trial:          int                = 1_000_000
+    steps_per_trial:          int                = 500_000
     param_ranges                                 = {
-                                                        "step_size":         (1e-5, 1e-3),
-                                                        "num_minibatches":   (16,   128),
-                                                        "rollout_steps":     (100,   10000),
-                                                        "epochs":            (5, 20),
-                                                        
-                                                        "clip_ratio":        (0.0, 0.5),
-                                                        "entropy_coef":      (0, 0.1),
-                                                        "critic_coef":       (0.3, 0.7),
+                                                        "step_size":         [1e-5, 1e-4, 1e-3],
+                                                        "num_minibatches":   [16,   128],
+                                                        "rollout_steps":     [500, 1000, 2000],
+                                                        "entropy_coef":      [0, 0.01],
                                                     }
-    tuning_env_name:          str                = "car-train"
-    tuning_env_params                          = {} #{"continuing_task": False}
+    tuning_env_name:          str                = "Hard_Maze"
+    tuning_env_params                          = {"continuing_task": False, "reward_type": "sparse"}
     tuning_env_wrappers                        = default_env_wrappers(tuning_env_name)[0]
     tuning_wrapping_params                     = default_env_wrappers(tuning_env_name)[1]
-    tuning_seeds                               = [1000, 2000, 3000, 4000, 5000]
-    exhaustive_search:        bool              = True
-    num_grid_points:          int               = 5
+    tuning_env_max_steps:     int              = 500
+    tuning_seeds                               = [1000, 2000, 3000]
+    exhaustive_search:        bool             = True
+    # num_grid_points:          int              = 5
+    option_path_tuning                         = [
+                                                    # f"Options_DecWhole_Maze_m_Seed_{10000}/selected_options_{5}.pt",
+                                                    # f"Options_DecWhole_Maze_m_Seed_{20000}/selected_options_{5}.pt",
+                                                    # f"Options_DecWhole_Maze_m_Seed_{30000}/selected_options_{5}.pt",
+                                                ]
+                                                  
 
     # ----- train experiment settings -----
     agent_class:              str                = "PPOAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent
