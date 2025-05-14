@@ -112,16 +112,16 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                         writer.add_scalar("Charts/episodic_return", avg_return, global_step)
                         writer.add_scalar("Charts/episodic_length", avg_length, global_step)
                     logger.info(f"global_step={global_step}, episodic_return={avg_return}, episodic_length={avg_length}, entropy={entropy.mean()}")
-                    if parameter_sweeps and OPTIMAL_TEST_REWARD[seed] - avg_return < 10 and entropy.mean() < 0.15: # FIX: just works for ComboGrid
-                        logger.info("Trying deterministically ...")
-                        if try_agent_deterministicly(agent, options, args, seed):
-                            logger.info(f"Optimal trajectory found on step {global_step}")
-                            envs.close()
-                            # writer.close()
-                            os.makedirs(os.path.dirname(model_file_name), exist_ok=True)
-                            torch.save(agent.state_dict(), model_file_name) # overrides the file if already exists
-                            logger.info(f"Saved on {model_file_name}")
-                            return
+                    # if parameter_sweeps and OPTIMAL_TEST_REWARD[seed] - avg_return < 10 and entropy.mean() < 0.15: # FIX: just works for ComboGrid
+                    #     logger.info("Trying deterministically ...")
+                    #     if try_agent_deterministicly(agent, options, args, seed):
+                    #         logger.info(f"Optimal trajectory found on step {global_step}")
+                    #         envs.close()
+                    #         # writer.close()
+                    #         os.makedirs(os.path.dirname(model_file_name), exist_ok=True)
+                    #         torch.save(agent.state_dict(), model_file_name) # overrides the file if already exists
+                    #         logger.info(f"Saved on {model_file_name}")
+                    #         return
         # bootstrap value if not done
         with torch.no_grad():
             next_value = agent.get_value(next_obs).reshape(1, -1)

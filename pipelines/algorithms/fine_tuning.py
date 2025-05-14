@@ -735,7 +735,7 @@ class LevinLossActorCritic:
 
         return actions
 
-    def compute_loss_cached(self, options, trajectory, joint_problem_name_list=None, problem_str=None, number_actions=3):
+    def compute_loss_cached(self, options, trajectory, joint_problem_name_list=None, problem_str=None, number_actions=3, cache_enabled=True):
         t = trajectory.get_trajectory()
         M = np.arange(len(t) + 1)
         trace = [(i-1, None) for i in range(len(t) + 1)]
@@ -770,18 +770,18 @@ class LevinLossActorCritic:
                             used_sequences.add((j, j+len(actions)))
                             # M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
                     else:
-                        assert option_id in self.cache , f"{option_id} not found in cache"
-                        assert problem_str in self.cache[option_id], f"{problem_str} not found in cache of {option_id}"
-                        assert j in self.cache[option_id][problem_str], f"{j} not found in cache of {option_id} and {problem_str}"
-                        raise Exception(f"The cache is supposed to be precomputed, combination wasn't found: \n {(option_id, problem_str, j)}")
-                        actions = self._run(copy.deepcopy(t[j][0]), option, option.option_size)
-                        # self.cache[(option.get_option_id(), problem_str, j)] = (False, actions)
-                        if self.is_applicable(t, actions, j):
-                            if M[j + len(actions)] > M[j] + 1:
-                                trace[j + len(actions)] = (j, i)
-                                M[j + len(actions)] = M[j] + 1
-                            # M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
-                            # self.cache[(option.get_option_id(), problem_str, j)] = (True, actions)
+                        if cache_enabled:
+                            assert option_id in self.cache , f"{option_id} not found in cache"
+                            assert problem_str in self.cache[option_id], f"{problem_str} not found in cache of {option_id}"
+                            assert j in self.cache[option_id][problem_str], f"{j} not found in cache of {option_id} and {problem_str}"
+                            raise Exception(f"The cache is supposed to be precomputed, combination wasn't found: \n {(option_id, problem_str, j)}")
+                        else:
+                            actions = self._run(copy.deepcopy(t[j][0]), option, option.option_size)
+                            is_applicable = (len(actions) == option.option_size) and self.is_applicable(t, actions, j)
+                            if is_applicable:
+                                if M[j + len(actions)] > M[j] + 1:
+                                    trace[j + len(actions)] = (j, i)
+                                    M[j + len(actions)] = M[j] + 1
         uniform_probability = (1/(len(options) + number_actions)) 
         depth = len(t) + 1
         number_decisions = M[len(t)]

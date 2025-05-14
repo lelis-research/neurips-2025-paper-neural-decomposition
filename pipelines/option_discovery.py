@@ -1932,7 +1932,7 @@ class WholeDecOption:
                     
 
 
-        return list(best_selected_options)
+        return list(options)
 
     def _train_mask_iter(self, trajectories, problem, s, length, agent: PPOAgent):
         sub_trajectory = {problem: trajectories[problem].slice(s, n=length)}
