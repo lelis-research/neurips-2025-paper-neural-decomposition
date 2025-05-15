@@ -97,14 +97,15 @@ class ActorCriticContinuous(nn.Module):
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1)
     
     
-    
-    def analyze_weights(self, topk: int = 100):
+    def analyze_weights(self, actor_mean=None, topk: int = 100):
         """
         Prints out:
           1) All parameter names and shapes,
           2) A per-input-feature importance score for the first actor_linear layer,
              sorted by descending importance.
         """
+        if actor_mean is None:
+            actor_mean = self.actor_mean
         # 1) list all params
         print("=== Parameter shapes ===")
         for name, p in self.named_parameters():
@@ -112,7 +113,7 @@ class ActorCriticContinuous(nn.Module):
         print()
 
         # 2) feature importance on first actor layer
-        first_lin = self.actor_mean[0]  # nn.Linear(obs_dim → 128)
+        first_lin = actor_mean[0]  # nn.Linear(obs_dim → 128)
         W = first_lin.weight.data      # shape [128, obs_dim]
         imp = W.abs().sum(dim=0)       # [obs_dim]
 

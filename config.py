@@ -90,7 +90,7 @@ def default_env_wrappers(env_name):
 @dataclass
 class arguments:
     # ----- experiment settings -----
-    mode                                         = ["test_option"] # train, test, plot, tune, train_option, test_option
+    mode                                         = ["plot"] # train, test, plot, tune, train_option, test_option
     res_dir:                  str                = "Results"
     device:                   str                = torch.device("cpu")
 
@@ -127,7 +127,7 @@ class arguments:
     save_results:             bool               = True
     nametag:                  str                = "sparse_success_No_Options"#+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    training_env_name:        str                = "Large_Maze" # Medium_Maze, Large_Maze, Hard_Maze
+    training_env_name:        str                = "Hard_Maze" # Medium_Maze, Large_Maze, Hard_Maze
     training_env_params                          = {"continuing_task": False, "reward_type": "sparse"} #{"include_cfrc_ext_in_observation":False}
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
@@ -180,14 +180,15 @@ class arguments:
                                                         "FineTune 10 Options":                  "Options_FineTune_Maze_m_Seed_*_Medium_Maze_selected_options_10",
                                                         
                                                         "Mask 5 Options":                       "Options_Mask_Maze_m_Seed_*_Medium_Maze_selected_options_5",
-                                                        "Mask 10 Options":                       "Options_Mask_Maze_m_Seed_*_Medium_Maze_selected_options_10",
+                                                        "Mask 10 Options":                      "Options_Mask_Maze_m_Seed_*_Medium_Maze_selected_options_10",
                                                     }
-    smoothing_window_size:    int                = 500
+    smoothing_window_size:    int                = 1000
     interpolation_resolution: int                = 100_000
+    plot_name:                str                = "Medium_Maze_Comparison"
 
     # ----- Option setting -----
-    tmp_seed = int(os.environ.get("TMP_SEED", 10000))
-    tmp_opt=os.environ.get("TMP_OPT", 10000)
+    tmp_seed = int(os.environ.get("TMP_SEED", 90000))
+    tmp_opt=os.environ.get("TMP_OPT", "Mask")
     env_agent_list                               = [
                                                     {"env_name": "Maze_1m", 
                                                      "env_params": {"continuing_task": False, "reward_type": "sparse"},
@@ -220,7 +221,7 @@ class arguments:
                                                     ]
     option_save_results:      bool               = True
     option_exp_name:          str                = f"Options_{tmp_opt}_Maze_m_Seed_{tmp_seed}"
-    max_num_options:          int                = None #int(os.environ.get("MAX_NUM_OPTIONS", 5))
+    max_num_options:          int                = int(os.environ.get("MAX_NUM_OPTIONS", 5))
     
     # ----- train option experiment settings -----
     sub_trajectory_min_len:   int                = 2
@@ -231,8 +232,8 @@ class arguments:
     hc_restarts:              int                = 500 # hill climbing restarts
     hc_neighbor_samples:      int                = 100 # number of neighbors to sample for hill climbing
     action_dif_tolerance:     float              = 0.4 # tolerance for action difference
-    baseline:                 str                = "transfer" #mask, tune, decwhole, transfer
-    num_worker:               int                = 32
+    baseline:                 str                = tmp_opt #Mask, FineTune, DecWhole, Transfer
+    num_worker:               int                = 16
 
     # ----- test option experiment settings -----
     test_option_env_name:     str                = os.environ.get("TEST_OPTION_ENV_NAME", "Large_Maze") #Medium_Maze, Large_Maze, Hard_Maze

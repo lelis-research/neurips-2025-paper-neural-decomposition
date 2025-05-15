@@ -14,7 +14,7 @@ from Environments.GetEnvironment import get_env
 from Agents.PPOAgent import PPOAgent
 from Agents.PPOAgentOption import PPOAgentOption
 from Experiments.EnvAgentLoops import agent_environment_step_loop, agent_environment_episode_loop
-
+            
 class Option():
     def __init__(self, actor_mean, mask, max_len, info={}):
         self.actor_mean = actor_mean
@@ -59,7 +59,7 @@ def train_one_option(args):
     i, j, sub_traj1_env, sub_traj2_env, agent, sub_traj, baseline, mask_epochs, tol = args
     # create a local tqdm just for the epochs if you really need it,
     # otherwise you can omit per-task bars.
-    if baseline == "mask":
+    if baseline == "Mask":
         mask = learn_mask(agent, sub_traj,
                           num_epochs=mask_epochs,
                           tol=tol)
@@ -74,7 +74,7 @@ def train_one_option(args):
                       len(sub_traj),
                       info=info)
 
-    elif baseline == "tune":
+    elif baseline == "FineTune":
         actor_critic = fine_tune_policy(agent, sub_traj,
                                         num_epochs=mask_epochs,
                                         tol=tol)
@@ -89,7 +89,7 @@ def train_one_option(args):
                       len(sub_traj),
                       info=info)
 
-    elif baseline == "decwhole":
+    elif baseline == "DecWhole":
         info = {
             "org_policy_env": sub_traj1_env,
             "sub_traj_env": sub_traj2_env,
@@ -105,7 +105,7 @@ def train_options(args):
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
     
-    if args.baseline == "transfer":
+    if args.baseline == "Transfer":
         # No training, just copy the base policies
         options_lst = []
         for env_agent in args.env_agent_list:
@@ -231,6 +231,7 @@ def test_options(args):
         print("Selected Options Doesn't exists!")
         return None
     best_options = torch.load(os.path.join(option_dir, file_name), weights_only=False)
+
     print(f"Loaded Options from: {os.path.join(option_dir, file_name)}")
     print("Num options: ", len(best_options))
     

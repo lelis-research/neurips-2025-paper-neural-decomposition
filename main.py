@@ -35,7 +35,7 @@ if __name__ == "__main__":
                 res_dir=args.res_dir,
                 window_size=args.smoothing_window_size,
                 interpolation_resolution=args.interpolation_resolution,
-                out_fname="method_comparison.png",
+                out_fname=f"{args.plot_name}.png",
             )
     
     if "train_option" in args.mode:

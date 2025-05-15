@@ -208,7 +208,11 @@ def plot_comparison(method_patterns,
         runs = []
         for folder in folders:
             with open(os.path.join(folder, "res.pkl"), "rb") as f:
-                runs.append(pickle.load(f))
+                r = pickle.load(f)
+                # print(sum([ret['episode_return'] for ret in r]), "--", folder)
+                runs.append(r)
+        
+            
 
         # overlay the average return curve
         plot_results(
