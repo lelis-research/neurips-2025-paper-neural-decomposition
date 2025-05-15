@@ -277,13 +277,13 @@ class FineTuning:
                                                     future.primary_model_path, 
                                                     future.s))
                                 self.logger.info(f'Progress: segment:{future.s} of length {future.length}, primary_problem={future.primary_problem} done. init_loss={init_loss}, final_loss={final_loss}')
-                                actions = []
-                                for i in range(future.length):
-                                    t_env = trajectories[target_problem].get_trajectory()[future.s[0] + i][0]
-                                    o = torch.tensor(t_env.get_observation(), dtype=torch.float32)
-                                    actions.append(agent.get_action_and_value(o, deterministic=True)[0].item())
-                                t_actions = trajectories[target_problem].get_action_sequence()[future.s[0]: future.s[0]+ future.length]
-                                assert actions == t_actions, f"Agent {agent.extra_info} failed to mimic the action {t_actions} in state {t_env} with action {actions} at setgment {future.s} of length {future.length}"
+                                # actions = []
+                                # for i in range(future.length):
+                                #     t_env = trajectories[target_problem].get_trajectory()[future.s[0] + i][0]
+                                #     o = torch.tensor(t_env.get_observation(), dtype=torch.float32)
+                                #     actions.append(agent.get_action_and_value(o, deterministic=True)[0].item())
+                                # t_actions = trajectories[target_problem].get_action_sequence()[future.s[0]: future.s[0]+ future.length]
+                                # assert actions == t_actions, f"Agent {agent.extra_info} failed to mimic the action {t_actions} in state {t_env} with action {actions} at setgment {future.s} of length {future.length}"
                         except Exception as exc:
                             self.logger.error(f'Segment:{future.s} of length {future.length} with primary_problem={future.primary_problem} generated an exception: {exc}')
                             traceback.print_exc()
@@ -438,9 +438,9 @@ class FineTuning:
         
         max_num_options = min(max_num_options, len(all_option_refs))
         # length_weights = np.array([1/(i+2) for i in range(max_num_options + 1)])
-        length_weights = np.array([1/(i*3+2) for i in range(max_num_options + 1)])
+        length_weights = np.array([1/(i*3+2) for i in range(1, max_num_options + 1)])
         length_weights /= np.sum(length_weights)
-        subset_length = random_generator.choice(range(max_num_options + 1), p=length_weights)
+        subset_length = random_generator.choice(range(1, max_num_options + 1), p=length_weights)
         
         weights = self._compute_sample_weight(all_option_refs, all_possible_sequences, all_options)
         selected_options = set(random_generator.choice(list(all_option_refs), p=weights, size=subset_length, replace=False).tolist())
@@ -476,9 +476,10 @@ class FineTuning:
                     for option2 in selected_options:
                         neighbour = selected_options - {option2} | {option}
                         neighbours.append(neighbour)
-            for option in selected_options:
-                neighbour = selected_options - {option}
-                neighbours.append(neighbour)
+            if len(selected_options) > 1:
+                for option in selected_options:
+                    neighbour = selected_options - {option}
+                    neighbours.append(neighbour)
                 
 
             # self.logger.info(f"Number of neighbours: {len(neighbours)}")

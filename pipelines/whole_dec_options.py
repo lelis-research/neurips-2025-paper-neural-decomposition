@@ -519,9 +519,9 @@ class WholeDecOption:
         
         max_num_options = min(max_num_options, len(all_option_refs))
         # length_weights = np.array([1/(i+2) for i in range(max_num_options + 1)])
-        length_weights = np.array([1/(i*3+2) for i in range(max_num_options + 1)])
+        length_weights = np.array([1/(i*3+2) for i in range(1, max_num_options + 1)])
         length_weights /= np.sum(length_weights)
-        subset_length = random_generator.choice(range(max_num_options + 1), p=length_weights)
+        subset_length = random_generator.choice(range(1, max_num_options + 1), p=length_weights)
         
         weights = self._compute_sample_weight(all_option_refs, all_possible_sequences, all_options)
         selected_options = set(random_generator.choice(list(all_option_refs), p=weights, size=subset_length, replace=False).tolist())
@@ -557,9 +557,11 @@ class WholeDecOption:
                     for option2 in selected_options:
                         neighbour = selected_options - {option2} | {option}
                         neighbours.append(neighbour)
-            for option in selected_options:
-                neighbour = selected_options - {option}
-                neighbours.append(neighbour)
+            # Empty set of options not acceptable
+            if len(selected_options) > 1:
+                for option in selected_options:
+                    neighbour = selected_options - {option}
+                    neighbours.append(neighbour)
                 
             # self.logger.info(f"Number of neighbours: {len(neighbours)}")
             i = 0
