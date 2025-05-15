@@ -78,7 +78,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
-            if args.method != "no_options":
+            if "final_info" not in infos and args.method != "no_options":
                 global_step += (infos['action_size'] - 1).sum()
                 
 
@@ -94,6 +94,8 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                 returns = []
                 lengths = []
                 for info in infos["final_info"]:
+                    if info is None:
+                        continue
                     if info and "episode" in info:  # Check if the episode data is available
                         returns.append(info["episode"]["r"])  # Collect episodic returns
                         # lengths.append(info["episode"]["l"])  # Collect episodic lengths

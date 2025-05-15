@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --cpus-per-task=64   # maximum CPU cores per GPU request: 6 on Cedar, 16 on Graham.
-#SBATCH --mem-per-cpu=2G
-#SBATCH --time=0-6:00      # time (DD-HH:MM)
+#SBATCH --mem-per-cpu=1G
+#SBATCH --time=0-0:30      # time (DD-HH:MM)
 #SBATCH --output=%j-%N.out  # %N for node name, %j for jobID
 #SBATCH --account=aip-lelis
-#SBATCH --array=0
+#SBATCH --array=0-2
 
 module load flexiblas
 export FLEXIBLAS=blis2

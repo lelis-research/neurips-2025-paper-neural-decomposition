@@ -1,13 +1,15 @@
 #!/bin/bash
-#SBATCH --cpus-per-task=6
-#SBATCH --mem=6G
-#SBATCH --time=0-8:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=1G
+#SBATCH --time=0-0:20
 #SBATCH --output=%j-%N.out
 #SBATCH --account=aip-lelis
 #SBATCH --array=0-719  # 240 experiments × 3 seeds = 720 jobs
 
 module load flexiblas
 export FLEXIBLAS=blis2
+
+cd /home/rezaabdz/projects/aip-lelis/rezaabdz/neurips-2025-paper-neural-decomposition
 
 source envs/venv/bin/activate
 
@@ -41,4 +43,25 @@ OMP_NUM_THREADS=1 python -m pipelines.parameter_sweep_testing \
   --seed=$seed \
   --learning_rate=$lr \
   --clip_coef=$clip \
-  --ent_coef=$ent
+  --ent_coef=$ent \
+  --exp_id="extract_wholeDecOption_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinternal_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5" \
+  --test_exp_name="test_wholeDecOption"
+  # --exp_id="extract_learnOption_filtered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinternal_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5" \
+  # --test_exp_name="test_learnOptions_internal_filtered"
+  # --exp_id="extract_fineTuning_notFiltered_ComboGrid_gw5_h64_l10_envsd0,1,2,3_selectTypelocal_search_reg0.0maxNumOptions5" \
+  # --test_exp_name="test_fine_tuning_unfiltered"
+  # --exp_id="extract_learnOption_filtered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeboth_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5" \
+  # --test_exp_name="test_learnOptions_both_filtered"
+  # --test_exp_name="test_no_options" \
+  # --method="no_options" 
+  # --exp_id="extract_learnOption_filtered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinput_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5" \
+  # --test_exp_name="test_learnOptions_input_filtered"
+
+  
+  # --exp_id="extract_wholeDecOption_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinternal_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5" \
+  # --test_exp_name="test_wholeDecOption"
+  # --exp_id="extract_fineTuning_notFiltered_ComboGrid_gw5_h64_l10_envsd0,1,2,3_selectTypelocal_search_reg0.0maxNumOptions5" \
+  # --test_exp_name="test_fine_tuning_unfiltered"
+  # --exp_id="extract_basePolicyTransferred_ComboGrid_gw5_h64_envsd0,1,2,3" \
+  # --test_exp_name="test_base_policy_transferred"
+  

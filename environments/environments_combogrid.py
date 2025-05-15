@@ -20,7 +20,9 @@ SEEDS = {
     "BR-ML": 11,
 
     "BL-MR-ML-BM-TM": 12,
-    "BL-MR-BM": 13
+    "BL-MR-BM": 13,
+
+    "MM-MR-ML|hallways": 14
 }
 
 PROBLEM_NAMES = list(SEEDS.keys())
@@ -51,8 +53,15 @@ class Problem:
     def __init__(self, rows, columns, problem_str):
         self.rows = rows
         self.columns = columns
-        self.initial, self.goals = self._parse_problem(problem_str)
+        self.walls = []
+
+        problem_str_decopled = problem_str.split("|")
+        locations_str = problem_str_decopled[0]
+        if len(problem_str_decopled) > 1:
+            self.setup_walls(problem_str_decopled[1])
+        self.initial, self.goals = self._parse_problem(locations_str)
         self.init_goals = copy.deepcopy(self.goals)
+        
         self.reset()
 
     def _parse_problem(self, problem_str):
@@ -83,6 +92,13 @@ class Problem:
         
         return (row, col)
     
+    def setup_walls(self, walls_str):
+        if walls_str == "hallways":
+            for i in range(self.rows):
+                for j in range(self.columns):
+                    if i != math.floor(self.rows / 2) and j != math.floor(self.columns / 2):
+                        self.walls.append((i, j))
+
     def remove_goal(self, loc) -> bool:
         """
         Updates the goal coordinations.
@@ -119,6 +135,8 @@ class Game:
 
         self.problem = Problem(rows, columns, problem_str)
         self._matrix_structure = np.zeros((rows, columns))
+        for wall in self.problem.walls:
+            self._matrix_structure[wall[0]][wall[1]] = 1
         
         if init_x and init_y:
             self.reset((init_x, init_y))

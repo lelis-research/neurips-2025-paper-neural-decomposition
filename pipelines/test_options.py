@@ -18,17 +18,30 @@ from environments.environments_minigrid import make_env_four_rooms
 from environments.environments_combogrid import PROBLEM_NAMES as COMBOGRID_NAMES
 from environments.environments_combogrid_gym import make_env as make_env_combogrid
 
+# learnOptions_input: 0.0005,0.1,0.01,291467-rack10-12.out,38525645.0,1000517,38.50573753369508,291468-rack10-12.out,39426058.33398,1001600,39.3630774101238,291469-rack10-12.out,38644580.0,1000778,38.614537889521955,38.827784277780275
+# no options: 0.0005,0.2,0.05,293607-rack10-12.out,30081639.997536,999496,30.09680878916574,293608-rack10-12.out,31423460.00232,999512,31.43880213776323,295412-rack05-04.out,29288270.001224,999812,29.293777231343494,30.276462719424156
+# wholedecOption: 0.005,0.1,0.01,296212-rack05-14.out,,,,296213-rack05-14.out,39096850.0,1000497.0,39.077428518026544,296214-rack05-14.out,38884595.0,1000821.0,38.85269693581569,38.96506272692112
+# finetuning unfiltered: 0.001,0.1,0.01,305295-rack01-09.out,11155710.0,1000483.0,11.150324393318028,305296-rack01-09.out,23269408.3333014,1000205.0,23.26463908228953,305297-rack01-09.out,19334880.0,1000384.0,19.327458256029686,17.914140577212414
+# learnOptions both: 0.001,0.5,0.05,292653-rack05-14.out,37662890.0,1000400.0,37.64783086765294,292654-rack05-14.out,38844705.0,1000348.0,38.83119174527265,292655-rack05-14.out,38585370.0,999950.0,38.587299364968246,38.35544065929795
+# learnOptions internal: 0.005,0.1,0.01,297027-rack08-03.out,,,,297028-rack08-03.out,39419890.0,999935,39.42245245940986,297029-rack08-03.out,,,,39.42245245940986
+# base_policy_transferred: 0.001,0.1,0.05,316194-rack03-08.out,,,,316195-rack03-08.out,36853920.0,996796.0,36.9723795039306,316196-rack07-02.out,,,,36.9723795039306
+
 
 @dataclass
 class Args:
     # exp_id: str = "extract_learnOption_filteredOptionSet_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinput_mskTransformsoftmax_selectTypelocal_search_reg0"
-    exp_id: str = "extract_learnOption_filtered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeboth_mskTransformsoftmax_selectTypelocal_search_reg0"
+    # exp_id: str = "extract_learnOption_filtered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinput_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5"
+    # exp_id: str = "extract_wholeDecOption_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinternal_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5"
+    # exp_id: str = "extract_learnOption_filtered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinternal_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5"
+    # exp_id: str = "extract_learnOption_filtered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeboth_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5"
+    exp_id: str = "extract_fineTuning_notFiltered_ComboGrid_gw5_h64_l10_envsd0,1,2,3_selectTypelocal_search_reg0.0maxNumOptions5"
+    # exp_id: str = ""
     """The ID of the finished experiment"""
     env_id: str = "ComboGrid"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
-    method: str = "no_options"
+    method: str = ""
     """Determines the baseline that is being tested; Choices: ['no_options']"""
     cuda: bool = True
     """if toggled, cuda will be enabled by default"""
@@ -48,7 +61,12 @@ class Args:
     # Testing specific arguments
     test_exp_id: str = ""
     """The ID of the new experiment"""
-    test_exp_name: str = "test_no_options"
+    # test_exp_name: str = "test_learnOptions_input"
+    # test_exp_name: str = "test_learnOptions_internal"
+    # test_exp_name: str = "test_learnOptions_both"
+    test_exp_name: str = "test_fineTuning_notFiltered"
+    # test_exp_name: str = "test_wholeDecOption"
+    # test_exp_name: str = "test_no_options"
     """the name of this experiment"""
     test_env_id: str = "ComboGrid"
     """the id of the environment for testing
@@ -61,7 +79,11 @@ class Args:
     """total timesteps for testing"""
     # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 5e-05) # Vanilla RL
     # learning_rate: Union[List[float], float] = (0.0005, 0.001, 0.001)
-    learning_rate: Union[List[float], float] = (0.0005, 0.001, 0.001)
+    # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 0.0005)
+    # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 0.0005)
+    # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 0.0005) # learnOptions_input
+    # learning_rate: Union[List[float], float] = (0.005, 0.0005, 0.0005) # wholedecOption/learnOptions_internal
+    learning_rate: Union[List[float], float] = (0.001, ) # /learnOptions_both/fineTuning_notFiltered/base_policy_transferred
     # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 0.0005) # Dec-Option Whole 
     """the learning rate of the optimize for testing"""
     num_envs: int = 4
@@ -70,7 +92,7 @@ class Args:
     """the number of steps to run in each environment per policy rollout for testing"""
     anneal_lr: bool = True
     """Toggle learning rate annealing for policy and value networks for testing"""
-    gamma: float = 0.99
+    gamma: float = 1
     """the discount factor gamma for testing"""
     gae_lambda: float = 0.95
     """the lambda for the general advantage estimation for testing"""
@@ -82,7 +104,10 @@ class Args:
     """Toggles advantages normalization for testing"""
     # clip_coef: Union[List[float], float] = (0.15, 0.1, 0.2) # Vanilla RL
     # clip_coef: Union[List[float], float] = (0.25, 0.2, 0.2)
-    clip_coef: Union[List[float], float] = (0.2, 0.2, 0.2) # Combogrid test
+    # clip_coef: Union[List[float], float] = (0.2, 0.2, 0.2) # Combogrid test
+    clip_coef: Union[List[float], float] = (0.1,) # learnOptions_input/wholedecOption/learnOptions_internal/fineTuning_notFiltered/base_policy_transferred
+    # clip_coef: Union[List[float], float] = (0.5,) # learnOptions_both
+    # clip_coef: Union[List[float], float] = (0.2,)
     # clip_coef: Union[List[float], float] = (0.3, 0.25, 0.15) # Dec-Option Whole 
     """the surrogate clipping coefficient"""
     clip_vloss: bool = True
@@ -90,7 +115,10 @@ class Args:
     # ent_coef: Union[List[float], float] = (0.05, 0.2, 0.0) # Vanilla RL
     # ent_coef: Union[List[float], float] = (0.15, 0.05, 0.05) # Dec-Option Whole 
     # ent_coef: Union[List[float], float] = (0.1, 0.1, 0.1) # ComboGrid
-    ent_coef: Union[List[float], float] = (0.2, 0.1, 0.1) # Experimental values
+    # ent_coef: Union[List[float], float] = (0.2, 0.1, 0.1) # Experimental values
+    ent_coef: Union[List[float], float] = (0.01,) # learnOptions_input/wholedecOption/learnOptions_internal/fineTuning_notFiltered/base_policy_transferred
+    # ent_coef: Union[List[float], float] = (0.05,) # learnOptions_both
+    # ent_coef: Union[List[float], float] = (0.05,) # Experimental values
     """coefficient of the entropy"""
     vf_coef: float = 0.5
     """coefficient of the value function"""
@@ -110,9 +138,9 @@ class Args:
     # script arguments
     seed: int = 0
     """run seed"""
-    track: bool = False
+    track: bool = True
     """if toggled, this experiment will be tracked with Weights and Biases"""
-    wandb_project_name: str = "BASELINE0_Combogrid"
+    wandb_project_name: str = "NEURIPS_2025"
     """the wandb's project name"""
     wandb_entity: str = None
     """the entity (team) of wandb's project"""
@@ -210,6 +238,12 @@ def main(args: Args):
     lrs = args.learning_rate
     clip_coef = args.clip_coef
     ent_coef = args.ent_coef
+    if isinstance(lrs, float):
+        lrs = [lrs] * len(args.test_problems)
+    if isinstance(clip_coef, float):
+        clip_coef = [clip_coef] * len(args.test_problems)
+    if isinstance(ent_coef, float):
+        ent_coef = [ent_coef] * len(args.test_problems)
     for i, (problem, seed) in enumerate(zip(args.test_problems, args.test_env_seeds)):
         logger.info(f"Testing by training on {problem}, env_seed={seed}")
         args.batch_size = int(args.num_envs * args.num_steps)
