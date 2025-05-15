@@ -227,6 +227,9 @@ def train_options(args):
 def test_options(args):
     option_dir = os.path.join(args.res_dir, args.option_exp_name)
     file_name = f"selected_options.pt" if args.max_num_options is None else f"selected_options_{args.max_num_options}.pt"
+    if not os.path.exists(os.path.join(option_dir, file_name)):
+        print("Selected Options Doesn't exists!")
+        return None
     best_options = torch.load(os.path.join(option_dir, file_name), weights_only=False)
     print(f"Loaded Options from: {os.path.join(option_dir, file_name)}")
     print("Num options: ", len(best_options))

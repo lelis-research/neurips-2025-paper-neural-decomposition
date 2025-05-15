@@ -5,10 +5,12 @@ set -euo pipefail
 JOB_LIMIT=4
 
 # parameter grids
-seeds=( $(seq 60000 10000 300000) )
+seeds=( $(seq 10000 10000 300000) )
 opts=(5 10)
-envs=("Medium_Maze" "Large_Maze")
-
+envs=("Large_Maze" "Medium_Maze" "Hard_Maze")
+step_sizes=(0.0003 0.0003 0.003)
+ent_coeffs=(0.0 0.0 0.0)
+tmp_opt="Transfer"
 # make sure your config.py reads these three from env:
 #   TMP_SEED, MAX_NUM_OPTIONS, TEST_OPTION_ENV_NAME
 # e.g. in config.py:
@@ -18,6 +20,7 @@ envs=("Medium_Maze" "Large_Maze")
 
 mkdir -p logs
 
+# *************************** For Mask, DecWhole, FineTuning Baseline
 # for seed in "${seeds[@]}"; do
 #   for opt in "${opts[@]}"; do
 #     for env in "${envs[@]}"; do
@@ -40,19 +43,26 @@ mkdir -p logs
 #   done
 # done
 
+# *************************** For Transfer Baseline
 for seed in "${seeds[@]}"; do
-  for env in "${envs[@]}"; do
+  for i in "${!envs[@]}"; do
     (
+      env="${envs[$i]}"
+      stepsize="${step_sizes[$i]}"
+      entcoeff="${ent_coeffs[$i]}"
+
       export TMP_SEED=$seed
       export TEST_OPTION_ENV_NAME=$env
+      export STEP_SIZE=$stepsize
+      export ENTROPY_COEF=$entcoeff
+      export TMP_OPT=$tmp_opt
 
-      echo "→ [seed=${seed}, env=${env}] starting"
+      echo "→ [seed=${seed}, env=${env}, stepsize=${stepsize}, entcoeff=${entcoeff}] starting"
       python main.py \
         > "logs/test_options_seed_${seed}_env${env}.log" 2>&1
       echo "→ [seed=${seed}, env=${env}] done"
     ) &
 
-    # throttle to $JOB_LIMIT concurrent jobs
     if [[ $(jobs -r -p | wc -l) -ge $JOB_LIMIT ]]; then
       wait -n
     fi

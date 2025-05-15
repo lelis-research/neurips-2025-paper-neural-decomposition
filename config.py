@@ -90,38 +90,38 @@ def default_env_wrappers(env_name):
 @dataclass
 class arguments:
     # ----- experiment settings -----
-    mode                                         = ["tune"] # train, test, plot, tune, train_option, test_option
+    mode                                         = ["test_option"] # train, test, plot, tune, train_option, test_option
     res_dir:                  str                = "Results"
     device:                   str                = torch.device("cpu")
 
     # ----- tune experiment settings -----
-    tuning_nametag:           str                = "NoOptions"
+    tuning_nametag:           str                = "No_Options"
     num_trials:               int                = 200    
-    steps_per_trial:          int                = 500_000
+    steps_per_trial:          int                = 300_000
     param_ranges                                 = {
-                                                        "step_size":         [1e-5, 1e-4, 1e-3],
-                                                        "num_minibatches":   [16,   128],
-                                                        "rollout_steps":     [500, 1000, 2000],
+                                                        "step_size":         [3e-5, 3e-4, 3e-3],
+                                                        # "num_minibatches":   [16,   128],
+                                                        # "rollout_steps":     [500, 1000, 2000],
                                                         "entropy_coef":      [0, 0.01],
                                                     }
-    tuning_env_name:          str                = "Hard_Maze"
+    tuning_env_name:          str                = "Medium_Maze"
     tuning_env_params                          = {"continuing_task": False, "reward_type": "sparse"}
     tuning_env_wrappers                        = default_env_wrappers(tuning_env_name)[0]
     tuning_wrapping_params                     = default_env_wrappers(tuning_env_name)[1]
     tuning_env_max_steps:     int              = 500
-    tuning_seeds                               = [1000, 2000, 3000]
+    tuning_seeds                               = [10000, 20000, 30000]
     exhaustive_search:        bool             = True
     # num_grid_points:          int              = 5
     option_path_tuning                         = [
-                                                    # f"Options_DecWhole_Maze_m_Seed_{10000}/selected_options_{5}.pt",
-                                                    # f"Options_DecWhole_Maze_m_Seed_{20000}/selected_options_{5}.pt",
-                                                    # f"Options_DecWhole_Maze_m_Seed_{30000}/selected_options_{5}.pt",
+                                                    # f"Options_{'Transfer'}_Maze_m_Seed_{10000}/selected_options.pt",
+                                                    # f"Options_{'Transfer'}_Maze_m_Seed_{20000}/selected_options.pt",
+                                                    # f"Options_{'Transfer'}_Maze_m_Seed_{30000}/selected_options.pt",
                                                 ]
                                                   
 
     # ----- train experiment settings -----
     agent_class:              str                = "PPOAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent
-    seeds                                        = list(range(60_000, 31*10_000, 10_000))
+    seeds                                        = list(range(10_000, 31*10_000, 10_000))
     exp_total_steps:          int                = 1_000_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
@@ -157,8 +157,8 @@ class arguments:
     num_minibatches:          int                = 32
     
     flag_anneal_step_size:    bool               = True
-    step_size:                float              = 3e-4
-    entropy_coef:             float              = 0.0
+    step_size:                float              = float(os.environ.get("STEP_SIZE", 3e-4))
+    entropy_coef:             float              = float(os.environ.get("ENTROPY_COEF", 0.0))
     critic_coef:              float              = 0.5
     clip_ratio:               float              = 0.2
     flag_clip_vloss:          bool               = True
@@ -169,25 +169,25 @@ class arguments:
 
     # ----- plot setting -----
     pattern                                      = {
-                                                        "No Options":                           "Large_Maze_*_1000000_sparse_success_No_Options",
+                                                        "No Options":                           "Medium_Maze_*_1000000_sparse_success_No_Options",
                                                         
-                                                        "BasePolicy Transfer Options":          "Options_Transfer_Maze_m_Seed_*_Large_Maze_selected_options",
+                                                        "BasePolicy Transfer Options":          "Options_Transfer_Maze_m_Seed_*_Medium_Maze_selected_options",
                                                         
-                                                        "DecWhole 5 Options":                   "Options_DecWhole_Maze_m_Seed_*_Large_Maze_selected_options_5",
-                                                        "DecWhole 10 Options":                  "Options_DecWhole_Maze_m_Seed_*_Large_Maze_selected_options_10",
+                                                        "DecWhole 5 Options":                   "Options_DecWhole_Maze_m_Seed_*_Medium_Maze_selected_options_5",
+                                                        "DecWhole 10 Options":                  "Options_DecWhole_Maze_m_Seed_*_Medium_Maze_selected_options_10",
                                                         
-                                                        "FineTune 5 Options":                   "Options_FineTune_Maze_m_Seed_*_Large_Maze_selected_options_5",
-                                                        "FineTune 10 Options":                  "Options_FineTune_Maze_m_Seed_*_Large_Maze_selected_options_10",
+                                                        "FineTune 5 Options":                   "Options_FineTune_Maze_m_Seed_*_Medium_Maze_selected_options_5",
+                                                        "FineTune 10 Options":                  "Options_FineTune_Maze_m_Seed_*_Medium_Maze_selected_options_10",
                                                         
-                                                        "Mask 5 Options":                       "Options_Mask_Maze_m_Seed_*_Large_Maze_selected_options_5",
-                                                        "Mask 10 Options":                       "Options_Mask_Maze_m_Seed_*_Large_Maze_selected_options_10",
+                                                        "Mask 5 Options":                       "Options_Mask_Maze_m_Seed_*_Medium_Maze_selected_options_5",
+                                                        "Mask 10 Options":                       "Options_Mask_Maze_m_Seed_*_Medium_Maze_selected_options_10",
                                                     }
-    smoothing_window_size:    int                = 1000
+    smoothing_window_size:    int                = 500
     interpolation_resolution: int                = 100_000
 
     # ----- Option setting -----
-    tmp_seed = int(os.environ.get("TMP_SEED", 60000))
-
+    tmp_seed = int(os.environ.get("TMP_SEED", 10000))
+    tmp_opt=os.environ.get("TMP_OPT", 10000)
     env_agent_list                               = [
                                                     {"env_name": "Maze_1m", 
                                                      "env_params": {"continuing_task": False, "reward_type": "sparse"},
@@ -219,7 +219,7 @@ class arguments:
                                                      
                                                     ]
     option_save_results:      bool               = True
-    option_exp_name:          str                = f"Options_DecWhole_Maze_m_Seed_{tmp_seed}"
+    option_exp_name:          str                = f"Options_{tmp_opt}_Maze_m_Seed_{tmp_seed}"
     max_num_options:          int                = None #int(os.environ.get("MAX_NUM_OPTIONS", 5))
     
     # ----- train option experiment settings -----
@@ -231,11 +231,11 @@ class arguments:
     hc_restarts:              int                = 500 # hill climbing restarts
     hc_neighbor_samples:      int                = 100 # number of neighbors to sample for hill climbing
     action_dif_tolerance:     float              = 0.4 # tolerance for action difference
-    baseline:                 str                = "decwhole" #mask, tune, decwhole, transfer
+    baseline:                 str                = "transfer" #mask, tune, decwhole, transfer
     num_worker:               int                = 32
 
     # ----- test option experiment settings -----
-    test_option_env_name:     str                = os.environ.get("TEST_OPTION_ENV_NAME", "Hard_Maze") #Medium_Maze, Large_Maze, Hard_Maze
+    test_option_env_name:     str                = os.environ.get("TEST_OPTION_ENV_NAME", "Large_Maze") #Medium_Maze, Large_Maze, Hard_Maze
     test_option_env_params                       = {"continuing_task": False, "reward_type": "sparse"}
     test_option_env_wrappers                     = default_env_wrappers(test_option_env_name)[0]
     test_option_wrapping_params                  = default_env_wrappers(test_option_env_name)[1]

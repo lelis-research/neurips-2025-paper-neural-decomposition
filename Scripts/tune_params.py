@@ -133,7 +133,7 @@ def tune_ppo(args):
                                 )
                 result, _ = agent_environment_step_loop(env, agent, args.steps_per_trial, verbose=True)
                 sum_return += sum(r['episode_return'] for r in result)
-            avg_return = sum_return / len(options_lst)
+            avg_return = sum_return / len(args.tuning_seeds)
             
 
         # minimize → negative return -> maximize return
