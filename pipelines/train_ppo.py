@@ -163,23 +163,26 @@ def main(args: Args):
 
     options = None
     if args.use_options == 1:
+        fold = "selected_options"
+        if args.exp_mode is not None:
+            fold = f"selected_options_{args.exp_mode}"
         if args.env_id == "FourRooms":
             options = {
-            'option_folder': f"selected_options/SimpleCrossing",
+            'option_folder': f"{fold}/SimpleCrossing",
             'seed': args.seed,
             'env_id': args.env_id,
             'game_width': args.game_width
             }
         elif args.env_id == "ComboGrid":
             options = {
-            'option_folder': f"selected_options/ComboGrid",
+            'option_folder': f"{fold}/ComboGrid",
             'seed': args.seed,
             'env_id': args.env_id,
             'game_width': args.game_width
             }
         elif args.env_id == "MultiRoom":
             options = {
-            'option_folder': f"selected_options/Unlock",
+            'option_folder': f"{fold}/Unlock",
             'seed': args.seed,
             'env_id': args.env_id,
             'game_width': args.game_width
@@ -260,9 +263,11 @@ def main(args: Args):
             )
     else:
         raise NotImplementedError
-    
-    model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}_{args.use_options}/seed={args.seed}/{args.exp_id}.pt'
-    # model_path = f'binary/models/{args.env_id}/width={args.game_width}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-{args.seed}.pt'
+    base_dir = "binary_9" if args.view_size == 9 else "binary"
+    model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}_{args.exp_mode if args.exp_mode is not None else "dec"}/seed={args.seed}/{args.exp_id}.pt'
+    # model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}_{args.exp_mode if args.exp_mode is not None else "dec"}/seed={args.seed}/{args.exp_id}.pt'
+    # model_path = f'binary_no_see_through/models/{args.env_id}_{args.exp_mode if args.exp_mode is not None else "dec"}/width={args.game_width}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-{args.seed}.pt'
+    # model_path = f'{base_dir}/models/{args.env_id}_{args.exp_mode if args.exp_mode is not None else "dec"}/width={args.game_width}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-{args.seed}.pt'
 
     train_ppo(envs=envs, 
               seed=args.env_seed, 
@@ -291,7 +296,7 @@ if __name__ == "__main__":
     # Parameter specification for each problem
     args.number_actions = 5 if (args.env_id == "Unlock" or args.env_id == "MultiRoom") else 3
     args.num_steps = args.max_episode_length * 2
-    args.view_size = 5 if (args.env_id == "SimpleCrossing" or args.env_id == "FourRooms") else 3
+    # args.view_size = 5 if (args.env_id == "SimpleCrossing" or args.env_id == "FourRooms") else 3
     lrs = args.learning_rate
     clip_coef = args.clip_coef
     ent_coef = args.ent_coef

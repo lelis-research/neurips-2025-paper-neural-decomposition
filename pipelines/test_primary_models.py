@@ -188,10 +188,10 @@ def find_hyperparam_set(args, logger, directory_paths):
                 elif args.env_id == "Unlock":
                     env = get_unlock_env(seed=env_seed, view_size=3, n_discrete_actions=5, args=args)
                 try:
-                    checkpoint = torch.load(os.path.join(directory_path,f"seed={seed}",model), weights_only=True)
+                    checkpoint = torch.load(os.path.join(directory_path,f"seed={seed}",model), weights_only=False)
                 except:
-                    # print(model)
-                    checkpoint = torch.load(os.path.join(directory_path,f"seed={seed}",model[:model.find("-ent_an0")] + ".pt"), weights_only=True)
+                    print(model)
+                    checkpoint = torch.load(os.path.join(directory_path,f"seed={seed}",model[:model.find("-gae0.95")] + ".pt"), weights_only=True)
                 if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
                     state_dict = checkpoint['state_dict']
                     episode_lengths = checkpoint['episode_lengths']

@@ -66,7 +66,7 @@ class Args:
     #     'combogrid-BR-TL',
     #     'combogrid-BL-TR',
     # )
-
+    base_dir: str = "binary"
     # These attributes will be filled in the runtime
     exp_id: str = ""
     """The ID of the finished experiment; to be filled in run time"""
@@ -211,6 +211,8 @@ def process_args() -> Args:
         'unlock-453',
         )
         args.view_size = 3
+    if args.view_size == 9:
+        args.base_dir = "binary_9"
         
     return args
 
@@ -223,9 +225,9 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     """
     
     trajectories = {}
-    
+
     for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{args.env_id}/width={args.game_width}/seed={args.seed}/{model_directory}-{args.seed}.pt'
+        model_path = f'{args.base_dir}/models/{args.env_id}/width={args.game_width}/seed={args.seed}/{model_directory}-{args.seed}.pt'
         env = get_single_environment(args, seed)
         # env = gym.vector.SyncVectorEnv(
         #     [make_env(problem=problem, rows=args.game_width, columns=args.game_width) for i in range(1)],
@@ -260,7 +262,7 @@ def save_options(options: List[GruAgent], trajectories: dict, args: Args, logger
     """
     if folder == None:
         folder = "selected_options"
-    save_dir = f"binary/options/{folder}/{args.env_id}/width={args.game_width}/seed={args.seed}"
+    save_dir = f"{args.base_dir}/options/{folder}/{args.env_id}/width={args.game_width}/seed={args.seed}"
 
 
     if not os.path.exists(save_dir):
@@ -313,7 +315,7 @@ def load_options(args, logger, folder=None):
 
     if folder == None:
         folder = "selected_options"
-    save_dir = f"binary/options/{folder}/{args.env_id}/width={args.game_width}/seed={args.seed}"
+    save_dir = f"{args.base_dir}/options/{folder}/{args.env_id}/width={args.game_width}/seed={args.seed}"
 
     logger.info(f"Option directory: {save_dir}")
 
@@ -394,14 +396,14 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
     cachce_loaded = False
     id = 0
 
-    if os.path.exists(f"binary/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}/option_cache.pkl"):
-        with open(f"binary/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}/option_cache.pkl", "rb") as f:
+    if os.path.exists(f"{args.base_dir}/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}/option_cache.pkl"):
+        with open(f"{args.base_dir}/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}/option_cache.pkl", "rb") as f:
             option_cache = pickle.load(f)
             cachce_loaded = True
 
 
     for primary_seed, primary_problem, primary_model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{args.env_id}/width={args.game_width}/seed={args.seed}/{primary_model_directory}-{args.seed}.pt'
+        model_path = f'{args.base_dir}/models/{args.env_id}/width={args.game_width}/seed={args.seed}/{primary_model_directory}-{args.seed}.pt'
         primary_env = get_single_environment(args, seed=primary_seed)
         primary_agent = GruAgent(primary_env, h_size=args.hidden_size, env_id=args.env_id)
         primary_agent.load_state_dict(torch.load(model_path, weights_only=True))
@@ -433,8 +435,8 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
                 option_cache[id] = copy.deepcopy(cache_per_problem)
             id += 1
     try:
-        os.makedirs(f"binary/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}", exist_ok=True)
-        with open(f"binary/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}/option_cache.pkl", "wb") as f:
+        os.makedirs(f"{args.base_dir}/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}", exist_ok=True)
+        with open(f"{args.base_dir}/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}/option_cache.pkl", "wb") as f:
             pickle.dump(option_cache, f)
     except:
         pass
@@ -499,7 +501,7 @@ def neural_augmentation_option(args: Args, logger: logging.Logger):
     options = []
     trajectories = []
     for primary_seed, primary_problem, primary_model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{args.env_id}/width={args.game_width}/seed={args.seed}/{primary_model_directory}-{args.seed}.pt'
+        model_path = f'{args.base_dir}/models/{args.env_id}/width={args.game_width}/seed={args.seed}/{primary_model_directory}-{args.seed}.pt'
         primary_env = get_single_environment(args, seed=primary_seed)
         primary_agent = GruAgent(primary_env, h_size=args.hidden_size, env_id=args.env_id)
         primary_agent.load_state_dict(torch.load(model_path, weights_only=True))
@@ -609,7 +611,7 @@ class LearnOptions:
             t_length = trajectories[target_problem].get_length()
 
             for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
-                model_path = f'binary/models/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/{primary_model_directory}-{self.args.seed}.pt'
+                model_path = f'{self.args.base_dir}/models/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/{primary_model_directory}-{self.args.seed}.pt'
                 primary_env = get_single_environment(self.args, seed=primary_seed)
                 primary_agent = GruAgent(primary_env, h_size=self.args.hidden_size, env_id=self.args.env_id)
                 primary_agent.load_state_dict(torch.load(model_path, weights_only=True))
@@ -656,8 +658,8 @@ class LearnOptions:
             logger_flush(self.logger)
         self.logger.debug("\n")
 
-        os.makedirs(f"binary/options/all_options/{self.args.env_id}/seed={self.args.seed}", exist_ok=True)
-        with open(f"binary/options/all_options/{self.args.env_id}/seed={self.args.seed}/all_options.pkl", "wb") as f:
+        os.makedirs(f"{self.args.base_dir}/options/all_options/{self.args.env_id}/seed={self.args.seed}", exist_ok=True)
+        with open(f"{self.args.base_dir}/options/all_options/{self.args.env_id}/seed={self.args.seed}/all_options.pkl", "wb") as f:
             pickle.dump(option_candidates, f)
         
         if self.selection_type == "greedy":
@@ -933,8 +935,8 @@ class LearnOptions:
             option_data.append((id, feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment))
 
 
-        if os.path.exists(f"binary/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/option_cache.pkl"):
-            with open(f"binary/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/option_cache.pkl", "rb") as f:
+        if os.path.exists(f"{self.args.base_dir}/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/option_cache.pkl"):
+            with open(f"{self.args.base_dir}/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/option_cache.pkl", "rb") as f:
                 self.option_cache = pickle.load(f)
         else:
             if self.args.preprocess_cache:
@@ -947,8 +949,8 @@ class LearnOptions:
                 del results
                 gc.collect()
                 try:
-                    os.makedirs(f"binary/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}", exist_ok=True)
-                    with open(f"binary/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/option_cache.pkl", "wb") as f:
+                    os.makedirs(f"{self.args.base_dir}/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}", exist_ok=True)
+                    with open(f"{self.args.base_dir}/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/option_cache.pkl", "wb") as f:
                         pickle.dump(self.option_cache, f)
                 except:
                     pass 
@@ -1173,7 +1175,7 @@ def evaluate_all_masks_levin_loss(args: Args, logger: logging.Logger):
 
         for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
             logger.info(f'Evaluating Problem: {problem}')
-            model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
+            model_path = f'{args.base_dir}/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
             env = get_single_environment(args, seed=seed)
             agent = GruAgent(envs=env, h_size=args.hidden_size, env_id=args.env_id)
             agent.load_state_dict(torch.load(model_path, weights_only=True))

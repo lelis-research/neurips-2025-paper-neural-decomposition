@@ -12,7 +12,7 @@ sys.path.append("C:\\Users\\Parnian\\Projects\\neurips-2025-paper-neural-decompo
 from environments.environments_combogrid import PROBLEM_NAMES, SEEDS
 from agents.recurrent_agent import GruAgent
 from pipelines.option_discovery import get_single_environment
-from environments.environments_minigrid import get_simplecross_env, make_env_simple_crossing, get_unlock_env
+from environments.environments_minigrid import get_simplecross_env, make_env_simple_crossing, get_unlock_env, get_fourrooms_env
 from utils import utils
 
 @dataclass
@@ -37,7 +37,7 @@ class Args:
     # hyperparameter arguments
     game_width: int = 3
     """the length of the combo/mini-grid square"""
-    max_episode_length: int = 30
+    max_episode_length: int = 500
     """"""
     visitation_bonus: int = 1
     """"""
@@ -86,7 +86,8 @@ def check_seeds(args, logger, directory_path):
     logger.info(f"Found {len(models)} PyTorch models in {directory_path}.")
     no_good_seeds = set()
     for model in models:
-        env_seed = SEEDS[model.strip().split("-")[-3] + "-" + model.strip().split("-")[-2]]
+        env_seed = int(model.strip().split("-")[-2])
+        # env_seed = 15
         init_index = model.find("seed")
         seed = int(model[init_index:][len("seed")+1:model[init_index:].find(os.sep)])
         random.seed(seed)
@@ -100,8 +101,10 @@ def check_seeds(args, logger, directory_path):
             env = get_single_environment(seed=env_seed, args=args)
         elif args.env_id == "Unlock":
             env = get_unlock_env(seed=env_seed, view_size=3, n_discrete_actions=5, args=args)
+        elif args.env_id == "FourRooms":
+            env = get_fourrooms_env(seed=env_seed, args=args, view_size=5)
         try:
-            checkpoint = torch.load(model, weights_only=True)
+            checkpoint = torch.load(model, weights_only=False)
         except:
             print(model)
             # checkpoint = torch.load(os.path.join(directory_path,f"seed={seed}",model[:model.find("-ent_an0")] + ".pt"), weights_only=True)
@@ -138,7 +141,7 @@ def check_seeds(args, logger, directory_path):
             print(f"model {model} seed {seed} rnv seed {env_seed} length {current_length}")
         else:
             no_good_seeds.add(seed)
-            # print(f"IGNORE SEED {seed} ENV SEED {env_seed}")
+            print(f"IGNORE SEED {seed} ENV SEED {env_seed}")
     print(no_good_seeds)
     print(len(no_good_seeds))
     print(set(range(1,200))-no_good_seeds)
@@ -150,7 +153,7 @@ def main():
     args.exp_id = f"{args.env_id}_sweep"
     log_path = os.path.join(args.log_path, args.exp_id, "test_primary_models")
     logger, _ = utils.get_logger('sweep_selector_logger', args.log_level, log_path)
-    directory_path = f"binary/models/{args.env_id}"
+    directory_path = f"binary/models/{args.env_id}/width={args.game_width}"
     # if args.env_id == "ComboGrid":
     #     directory_path = directory_path + f"/width={args.game_width}"
     models = check_seeds(args, logger, directory_path)

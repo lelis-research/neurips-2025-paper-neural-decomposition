@@ -88,7 +88,7 @@ def main():
     logger, _ = utils.get_logger('sweep_selector_logger', args.log_level, log_path)
     directory_paths = []
     for x in os.listdir('binary'):
-        if x == (f'models_sweep_{args.env_id}_12_dec-whole') and os.path.isdir(os.path.join('binary', x)):
+        if x.startswith(f'models_sweep_{args.env_id}_') and os.path.isdir(os.path.join('binary', x)):
             directory_paths.append(os.path.join('binary', x))
     
     if args.env_id == "FourRooms":
@@ -194,7 +194,7 @@ def main():
                 next_rnn_state = agent.init_hidden()
                 next_done = torch.zeros(1)
                 o, _ = env.reset()
-                length_cap = 50
+                length_cap = 500
                 current_length = 0
 
                 while True:
@@ -225,12 +225,12 @@ def main():
 
     separator = os.path.sep
     # Copy the best models to the binary/models directory
-    for best_model, env_seed, seed, use_options in best_models:
-        source_file = best_model
-        destination_file = f'binary{separator}models{separator}{args.env_id}{separator}seed={seed}{separator}{args.env_id.lower()}-{PROBLEM_NAMES[env_seed] if args.env_id == "ComboGrid" else env_seed}options{use_options}-{seed}.pt'
-        os.makedirs(os.path.dirname(destination_file), exist_ok=True)
-        shutil.copy(source_file, destination_file)
-        logger.info(f"Copied {source_file} to {destination_file}.")
+    # for best_model, env_seed, seed, use_options in best_models:
+    #     source_file = best_model
+    #     destination_file = f'binary{separator}models{separator}{args.env_id}{separator}seed={seed}{separator}{args.env_id.lower()}-{PROBLEM_NAMES[env_seed] if args.env_id == "ComboGrid" else env_seed}options{use_options}-{seed}.pt'
+    #     os.makedirs(os.path.dirname(destination_file), exist_ok=True)
+    #     shutil.copy(source_file, destination_file)
+    #     logger.info(f"Copied {source_file} to {destination_file}.")
 
 
 

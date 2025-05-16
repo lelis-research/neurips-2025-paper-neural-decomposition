@@ -238,7 +238,7 @@ class GruAgent(nn.Module):
 
     def _masked_input_softmax(self, input, mask):
         if mask is None or len(mask) == 0:
-            raise Exception("No mask is set for the agent.")
+            return input
         
         return (mask[0] * 0) + (mask[1] * 1) + (mask[2] * input)
     
@@ -507,3 +507,8 @@ class GruAgent(nn.Module):
         self._h = None
         if verbose: print("End Trajectory \n\n")
         return trajectory
+
+    def get_option_id(self):
+        """Warning: Option ID and just for when we are learning the option and this is used within one experiment 
+        Not to be shared between multiple experiments"""
+        return self.extra_info['id']
