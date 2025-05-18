@@ -34,8 +34,8 @@ class Args:
     # exp_name: str = "extract_learnOptions_randomInit_pitisFunction"
     """the name of this experiment"""
     # env_seeds: Union[List, str, Tuple] = (0,1,2,3)
-    env_seeds: Union[List, str, Tuple] = (1,5,15)
-    # env_seeds: Union[List, str, Tuple] = (1,255,374,453)
+    # env_seeds: Union[List, str, Tuple] = (1,5,15)
+    env_seeds: Union[List, str, Tuple] = (1,255,374)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
     # model_paths: List[str] = (
     #     'train_GruAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
@@ -59,18 +59,18 @@ class Args:
     #     'combogrid-BL-TR',
     # )
 
-    model_paths: List[str] = (
-    'simplecrossing-1',
-    'simplecrossing-5',
-    'simplecrossing-15',
-    )
-
     # model_paths: List[str] = (
-    # 'unlock-1',
-    # 'unlock-255',
-    # 'unlock-374',
-    # 'unlock-453',
+    # 'simplecrossing-1',
+    # 'simplecrossing-5',
+    # 'simplecrossing-15',
     # )
+
+    model_paths: List[str] = (
+    'unlock-1',
+    'unlock-255',
+    'unlock-374',
+    'unlock-453',
+    )
 
     # These attributes will be filled in the runtime
     exp_id: str = ""
@@ -85,6 +85,8 @@ class Args:
     """
     cpus: int = int(os.environ.get('SLURM_CPUS_PER_TASK', 1))
     """"The number of CPUTs used in this experiment."""
+    base_dir = "binary"
+    """Base directory that the mdoels and options are saved in"""
     
     # hyperparameters
     game_width: int = 9
@@ -157,13 +159,33 @@ def process_args() -> Args:
         raise NotImplementedError
     
     if args.env_id == "ComboGrid":
+        args.env_seeds = (0, 1, 2, 3)
+        model_paths: List[str] = (
+        'combogrid-TL-BR',
+        'combogrid-TR-BL',
+        'combogrid-BR-TL',
+        'combogrid-BL-TR',
+    )
         args.problems = [COMBO_PROBLEM_NAMES[seed] for seed in args.env_seeds]
-    elif args.env_id == "SimpleCrossing" or "Unlock":
+    elif args.env_id == "SimpleCrossing":
+        args.env_seeds = (1, 5, 15)
+        args.model_paths: List[str] = (
+        'simplecrossing-1',
+        'simplecrossing-5',
+        'simplecrossing-15',
+        )
         args.problems = [args.env_id + f"_{seed}" for seed in args.env_seeds]
-    
-    if args.env_id == "Unlock":
-        args.view_size = 3
+    elif args.env_id == "Unlock":
+        args.view_size = 5
         args.number_actions = 5
+        args.env_seeds = (1, 255, 374, 473)
+        args.model_paths: List[str] = (
+        'unlock-1',
+        'unlock-255',
+        'unlock-374',
+        'unlock-453',
+        )
+        args.problems = [args.env_id + f"_{seed}" for seed in args.env_seeds]
         
     return args
 
@@ -175,10 +197,10 @@ class FineTuning:
         self.selection_type = args.selection_type
         self.number_actions = args.number_actions
 
-        option_cache_path = "binary/options/option_cache_fine_tuning/"
+        option_cache_path = f"{self.args.base_dir}/options/option_cache_fine_tuning/"
         self.option_cache_path =  os.path.join(option_cache_path, args.env_id, f"seed={args.seed}", f"width={args.game_width}", "data.pkl")
         if args.option_candidates_path == "":
-            args.option_candidates_path = "binary/options/all_options_fine_tuning/"
+            args.option_candidates_path = f"{self.args.base_dir}/options/all_options_fine_tuning/"
             self.option_candidates_path = os.path.join(args.option_candidates_path, args.exp_id, f"seed={args.seed}", f"width={args.game_width}", "data.pkl")
             
         else:
@@ -253,7 +275,7 @@ class FineTuning:
                 for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
                     if primary_problem == target_problem:
                         pass
-                    model_path = f'binary/models/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/{primary_model_directory}-{self.args.seed}.pt'
+                    model_path = f'{self.args.base_dir}/models/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/{primary_model_directory}-{self.args.seed}.pt'
                     primary_env = get_single_environment(self.args, seed=primary_seed)
                     primary_agent = GruAgent(primary_env, h_size=self.args.hidden_size, env_id=primary_problem)
                     primary_agent.load_state_dict(torch.load(model_path, weights_only=True))

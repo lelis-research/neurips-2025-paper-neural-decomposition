@@ -67,6 +67,7 @@ class Args:
     #     'combogrid-BL-TR',
     # )
     base_dir: str = "binary"
+    """Base directory that the mdoels and options are saved in"""
     # These attributes will be filled in the runtime
     exp_id: str = ""
     """The ID of the finished experiment; to be filled in run time"""
@@ -210,9 +211,8 @@ def process_args() -> Args:
         'unlock-374',
         'unlock-453',
         )
-        args.view_size = 3
-    if args.view_size == 9:
-        args.base_dir = "binary_9"
+        args.view_size = 5
+
         
     return args
 
@@ -346,7 +346,7 @@ def load_options(args, logger, folder=None):
             else:
                 seed = int(checkpoint['problem'][-1])
                 game_width = args.game_width
-            envs = get_multiroom_env(view_size=3, seed=seed)
+            envs = get_multiroom_env(view_size=5, seed=seed)
         elif args.env_id == "ComboGrid":
             game_width = int(checkpoint['environment_args']['game_width'])
             problem = checkpoint['problem']

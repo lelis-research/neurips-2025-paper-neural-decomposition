@@ -5,6 +5,9 @@ experiments
 binary
 outputs
 *.out
+*.pt
+*.sh
+binary**/*
 tmp.py
 __pycache__/*
 outputs

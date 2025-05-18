@@ -86,8 +86,8 @@ def check_seeds(args, logger, directory_path):
     logger.info(f"Found {len(models)} PyTorch models in {directory_path}.")
     no_good_seeds = set()
     for model in models:
-        env_seed = int(model.strip().split("-")[-2])
-        # env_seed = 15
+        # env_seed = int(model.strip().split("-")[-2])
+        env_seed = 374
         init_index = model.find("seed")
         seed = int(model[init_index:][len("seed")+1:model[init_index:].find(os.sep)])
         random.seed(seed)
@@ -100,7 +100,7 @@ def check_seeds(args, logger, directory_path):
         elif args.env_id == "SimpleCrossing":
             env = get_single_environment(seed=env_seed, args=args)
         elif args.env_id == "Unlock":
-            env = get_unlock_env(seed=env_seed, view_size=3, n_discrete_actions=5, args=args)
+            env = get_unlock_env(seed=env_seed, view_size=5, n_discrete_actions=5, args=args)
         elif args.env_id == "FourRooms":
             env = get_fourrooms_env(seed=env_seed, args=args, view_size=5)
         try:
@@ -153,7 +153,7 @@ def main():
     args.exp_id = f"{args.env_id}_sweep"
     log_path = os.path.join(args.log_path, args.exp_id, "test_primary_models")
     logger, _ = utils.get_logger('sweep_selector_logger', args.log_level, log_path)
-    directory_path = f"binary/models/{args.env_id}/width={args.game_width}"
+    directory_path = f"binary/models_sweep_Unlock_374_dec"
     # if args.env_id == "ComboGrid":
     #     directory_path = directory_path + f"/width={args.game_width}"
     models = check_seeds(args, logger, directory_path)

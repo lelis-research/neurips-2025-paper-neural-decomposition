@@ -66,7 +66,7 @@ def load_options(env_id, seed, hidden_size=64, game_width=3, folder=None):
             else:
                 seed = int(checkpoint['problem'][-1])
                 game_width = game_width
-            envs = get_multiroom_env(view_size=3, seed=seed)
+            envs = get_multiroom_env(view_size=5, seed=seed)
         elif env_id == "ComboGrid":
             game_width = int(checkpoint['environment_args']['game_width'])
             problem = checkpoint['problem']

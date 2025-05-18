@@ -74,6 +74,8 @@ class Args:
     """the size of the agent's view in the mini-grid environment"""
     save_run_info: int = 0
     """save entropy and episode length along with satate dict if set to 1"""
+    sweep_mode:int = 0
+    """Toggle on if the model is trained as a part of the hyperparameter sweep."""
     sweep_early_stop: int = 0
     """"""
     entropy_threshold: float = 0.2
@@ -89,8 +91,8 @@ class Args:
     # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 5e-05) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (5e-05,) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (0.0005, 0.001, 0.001) # SimpleCrossing
-    actor_lr: float = 0.0005
-    critic_lr: float = 0.0005
+    actor_lr: float = 0.001
+    critic_lr: float = 0.001
     """the learning rate of the optimize for testing"""
     num_envs: int = 8
     """the number of parallel game environments for testing"""
@@ -110,7 +112,7 @@ class Args:
     """the K epochs to update the policy for testing"""
     norm_adv: bool = True
     """Toggles advantages normalization for testing"""
-    clip_coef: float = 0.15 # ComboGrid
+    clip_coef: float = 0.3 # ComboGrid
     # clip_coef: Union[List[float], float] = (0.15, 0.1, 0.2) # Vanilla RL FourRooms
     # clip_coef: Union[List[float], float] = (0.2,) # Vanilla RL FourRooms
     # clip_coef: Union[List[float], float] = (0.25, 0.2, 0.2) # SimpleCrossing
@@ -263,11 +265,13 @@ def main(args: Args):
             )
     else:
         raise NotImplementedError
+        
     base_dir = "binary_9" if args.view_size == 9 else "binary"
-    model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}_{args.exp_mode if args.exp_mode is not None else "dec"}/seed={args.seed}/{args.exp_id}.pt'
-    # model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}_{args.exp_mode if args.exp_mode is not None else "dec"}/seed={args.seed}/{args.exp_id}.pt'
-    # model_path = f'binary_no_see_through/models/{args.env_id}_{args.exp_mode if args.exp_mode is not None else "dec"}/width={args.game_width}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-{args.seed}.pt'
-    # model_path = f'{base_dir}/models/{args.env_id}_{args.exp_mode if args.exp_mode is not None else "dec"}/width={args.game_width}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-{args.seed}.pt'
+
+    model_path = f'{base_dir}/models/{args.env_id}_{args.exp_mode if args.exp_mode is not None else "dec"}/width={args.game_width}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-{args.seed}.pt'
+    if args.sweep_mode == 1:
+        model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}_{args.exp_mode if args.exp_mode is not None else "dec"}/seed={args.seed}/{args.exp_id}.pt'
+    
 
     train_ppo(envs=envs, 
               seed=args.env_seed, 
