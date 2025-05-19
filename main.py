@@ -11,13 +11,18 @@ from Scripts.tune_params import tune_ppo
 from Scripts.learn_options import train_options, test_options
 
 def load_config_module(path: str):
-    """Dynamically load a Python module from the given file path."""
-    spec = importlib.util.spec_from_file_location("user_config", path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load config module from {path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    """
+    Add the config's directory to sys.path and import the module by its filename.
+    """
+    path = os.path.abspath(path)
+    config_dir, fname = os.path.split(path)
+    module_name, ext = os.path.splitext(fname)
+    if module_name == "" or ext.lower() != ".py":
+        raise ValueError(f"{path} is not a Python file")
+    # make it importable
+    if config_dir not in sys.path:
+        sys.path.insert(0, config_dir)
+    return importlib.import_module(module_name)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

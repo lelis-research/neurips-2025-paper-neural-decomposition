@@ -49,7 +49,14 @@ def tune_ppo(args):
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
     else:
-        raise ValueError(f"Tuning Experiment Already Exists at {exp_dir}")
+        print(f"Tuning Experiment Already Exists at {exp_dir}")
+    
+    study_kwargs = dict(
+        study_name=f"tuning_{args.tuning_env_name}_{args.tuning_nametag}",
+        storage=args.tuning_storage,
+        # load_if_exists=True,
+        # direction="minimize"
+    )
 
     # 1) If exhaustive, build the grid_space and sampler
     if args.exhaustive_search:
@@ -66,13 +73,25 @@ def tune_ppo(args):
                     pts = np.linspace(low, high, num_points)
                     grid_space[name] = [int(round(x)) for x in pts]
         sampler = GridSampler(grid_space)
-        study = optuna.create_study(direction="minimize", sampler=sampler)
-        optimize_kwargs = {"n_jobs":1}  # omit n_trials → exhausts the grid
+        # study = optuna.create_study(**study_kwargs, sampler=sampler)
+        study = optuna.load_study(**study_kwargs, sampler=sampler)
+        # optimize_kwargs = {"n_jobs":args.num_tuning_workers}  # omit n_trials → exhausts the grid
         total_trials = int(np.prod([len(v) for v in grid_space.values()]))
     else:
-        study = optuna.create_study(direction="minimize")
-        optimize_kwargs = {"n_trials": args.num_trials, "n_jobs":1}
+        study = optuna.load_study(**study_kwargs)
+        # study = optuna.create_study(**study_kwargs)
+        # optimize_kwargs = {"n_trials": args.num_trials, "n_jobs":args.num_tuning_workers}
         total_trials = args.num_trials
+        
+    if args.n_trials_per_job is not None:
+        n_trials = args.n_trials_per_job
+    else:
+        if args.exhaustive_search:
+            n_trials = None   # GridSampler will exhaustively run all
+        else:
+            n_trials = args.num_trials
+    
+    optimize_kwargs = {"n_trials": n_trials, "n_jobs": 1}
 
     # 2) The objective always uses trial.suggest_*
     def objective(trial):

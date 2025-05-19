@@ -88,7 +88,7 @@ def train_single_seed(seed, args):
 
 
 
-def train_parallel_seeds(seeds, args, num_workers=4):
+def train_parallel_seeds(seeds, args, num_workers=10):
     # cap the number of workers to at most len(seeds) or the cpu count
     num_workers = min(num_workers, len(seeds), multiprocessing.cpu_count())
     pool = multiprocessing.Pool(processes=num_workers)

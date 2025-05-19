@@ -121,18 +121,18 @@ class arguments:
 
     # ----- train experiment settings -----
     agent_class:              str                = "PPOAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent
-    seeds                                        = list(range(10_000, 31*10_000, 10_000))
+    seeds                                        = list(range(1000, 11000, 1000))
     exp_total_steps:          int                = 1_000_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
-    nametag:                  str                = "sparse_success_No_Options"#+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    nametag:                  str                = "base"#+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    training_env_name:        str                = "Hard_Maze" # Medium_Maze, Large_Maze, Hard_Maze
+    training_env_name:        str                = "Maze_4m" # Medium_Maze, Large_Maze, Hard_Maze
     training_env_params                          = {"continuing_task": False, "reward_type": "sparse"} #{"include_cfrc_ext_in_observation":False}
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
     training_env_max_steps:   int                = 500
-    training_render_mode:     str                = "rgb_array" #human, None, rgb_array_list, rgb_array
+    training_render_mode:     str                = None #human, None, rgb_array_list, rgb_array
     save_frame_freq:          int                = 1000
     load_agent:               str                = None # "car-test_1000_1000000_Tanh64_20250503_222014"
 
@@ -169,22 +169,22 @@ class arguments:
 
     # ----- plot setting -----
     pattern                                      = {
-                                                        "No Options":                           "Medium_Maze_*_1000000_sparse_success_No_Options",
+                                                        "No Options":                           "Large_Maze_*_1000000_base",
                                                         
-                                                        "BasePolicy Transfer Options":          "Options_Transfer_Maze_m_Seed_*_Medium_Maze_selected_options",
+                                                        "BasePolicy Transfer Options":          "Options_Transfer_Maze_m_Seed_*_Large_Maze_selected_options",
                                                         
-                                                        "DecWhole 5 Options":                   "Options_DecWhole_Maze_m_Seed_*_Medium_Maze_selected_options_5",
-                                                        "DecWhole 10 Options":                  "Options_DecWhole_Maze_m_Seed_*_Medium_Maze_selected_options_10",
+                                                        "DecWhole 5 Options":                   "Options_DecWhole_Maze_m_Seed_*_Large_Maze_selected_options_5",
+                                                        "DecWhole 10 Options":                  "Options_DecWhole_Maze_m_Seed_*_Large_Maze_selected_options_10",
                                                         
-                                                        "FineTune 5 Options":                   "Options_FineTune_Maze_m_Seed_*_Medium_Maze_selected_options_5",
-                                                        "FineTune 10 Options":                  "Options_FineTune_Maze_m_Seed_*_Medium_Maze_selected_options_10",
+                                                        "FineTune 5 Options":                   "Options_FineTune_Maze_m_Seed_*_Large_Maze_selected_options_5",
+                                                        "FineTune 10 Options":                  "Options_FineTune_Maze_m_Seed_*_Large_Maze_selected_options_10",
                                                         
-                                                        "Mask 5 Options":                       "Options_Mask_Maze_m_Seed_*_Medium_Maze_selected_options_5",
-                                                        "Mask 10 Options":                      "Options_Mask_Maze_m_Seed_*_Medium_Maze_selected_options_10",
+                                                        "Mask 5 Options":                       "Options_Mask_Maze_m_Seed_*_Large_Maze_selected_options_5",
+                                                        "Mask 10 Options":                      "Options_Mask_Maze_m_Seed_*_Large_Maze_selected_options_10",
                                                     }
     smoothing_window_size:    int                = 1000
     interpolation_resolution: int                = 100_000
-    plot_name:                str                = "Medium_Maze_Comparison"
+    plot_name:                str                = "Large_Maze_Comparison"
 
     # ----- Option setting -----
     tmp_seed = int(os.environ.get("TMP_SEED", 90000))

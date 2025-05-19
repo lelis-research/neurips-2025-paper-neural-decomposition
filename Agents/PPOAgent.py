@@ -77,6 +77,7 @@ class PPOAgent:
         self.rollout_steps = kwargs.get("rollout_steps", 2048)
         self.num_minibatches = kwargs.get("num_minibatches", 32)
         self.minibatch_size = self.rollout_steps // self.num_minibatches
+        
         self.total_updates = self.total_steps // self.rollout_steps + 1
         
         # Step Size Params

@@ -38,15 +38,15 @@ class CarEnv(gym.Env):
 
         # self.action_space = gym.spaces.Box(low=0.0, high=5.0, shape=(2,), dtype=np.float64)
         self.action_space = gym.spaces.Box(
-                                        low  = np.array([ -1.0, -5.0 ], dtype=np.float64),
-                                        high = np.array([ 1.0,  5.0 ], dtype=np.float64),
+                                        low  = np.array([ -5.0, -5.0 ], dtype=np.float64),
+                                        high = np.array([ 5.0,  5.0 ], dtype=np.float64),
                                         dtype=np.float64
                                     )
         
         self.goal_counter = 0
         self.err_counter = 0
     def step(self, action):
-        action[0] = np.sign(action[0]) * (4 + abs(action[0])) # map to (-5, 1) U (1, 5)
+        # action[0] = np.sign(action[0]) * (4 + abs(action[0])) # map to (-5, 1) U (1, 5)
         
         self.counter += 1
         action = np.round(action, 3)
@@ -63,12 +63,12 @@ class CarEnv(gym.Env):
         if self.sim.check_collision(self.state) > 0.05 or self.sim.check_boundaries(self.state) > 0.05:
             reward = -10 * self.n_steps
             self.err_counter += 1
-            print("Collision or Out of Bound!")
+            # print("Collision or Out of Bound!")
         
         elif err_x <= 0.01 and err_y <= 0.0 and err_ang <= 0.01:
             reward = 10 * self.n_steps
             self.goal_counter += 1
-            print("*** GOAL Reached! ***")
+            # print("*** GOAL Reached! ***")
         
         else:
             reward = -(2*err_x) - min(1, err_y) - 1.0
@@ -77,7 +77,7 @@ class CarEnv(gym.Env):
             
         if self.goal_counter >= 10 or self.err_counter >= 1:
             terminated = True
-            print(f"Goal {self.goal_counter} or Error {self.err_counter} limit reached!")
+            # print(f"Goal {self.goal_counter} or Error {self.err_counter} limit reached!")
             self.goal_counter = 0
             self.err_counter = 0
         
