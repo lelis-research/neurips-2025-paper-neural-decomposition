@@ -10,11 +10,11 @@ import pandas as pd
 ROOT_DIR = "Results/"
 
 # glob for anything matching car-train_<seed>_4000000_all_actions
-pattern = os.path.join(ROOT_DIR, "car-train_*_4000000_all_actions")
+pattern = os.path.join(ROOT_DIR, "car-train_*_10000000_top_actions")
 dirs = glob.glob(pattern)
 
 # regex to pull the seed out of the folder name
-seed_re = re.compile(r"car-train_(\d+)_4000000_all_actions$")
+seed_re = re.compile(r"car-train_(\d+)_10000000_top_actions$")
 
 records = []
 for d in dirs:

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=param_sweep
+#SBATCH --job-name=param_sweep_l1_all
 #SBATCH --time=7:00:00
 #SBATCH --mem=8G
-#SBATCH --cpus-per-task=5              # each job is single-threaded
+#SBATCH --cpus-per-task=15              # each job is single-threaded
 #SBATCH --account=aip-lelis
-#SBATCH --array=0-624        
+#SBATCH --array=0-242        
 #SBATCH --output=logs/param_sweep_%A_%a.out
 #SBATCH --error=logs/param_sweep_%A_%a.err
 
@@ -23,62 +23,53 @@ source /home/aghakasi/ENV/bin/activate
 # make sure the logs/ folder exists
 mkdir -p logs
 
-# ————— Generate 5 grid points for each parameter —————
-read -r -a step_size_list <<< "$(
-  python - << 'EOF'
-import numpy as np
-print(" ".join(map(str, np.logspace(np.log10(3e-5), np.log10(3e-3), 5))))
-EOF
-)"
+# ————— Static grid definitions (3 values each) —————
+step_size_list=(3e-5   1e-4    3e-4)
+num_minibatches_list=(32 64 128)
+rollout_steps_list=(2000 4000 6000)
+entropy_coef_list=(0.0 0.1 0.2)
+l1_lambda_list=(1e-5 1e-4 1e-3)
 
-read -r -a num_minibatches_list <<< "$(
-  python - << 'EOF'
-import numpy as np
-print(" ".join(map(str, np.linspace(16, 128, 5, dtype=int))))
-EOF
-)"
-
-read -r -a rollout_steps_list <<< "$(
-  python - << 'EOF'
-import numpy as np
-print(" ".join(map(str, np.linspace(500, 5000, 5, dtype=int))))
-EOF
-)"
-
-read -r -a entropy_coef_list <<< "$(
-  python - << 'EOF'
-import numpy as np
-print(" ".join(map(str, np.linspace(0, 0.2, 5))))
-EOF
-)"
-
-# ————— Compute indices for this array task —————
-TOTAL_NUM_MINI=${#num_minibatches_list[@]}
-TOTAL_ROLL=${#rollout_steps_list[@]}
+# ————— Compute lengths for indexing —————
+TOTAL_SS=${#step_size_list[@]}
+TOTAL_NM=${#num_minibatches_list[@]}
+TOTAL_RS=${#rollout_steps_list[@]}
 TOTAL_ENT=${#entropy_coef_list[@]}
-TOTAL_COMB=$(( TOTAL_NUM_MINI * TOTAL_ROLL * TOTAL_ENT ))
+TOTAL_L1=${#l1_lambda_list[@]}
+
+# ————— Total combos *per* step_size slice —————
+PER_SS=$(( TOTAL_NM * TOTAL_RS * TOTAL_ENT * TOTAL_L1 ))  # 3⁴ = 81
 
 IDX=$SLURM_ARRAY_TASK_ID
 
-ss_idx=$(( IDX / TOTAL_COMB ))
-rem0=$(( IDX % TOTAL_COMB ))
-nm_idx=$(( rem0 / (TOTAL_ROLL * TOTAL_ENT) ))
-rem1=$(( rem0 % (TOTAL_ROLL * TOTAL_ENT) ))
-rs_idx=$(( rem1 / TOTAL_ENT ))
-ec_idx=$(( rem1 % TOTAL_ENT ))
+# ————— Decode each index —————
+ss_idx=$(( IDX / PER_SS ))
+rem0=$(( IDX % PER_SS ))
 
-# ————— Export for config_sweep.py to pick up —————
+nm_idx=$(( rem0 / (TOTAL_RS * TOTAL_ENT * TOTAL_L1) ))
+rem1=$(( rem0 % (TOTAL_RS * TOTAL_ENT * TOTAL_L1) ))
+
+rs_idx=$(( rem1 / (TOTAL_ENT * TOTAL_L1) ))
+rem2=$(( rem1 % (TOTAL_ENT * TOTAL_L1) ))
+
+ent_idx=$(( rem2 / TOTAL_L1 ))
+l1_idx=$(( rem2 % TOTAL_L1 ))
+
+# ————— Export for your config_sweep.py to pick up —————
 export STEP_SIZE="${step_size_list[$ss_idx]}"
 export NUM_MINIBATCHES="${num_minibatches_list[$nm_idx]}"
 export ROLLOUT_STEPS="${rollout_steps_list[$rs_idx]}"
-export ENTROPY_COEF="${entropy_coef_list[$ec_idx]}"
-export NAMETAG="ss_${step_size_list[$ss_idx]}_m_${num_minibatches_list[$nm_idx]}_r_${rollout_steps_list[$rs_idx]}_e_${entropy_coef_list[$ec_idx]}"
+export ENTROPY_COEF="${entropy_coef_list[$ent_idx]}"
+export L1_LAMBDA="${l1_lambda_list[$l1_idx]}"
 
-echo "Running combination $IDX: \
-step_size=$STEP_SIZE, \
-num_minibatches=$NUM_MINIBATCHES, \
-rollout_steps=$ROLLOUT_STEPS, \
-entropy_coef=$ENTROPY_COEF"
+export NAMETAG="\
+ss_${STEP_SIZE}_m_${NUM_MINIBATCHES}_r_${ROLLOUT_STEPS}\
+_e_${ENTROPY_COEF}_l1_${L1_LAMBDA}"
+
+echo "Running combo $IDX → \
+step_size=$STEP_SIZE, num_minibatches=$NUM_MINIBATCHES, \
+rollout_steps=$ROLLOUT_STEPS, entropy_coef=$ENTROPY_COEF, \
+l1_lambda=$L1_LAMBDA"
 
 # ————— Run your training/tuning script —————
 python main.py --config_path ~/scratch/neurips-2025-paper-neural-decomposition/configs/config_sweep.py

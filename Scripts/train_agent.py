@@ -37,7 +37,7 @@ def train_single_seed(seed, args):
                 "flag_anneal_step_size", "step_size",
                 "entropy_coef", "critic_coef",  "clip_ratio", 
                 "flag_clip_vloss", "flag_norm_adv", "max_grad_norm",
-                "flag_anneal_var", "var_coef",
+                "flag_anneal_var", "var_coef", "l1_lambda",
                 ]
     agent_kwargs = {k: getattr(args, k) for k in ppo_keys}
     agent_class = eval(args.agent_class)

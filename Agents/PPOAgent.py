@@ -94,6 +94,7 @@ class PPOAgent:
 
         self.flag_anneal_var = kwargs.get("flag_anneal_var", True) # Anneal Variance
         self.var_coef = kwargs.get("var_coef", 0.01) # Variance Coefficient
+        self.l1_lambda    = kwargs.get("l1_lambda", 1e-5) 
               
     def act(self, observation, greedy=False):
         """
@@ -243,12 +244,14 @@ class PPOAgent:
                 #   var_penalty = mean(σ²) = mean(exp(2 log σ))
                 # var_penalty = torch.exp(log_std).mean()
 
-                
+                l1_norm = sum(p.abs().sum() for name, p in self.actor_critic.actor_mean.named_parameters() 
+                              if p.requires_grad and "bias" not in name)
                 # ===============================
 
                 loss = actor_loss + \
                         self.critic_coef * critic_loss - \
-                        self.entropy_coef * entropy_bonus 
+                        self.entropy_coef * entropy_bonus + \
+                        self.l1_lambda    * l1_norm
                         # var_w * var_penalty
                 
                 self.optimizer.zero_grad()

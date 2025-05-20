@@ -91,7 +91,7 @@ def default_env_wrappers(env_name):
 class arguments:
     # ----- experiment settings -----
     mode                                         = ["train"] # train, test, plot, tune, train_option, test_option
-    res_dir:                  str                = "Results"
+    res_dir:                  str                = "Results_car_all_action_l1reg"
     device:                   str                = torch.device("cpu")
 
     # ----- tune experiment settings -----
@@ -124,8 +124,8 @@ class arguments:
 
     # ----- train experiment settings -----
     agent_class:              str                = "PPOAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent
-    seeds                                        = [10000, 20000, 30000, 40000, 50000]
-    exp_total_steps:          int                = 4_000_000
+    seeds                                        = list(range(1000, 15000, 1000))
+    exp_total_steps:          int                = 5_000_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
     nametag:                  str                = os.environ.get("NAMETAG", "") #+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -155,7 +155,7 @@ class arguments:
     lamda:                    float              = 0.95
 
     epochs:                   int                = 10
-    total_steps:              int                = 4_000_000
+    total_steps:              int                = 5_000_000
     rollout_steps:            int                = int(os.environ.get("ROLLOUT_STEPS", 2048))
     num_minibatches:          int                = int(os.environ.get("NUM_MINIBATCHES", 32))
     
@@ -169,6 +169,8 @@ class arguments:
     max_grad_norm:            float              = 0.5
     flag_anneal_var:          bool               = False
     var_coef:                 float              = 0.0
+    l1_lambda:                float              = float(os.environ.get("L1_LAMBDA", 1e-5))
+
 
     # ----- plot setting -----
     pattern                                      = {

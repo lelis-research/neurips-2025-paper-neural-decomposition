@@ -91,7 +91,7 @@ def default_env_wrappers(env_name):
 class arguments:
     # ----- experiment settings -----
     mode                                         = ["test"] # train, test, plot, tune, train_option, test_option
-    res_dir:                  str                = "Results"
+    res_dir:                  str                = "Results_car_top_action_l1reg"
     device:                   str                = torch.device("cpu")
 
     # ----- tune experiment settings -----
@@ -127,7 +127,7 @@ class arguments:
     save_results:             bool               = True
     nametag:                  str                = "all_actions"#+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    training_env_name:        str                = "car-train" # Medium_Maze, Large_Maze, Hard_Maze
+    training_env_name:        str                = "car-test" # Medium_Maze, Large_Maze, Hard_Maze
     training_env_params                          = {}#{"continuing_task": False, "reward_type": "sparse"} #{"include_cfrc_ext_in_observation":False}
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
@@ -137,12 +137,12 @@ class arguments:
     load_agent:               str                = None # "car-test_1000_1000000_Tanh64_20250503_222014"
 
     # ----- test experiment settings -----
-    test_agent_path:          str                = "car-train_20000_4000000_all_actions"
-    test_episodes:            int                = 10
+    test_agent_path:          str                = "car-train_9000_5000000_ss_1e-4_m_128_r_6000_e_0.0_l1_1e-5"
+    test_episodes:            int                = 30
     test_seed:                int                = 0 
     save_test:                bool               = False
 
-    test_env_name:            str                = "car-train"
+    test_env_name:            str                = "car-test"
     test_env_params                              ={}
     test_env_wrappers                            = default_env_wrappers(test_env_name)[0]
     test_wrapping_params                         = default_env_wrappers(test_env_name)[1]
@@ -166,6 +166,7 @@ class arguments:
     max_grad_norm:            float              = 0.5
     flag_anneal_var:          bool               = False
     var_coef:                 float              = 0.0
+    l1_lambda:                float              = float(os.environ.get("L1_LAMBDA", 1e-5))
 
     # ----- plot setting -----
     pattern                                      = {

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=car
-#SBATCH --time=0-03:00:00
+#SBATCH --time=0-06:00:00
 #SBATCH --mem=8G
 #SBATCH --cpus-per-task=1
 #SBATCH --account=aip-lelis
-#SBATCH --array=1-30
+#SBATCH --array=1-100
 #SBATCH --output=logs/exp_%A_%a.out
 #SBATCH --error=logs/exp_%A_%a.err
 
