@@ -8,6 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 from Agents.PPOAgentOption import PPOAgentOption
 from Agents.PPOAgent import PPOAgent
 from Agents.RandomAgent import RandomAgent
+from Agents.DQNAgent import DQNAgent
 
 from Environments.GetEnvironment import get_env
 from Experiments.EnvAgentLoops import agent_environment_step_loop, agent_environment_episode_loop
@@ -36,8 +37,10 @@ def test_agent(seed, args):
 
 
     try:
-        print("Tryig PPOAgent Loading")
-        agent = PPOAgent.load(agent_path)
+        # print("Tryig PPOAgent Loading")
+        # agent = PPOAgent.load(agent_path)
+        print("Loading DQN")
+        agent = DQNAgent.load(agent_path)
     except Exception as e1:
         print(f"PPOAgent loading failed with error: {e1}")
         try:
@@ -52,6 +55,10 @@ def test_agent(seed, args):
     result, _ = agent_environment_episode_loop(env, agent, args.test_episodes, training=False,  
                                                writer=writer, save_frame_freq=1, greedy=True)
     
+    success = sum([ep['episode_return'] > 0 for ep in result])
+    
+    print("*********************************************")
+    print(f"number of succesful park from 100: {success}")
     # if args.save_test:
     #     exp_dir = os.path.join(args.res_dir, f"test_{args.test_agent_path}_{seed}_{args.test_env_name}")
     #     os.makedirs(exp_dir)

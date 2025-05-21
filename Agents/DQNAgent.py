@@ -46,11 +46,11 @@ class DQNAgent:
     def initialize_params(self, **kwargs):
         # Core hyperparameters
         self.gamma = kwargs.get('gamma', 0.99)
-        self.step_size = kwargs.get('step_size', 1e-3)
-        self.batch_size = kwargs.get('batch_size', 128)
+        self.step_size = kwargs.get('step_size', 0.0001)
+        self.batch_size = kwargs.get('batch_size', 64)
         self.target_update_freq = kwargs.get('target_update_freq', 1000)
-        self.epsilon = kwargs.get('epsilon', 0.1)
-        self.replay_buffer_cap = kwargs.get('replay_buffer_cap', 1_000_000)
+        self.epsilon = kwargs.get('epsilon', 0.01)
+        self.replay_buffer_cap = kwargs.get('replay_buffer_cap', 2_000_000)
         self.action_res = kwargs.get('action_res', 3)
 
     def act(self, observation: np.ndarray, greedy: bool = False) -> int:
@@ -141,7 +141,7 @@ class DQNAgent:
         """
         Load a DQNAgent from disk.
         """
-        checkpoint = torch.load(file_path, map_location='cpu')
+        checkpoint = torch.load(file_path, map_location='cpu', weights_only=False)
         init_kwargs = {k: checkpoint[k] for k in [
             'gamma','step_size','batch_size',
             'target_update_freq','epsilon','replay_buffer_cap','device'

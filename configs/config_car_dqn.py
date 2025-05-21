@@ -90,7 +90,7 @@ def default_env_wrappers(env_name):
 @dataclass
 class arguments:
     # ----- experiment settings -----
-    mode                                         = ["train"] # train, test, plot, tune, train_option, test_option
+    mode                                         = ["test"] # train, test, plot, tune, train_option, test_option
     res_dir:                  str                = "Results_car_dqn_best"
     device:                   str                = torch.device("cpu")
 
@@ -137,13 +137,13 @@ class arguments:
     load_agent:               str                = None # "car-test_1000_1000000_Tanh64_20250503_222014"
 
     # ----- test experiment settings -----
-    test_agent_path:          str                = "AntMaze_R_1000_1000000_sparse_success_20250509_145731"
-    test_episodes:            int                = 10
+    test_agent_path:          str                = "car-train_43000_1000000_"
+    test_episodes:            int                = 100
     test_seed:                int                = 0 
     save_test:                bool               = False
 
-    test_env_name:            str                = "AntMaze_R"
-    test_env_params                              = {"continuing_task": False, "reward_type": "sparse"}
+    test_env_name:            str                = "car-test"
+    test_env_params                              = {}
     test_env_wrappers                            = default_env_wrappers(test_env_name)[0]
     test_wrapping_params                         = default_env_wrappers(test_env_name)[1]
 
