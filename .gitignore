@@ -82,6 +82,8 @@ OldResults/
 Results_car_all_action_l1reg/
 Results_car_top_action/
 Results_car_top_action_l1reg/
+Results_car_dqn_best/
+Results_car_dqn/
 
 *.pth
 *.pt

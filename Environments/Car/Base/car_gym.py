@@ -38,15 +38,15 @@ class CarEnv(gym.Env):
 
         # self.action_space = gym.spaces.Box(low=0.0, high=5.0, shape=(2,), dtype=np.float64)
         self.action_space = gym.spaces.Box(
-                                        low  = np.array([ -1.0, -5.0 ], dtype=np.float64),
-                                        high = np.array([ 1.0,  5.0 ], dtype=np.float64),
+                                        low  = np.array([ -5.0, -5.0 ], dtype=np.float64),
+                                        high = np.array([ 5.0,  5.0 ], dtype=np.float64),
                                         dtype=np.float64
                                     )
         
         self.goal_counter = 0
         self.err_counter = 0
     def step(self, action):
-        action[0] = np.sign(action[0]) * (4 + abs(action[0])) # map to (-5, 1) U (1, 5)
+        # action[0] = np.sign(action[0]) * (4 + abs(action[0])) # map to (-5, 1) U (1, 5)
         
         self.counter += 1
         action = np.round(action, 3)

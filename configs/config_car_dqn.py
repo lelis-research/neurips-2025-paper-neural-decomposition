@@ -91,7 +91,7 @@ def default_env_wrappers(env_name):
 class arguments:
     # ----- experiment settings -----
     mode                                         = ["train"] # train, test, plot, tune, train_option, test_option
-    res_dir:                  str                = "Results_car_dqn"
+    res_dir:                  str                = "Results_car_dqn_best"
     device:                   str                = torch.device("cpu")
 
     # ----- tune experiment settings -----
@@ -121,11 +121,11 @@ class arguments:
 
     # ----- train experiment settings -----
     agent_class:              str                = "DQNAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent, DQNAgent
-    seeds                                        = [int(os.environ.get("SEED", 1000))]
-    exp_total_steps:          int                = 5_000_000
+    seeds                                        = [int(os.environ.get("SEED", 1000))] #list(range(1000, 11000, 1000))
+    exp_total_steps:          int                = 1_000_000
     exp_total_episodes:       int                = 0
-    save_results:             bool               = False
-    nametag:                  str                = ""#+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    save_results:             bool               = True
+    nametag:                  str                = os.environ.get("NAMETAG", "")
 
     training_env_name:        str                = "car-train" # Medium_Maze, Large_Maze, Hard_Maze
     training_env_params                          = {}#{"continuing_task": False, "reward_type": "sparse"} #{"include_cfrc_ext_in_observation":False}
@@ -148,27 +148,35 @@ class arguments:
     test_wrapping_params                         = default_env_wrappers(test_env_name)[1]
 
     # ----- PPO hyper‑parameters -----
-    gamma:                    float              = 0.99
-    lamda:                    float              = 0.95
+    # gamma:                    float              = 0.99
+    # lamda:                    float              = 0.95
 
-    epochs:                   int                = 10
-    total_steps:              int                = 5_000_000
-    rollout_steps:            int                = 2750
-    num_minibatches:          int                = 100
+    # epochs:                   int                = 10
+    # total_steps:              int                = 5_000_000
+    # rollout_steps:            int                = 2750
+    # num_minibatches:          int                = 100
     
-    flag_anneal_step_size:    bool               = True
-    step_size:                float              = float(os.environ.get("STEP_SIZE", 9.5e-5))
-    entropy_coef:             float              = float(os.environ.get("ENTROPY_COEF", 0.0))
-    critic_coef:              float              = 0.5
-    clip_ratio:               float              = 0.2
-    flag_clip_vloss:          bool               = True
-    flag_norm_adv:            bool               = True
-    max_grad_norm:            float              = 0.5
-    flag_anneal_var:          bool               = False
-    var_coef:                 float              = 0.0
-    l1_lambda:                float              = float(os.environ.get("L1_LAMBDA", 1e-5))
-
-
+    # flag_anneal_step_size:    bool               = True
+    # step_size:                float              = float(os.environ.get("STEP_SIZE", 9.5e-5))
+    # entropy_coef:             float              = float(os.environ.get("ENTROPY_COEF", 0.0))
+    # critic_coef:              float              = 0.5
+    # clip_ratio:               float              = 0.2
+    # flag_clip_vloss:          bool               = True
+    # flag_norm_adv:            bool               = True
+    # max_grad_norm:            float              = 0.5
+    # flag_anneal_var:          bool               = False
+    # var_coef:                 float              = 0.0
+    # l1_lambda:                float              = float(os.environ.get("L1_LAMBDA", 1e-5))
+    
+    # ----- DQN hyper‑parameters -----
+    gamma:                    float              = 0.99
+    step_size:                float              = float(os.environ.get("STEP_SIZE", 0.0001))
+    batch_size:               float              = int(os.environ.get("BATCH_SIZE", 64))
+    target_update_freq:       float              = int(os.environ.get("TARGET_UPDATE_FREQ", 1000))
+    epsilon:                  float              = float(os.environ.get("EPSILON", 0.01))
+    replay_buffer_cap:        float              = int(os.environ.get("REPLAY_BUFFER_CAP", 2_000_000))
+    action_res:               float              = int(os.environ.get("ACTION_RES", 3))
+    
     # ----- plot setting -----
     pattern                                      = {
                                                         "No Options":                           "Medium_Maze_*_1000000_sparse_success_No_Options",

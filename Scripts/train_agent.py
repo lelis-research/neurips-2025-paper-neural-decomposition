@@ -11,6 +11,7 @@ from Agents.ElitePPOAgent import ElitePPOAgent
 from Agents.RandomAgent import RandomAgent
 from Agents.SACAgent import SACAgent
 from Agents.DDPGAgent import DDPGAgent
+from Agents.DQNAgent import DQNAgent
 # from Agents.RandomAgentRNN import RandomAgent
 from Environments.GetEnvironment import get_env
 from Experiments.EnvAgentLoops import agent_environment_step_loop, agent_environment_episode_loop
@@ -31,15 +32,23 @@ def train_single_seed(seed, args):
     print(f"Obs Space: {env.observation_space}")
     print(f"Action Space: {env.action_space}")
 
-
-    ppo_keys = ["gamma", "lamda",
-                "epochs", "total_steps", "rollout_steps", "num_minibatches",
-                "flag_anneal_step_size", "step_size",
-                "entropy_coef", "critic_coef",  "clip_ratio", 
-                "flag_clip_vloss", "flag_norm_adv", "max_grad_norm",
-                "flag_anneal_var", "var_coef", "l1_lambda",
-                ]
-    agent_kwargs = {k: getattr(args, k) for k in ppo_keys}
+    if args.agent_class == "PPOAgent":
+        keys = ["gamma", "lamda",
+                    "epochs", "total_steps", "rollout_steps", "num_minibatches",
+                    "flag_anneal_step_size", "step_size",
+                    "entropy_coef", "critic_coef",  "clip_ratio", 
+                    "flag_clip_vloss", "flag_norm_adv", "max_grad_norm",
+                    "flag_anneal_var", "var_coef", "l1_lambda",
+                    ]
+    elif args.agent_class == "DQNAgent":
+        keys = ["gamma", "step_size",
+                    "batch_size", "target_update_freq",
+                    "epsilon", "replay_buffer_cap",
+                    "action_res"]
+    else:
+        raise NotImplementedError("Agent class not known")
+    
+    agent_kwargs = {k: getattr(args, k) for k in keys}
     agent_class = eval(args.agent_class)
 
     if args.load_agent is None:
