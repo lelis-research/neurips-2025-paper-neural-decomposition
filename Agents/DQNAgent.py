@@ -132,6 +132,7 @@ class DQNAgent:
             'observation_space': self.observation_space,
             'action_space': self.action_space,
             'device': self.device,
+            'action_res':self.action_res
         }
         torch.save(checkpoint, file_path)
         print(f"DQNAgent saved to {file_path}")
@@ -144,7 +145,7 @@ class DQNAgent:
         checkpoint = torch.load(file_path, map_location='cpu', weights_only=False)
         init_kwargs = {k: checkpoint[k] for k in [
             'gamma','step_size','batch_size',
-            'target_update_freq','epsilon','replay_buffer_cap','device'
+            'target_update_freq','epsilon','replay_buffer_cap','device', 'action_res'
         ]}
         agent = cls(
             checkpoint['observation_space'],

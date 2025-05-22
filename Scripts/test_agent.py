@@ -9,7 +9,7 @@ from Agents.PPOAgentOption import PPOAgentOption
 from Agents.PPOAgent import PPOAgent
 from Agents.RandomAgent import RandomAgent
 from Agents.DQNAgent import DQNAgent
-
+from Agents.NStepDQNAgent import NStepDQNAgent
 from Environments.GetEnvironment import get_env
 from Experiments.EnvAgentLoops import agent_environment_step_loop, agent_environment_episode_loop
 
@@ -37,10 +37,12 @@ def test_agent(seed, args):
 
 
     try:
-        # print("Tryig PPOAgent Loading")
-        # agent = PPOAgent.load(agent_path)
-        print("Loading DQN")
-        agent = DQNAgent.load(agent_path)
+        print("Tryig PPOAgent Loading")
+        agent = PPOAgent.load(agent_path)
+        # print("Loading DQN")
+        # agent = DQNAgent.load(agent_path)
+        # print("Loading NStep DQN")
+        # agent = NStepDQNAgent.load(agent_path)
     except Exception as e1:
         print(f"PPOAgent loading failed with error: {e1}")
         try:

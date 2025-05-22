@@ -12,6 +12,7 @@ from Agents.RandomAgent import RandomAgent
 from Agents.SACAgent import SACAgent
 from Agents.DDPGAgent import DDPGAgent
 from Agents.DQNAgent import DQNAgent
+from Agents.NStepDQNAgent import NStepDQNAgent
 # from Agents.RandomAgentRNN import RandomAgent
 from Environments.GetEnvironment import get_env
 from Experiments.EnvAgentLoops import agent_environment_step_loop, agent_environment_episode_loop
@@ -40,11 +41,17 @@ def train_single_seed(seed, args):
                     "flag_clip_vloss", "flag_norm_adv", "max_grad_norm",
                     "flag_anneal_var", "var_coef", "l1_lambda",
                     ]
-    elif args.agent_class == "DQNAgent":
+    elif args.agent_class in ["DQNAgent", "NStepDQNAgent"]:
         keys = ["gamma", "step_size",
                     "batch_size", "target_update_freq",
                     "epsilon", "replay_buffer_cap",
                     "action_res"]
+    elif args.agent_class == "DDPGAgent":
+        keys = ["gamma", "tau", 
+                "actor_lr", "critic_lr",
+                "buf_size", "batch_size",
+                "noise_phi", "ou_theta", "ou_sigma",
+                "epsilon_end", "decay_steps"]
     else:
         raise NotImplementedError("Agent class not known")
     
@@ -77,7 +84,7 @@ def train_single_seed(seed, args):
         if not os.path.exists(exp_dir):
             os.makedirs(exp_dir)
         else:
-            raise ValueError(f"Experiment directory {exp_dir} already exists. Please choose a different name or remove the existing directory.")
+            print(f"Experiment directory {exp_dir} already exists !")
         writer = SummaryWriter(log_dir=exp_dir)
     
     if args.exp_total_steps > 0 and args.exp_total_episodes == 0:
@@ -92,6 +99,7 @@ def train_single_seed(seed, args):
             pickle.dump(result, f)
         agent.save(os.path.join(exp_dir, "final.pt"))
         best_agent.save(os.path.join(exp_dir, "best.pt"))
+        writer.close()      
     env.close()
     return result, best_agent
 

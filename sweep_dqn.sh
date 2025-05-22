@@ -5,8 +5,8 @@
 #SBATCH --cpus-per-task=10              # each job is single-threaded
 #SBATCH --account=aip-lelis
 #SBATCH --array=0-323                   # 3×3×3×2×2×3 = 324 combos
-#SBATCH --output=logs/param_sweep_%A_%a.out
-#SBATCH --error=logs/param_sweep_%A_%a.err
+#SBATCH --output=logs/param_sweep_dqn_%A_%a.out
+#SBATCH --error=logs/param_sweep_dqn_%A_%a.err
 
 set -euo pipefail
 

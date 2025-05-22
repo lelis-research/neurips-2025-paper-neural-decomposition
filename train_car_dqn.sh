@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=car
-#SBATCH --time=0-06:00:00
+#SBATCH --job-name=car-dqn
+#SBATCH --time=0-12:00:00
 #SBATCH --mem=8G
 #SBATCH --cpus-per-task=1
 #SBATCH --account=aip-lelis
 #SBATCH --array=1-100
-#SBATCH --output=logs/exp_%A_%a.out
-#SBATCH --error=logs/exp_%A_%a.err
+#SBATCH --output=logs/dqn_%A_%a.out
+#SBATCH --error=logs/dqn_%A_%a.err
 
 set -euo pipefail
 

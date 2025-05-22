@@ -106,7 +106,7 @@ class DDPGAgent:
         # Epsilon schedule
         self.epsilon_start = 1.0
         self.epsilon_end = kwargs.get('epsilon_end', 0.01)
-        self.epsilon_decay = 1.0 / kwargs.get('EXPLORE', 100_000.0)
+        self.epsilon_decay = 1.0 / kwargs.get('decay_steps', 100_000.0)
 
     def act(self, observation, greedy=False):
         state = torch.FloatTensor(observation).to(self.device).unsqueeze(0)
@@ -166,6 +166,29 @@ class DDPGAgent:
 
     def save(self, file_path):
         torch.save({
+            
+            
+            
+            "gamma": self.gamma,
+            "tau": self.tau,
+            
+            "actor_lr": self.actor_lr,
+            "critic_lr": self.critic_lr,
+            
+            "buf_size": self.buffer_capacity,
+            "batch_size": self.batch_size,
+            
+            "noise_phi": self.noise_phi,
+            "ou_theta": self.ou_theta,
+            "ou_sigma": self.ou_sigma,
+
+            "epsilon_end": self.epsilon_end,
+            "decay_steps": self.epsilon_decay,
+
+            "observation_space": self.observation_space,
+            "action_space": self.action_space,
+            "device": self.device,
+
             'actor': self.actor.state_dict(),
             'critic': self.critic.state_dict(),
             'actor_target': self.actor_target.state_dict(),
