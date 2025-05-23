@@ -4,48 +4,74 @@ import copy
 import torch
 import numpy as np
 from minigrid.wrappers import ViewSizeWrapper
-from minigrid.core.world_object import Goal
+from minigrid.core.world_object import Wall, Goal
+from gymnasium.core import Wrapper
+from minigrid.envs.crossing import CrossingEnv
+from minigrid.envs.fourrooms import FourRoomsEnv
+from minigrid.envs.unlock import UnlockEnv
+from minigrid.wrappers import PositionBonus
+from environments.minigrid_multiroomunlock import MultiRoomUnlockEnv
+from environments.environments_combogrid_gym import ComboGym
+import copy
+import os
 
 
 class MiniGridWrap(gym.Env):
-    def __init__(self, env, seed=None, n_discrete_actions=3,
-                 view_size=5, max_episode_steps=500, step_reward=0, options=None,
-                 show_direction=True):
+    def __init__(
+        self,
+        env,
+        seed=None,
+        n_discrete_actions=3,
+        view_size=5,
+        show_direction=False,
+        options=None,
+        step_reward=-1,
+        goal_reward=1
+    ):
         super(MiniGridWrap, self).__init__()
         # Define action and observation space
         self.seed_ = seed
         self.show_direction = show_direction
-        self.step_reward = step_reward
-        self.n_discrete_actions = n_discrete_actions
+        self.env = env
         self.env = ViewSizeWrapper(env, agent_view_size=view_size)
-        self.max_episode_steps = max_episode_steps
-        self.steps = 0
+        self.n_steps = 0
+        # self.env.max_steps = max_episode_steps
+        self.n_discrete_actions = n_discrete_actions
+        self.step_reward = step_reward
+        self.goal_reward = goal_reward
         self.reset()
         self.action_space = gym.spaces.Discrete(n_discrete_actions)
         if options:
             self.setup_options(options)
         else:
             self.options = None
-        
-        shape = (len(self.get_observation()), )
 
-        self.observation_space = gym.spaces.Box(low=0,
-                                            high=100,
-                                            shape=shape, dtype=np.float64)
+        shape = (len(self.get_observation()),)
+        self.observation_space = gym.spaces.Box(
+            low=0, high=1, shape=shape, dtype=np.float64
+        )
 
-        self.spec=self.env.spec
+        self.spec = self.env.spec
 
     def setup_options(self, options):
         self.action_space = gym.spaces.Discrete(self.action_space.n + len(options))
         self.options = copy.deepcopy(options)
+        self.goal_reward = 10
+        self.step_reward = 0
 
     def one_hot_encode(self, observation):
         OBJECT_TO_ONEHOT = {
-            0: [0,0,0,0],  # Unseen
-            1: [1,0,0,0],  # Empty space
-            2: [0,1,0,0],  # Wall
-            8: [0,0,1,0],  # Goal
-            10: [0,0,0,1], # Agent
+            0:  [0,0,0,0,0,0,0,0,0,0],  # unseen
+            1:  [1,0,0,0,0,0,0,0,0,0],  # empty space
+            2:  [0,1,0,0,0,0,0,0,0,0],  # wall
+            3:  [0,0,1,0,0,0,0,0,0,0],  # floor
+            4:  [0,0,0,1,0,0,0,0,0,0],  # door
+            5:  [0,0,0,0,1,0,0,0,0,0],  # key
+            6:  [0,0,0,0,0,1,0,0,0,0],  # ball
+            7:  [0,0,0,0,0,0,1,0,0,0],  # box
+            8:  [0,0,0,0,0,0,0,1,0,0],  # Goal
+            9:  [0,0,0,0,0,0,0,0,1,0],  # lava
+            10: [0,0,0,0,0,0,0,0,0,1],  # agent
         }
         one_hot = [OBJECT_TO_ONEHOT[int(x)] for x in observation]
         return np.array(one_hot).flatten()
@@ -59,19 +85,17 @@ class MiniGridWrap(gym.Env):
                 [self.env.observation(obs)['direction']],
                 [self.agent_pos[0] - self.goal_position[0], self.agent_pos[1] - self.goal_position[1]]
             ))
-        return np.concatenate((image, [self.env.observation(obs)['direction']]))
+        return np.concatenate((image, [self.agent_pos[0] - self.goal_position[0], self.agent_pos[1] - self.goal_position[1]]))
 
     def take_basic_action(self, action):
         _, reward, terminal, truncated, _ = self.env.step(action)
         self.agent_pos = self.env.unwrapped.agent_pos
         self.steps += 1
         if terminal:
-            reward = 1
-        if self.steps == 500:
-            truncated = True
+            reward = self.goal_reward
         if self.steps >= self.max_episode_steps:
-            terminal = True
-        if terminal:
+            truncated = True
+        if terminal or truncated:
             self.reset()
         return (terminal, truncated, reward)
 
@@ -88,10 +112,10 @@ class MiniGridWrap(gym.Env):
                 reward_sum += reward + self.step_reward
                 if terminal or truncated:
                     break
-            reward = reward_sum
         else:
             terminal, truncated, reward = self.take_basic_action(action)
-        return (self.get_observation(), reward + self.step_reward, bool(terminal), bool(truncated), {"steps": self.steps, 'action_size': idx + 1})
+            reward_sum = reward + self.step_reward
+        return (self.get_observation(), reward_sum, bool(terminal), bool(truncated), {"steps": self.steps, 'action_size': idx + 1})
 
     def reset(self, init_loc=None, init_dir:str=None, seed=None, options=None):
         self.steps = 0
@@ -169,14 +193,63 @@ def get_test_tasks_fourrooms3(view_size=7, seed=0):
     )
 
 
+def get_simplecross_env(*args, **kwargs):
+    env = MiniGridWrap(
+                CrossingEnv(obstacle_type=Wall, max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], seed=kwargs['seed']),
+                seed=kwargs['seed'],
+                n_discrete_actions=3,
+                view_size=kwargs['view_size'] if 'view_size' in kwargs else 9,
+                show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
+                options=None if 'options' not in kwargs else kwargs['options'])
+    env.reset(seed=kwargs['seed'])
+    if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
+        env = PositionBonus(env, scale=0.001)
+    # env = gym.wrappers.RecordEpisodeStatistics(env)
+    return env
+
+
+def get_fourrooms_env(*args, **kwargs):
+    env = MiniGridWrap(
+                env = FourRoomsEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], render_mode="rgb_array", see_through_walls=True),
+                seed=kwargs['seed'],
+                n_discrete_actions=3,
+                view_size=kwargs['view_size'] if 'view_size' in kwargs else 9,
+                show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
+                options=None if 'options' not in kwargs else kwargs['options'])
+    env.reset(seed=kwargs['seed'])
+    if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
+        env = PositionBonus(env, scale=0.001)
+    # env = gym.wrappers.RecordEpisodeStatistics(env)
+    return env
+
+def get_unlock_env(*args, **kwargs):
+    env = MiniGridWrap(
+                env=UnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], render_mode="rgb_array"),
+                seed=kwargs['seed'],
+                n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
+                view_size=kwargs['view_size'] if 'view_size' in kwargs else 9,
+                show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
+                options=None if 'options' not in kwargs else kwargs['options'])
+    env.reset(seed=kwargs['seed'])
+    if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
+        env = PositionBonus(env, scale=0.001)
+    # env = gym.wrappers.RecordEpisodeStatistics(env)
+    return env
+
+
 def make_env_simple_crossing(*args, **kwargs):
     def thunk():
         env = MiniGridWrap(
-                gymnasium.make("MiniGrid-SimpleCrossingS9N1-v0"),
-                seed=kwargs['seed'], max_episode_steps=1000, n_discrete_actions=3,
-                view_size=kwargs['view_size'], step_reward=-1, 
+                CrossingEnv(obstacle_type=Wall, max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], seed=kwargs['seed'], render_mode="rgb_array"),
+                seed=kwargs['seed'],
+                n_discrete_actions=3,
+                view_size=kwargs['view_size'] if 'view_size' in kwargs else 9,
+                show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
                 options=None if 'options' not in kwargs else kwargs['options'])
-        # env = gym.wrappers.RecordEpisodeStatistics(env)
+        env.reset(seed=kwargs['seed'])
+        if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
+            env = PositionBonus(env, scale=0.001)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
         return env
 
     return thunk
@@ -185,11 +258,70 @@ def make_env_simple_crossing(*args, **kwargs):
 def make_env_four_rooms(*args, **kwargs):
     def thunk():
         env = MiniGridWrap(
-                gymnasium.make("MiniGrid-FourRooms-v0"),
-                seed=kwargs['seed'], max_episode_steps=19*19, n_discrete_actions=3,
-                view_size=kwargs['view_size'],
-                options=None if 'options' not in kwargs else kwargs['options'])
+                env = FourRoomsEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], render_mode="rgb_array", see_through_walls=True),
+                seed=kwargs['seed'],
+                n_discrete_actions=3,
+                view_size=kwargs['view_size'] if 'view_size' in kwargs else 9,
+                show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
+                options=None if 'options' not in kwargs else kwargs['options'],
+                goal_reward=10,
+                step_reward=0)
+        env.reset(seed=kwargs['seed'])
+        if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
+            env = PositionBonus(env, scale=0.001)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         return env
 
     return thunk
+
+def make_env_unlock(*args, **kwargs):
+    def thunk():
+        env = MiniGridWrap(
+                env = UnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], render_mode="rgb_array"),
+                seed=kwargs['seed'],
+                n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
+                view_size=kwargs['view_size'] if 'view_size' in kwargs else 9,
+                show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
+                options=None if 'options' not in kwargs else kwargs['options'])
+        env.reset(seed=kwargs['seed'])
+        if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
+            env = PositionBonus(env, scale=0.001)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
+        return env
+
+    return thunk
+
+def make_env_multiroom(*args, **kwargs):
+    def thunk():
+        env = MiniGridWrap(
+                env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=5, minNumRooms=3, render_mode="rgb_array", see_through_walls=True),
+                seed=kwargs['seed'],
+                n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
+                view_size=kwargs['view_size'] if 'view_size' in kwargs else 9,
+                show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
+                options=None if 'options' not in kwargs else kwargs['options'],
+                goal_reward=10,
+                step_reward=0
+                )
+        env.reset(seed=kwargs['seed'])
+        if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
+            env = PositionBonus(env, scale=0.001)
+        env = gym.wrappers.RecordEpisodeStatistics(env)
+        return env
+
+    return thunk
+
+def get_multiroom_env(*args, **kwargs):
+    env = MiniGridWrap(
+                env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=5, minNumRooms=3, render_mode="rgb_array", see_through_walls=True),
+                seed=kwargs['seed'],
+                n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
+                view_size=kwargs['view_size'] if 'view_size' in kwargs else 9,
+                show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
+                options=None if 'options' not in kwargs else kwargs['options'],
+                goal_reward=10,
+                step_reward=0)
+    env.reset(seed=kwargs['seed'])
+    if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
+        env = PositionBonus(env, scale=0.001)
+    return env
