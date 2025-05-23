@@ -3,6 +3,7 @@ experiments
 *.pth
 *.log
 binary
+models/parameter_sweep
 outputs
 *.out
 tmp.py

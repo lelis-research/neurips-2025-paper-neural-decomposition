@@ -4,7 +4,7 @@
 #SBATCH --time=0-1:00      # time (DD-HH:MM)
 #SBATCH --output=%j-%N.out  # %N for node name, %j for jobID
 #SBATCH --account=aip-lelis
-#SBATCH --array=0  # 0-55
+#SBATCH --array=0-59  # 0-55
 
 cd /home/rezaabdz/projects/aip-lelis/rezaabdz/neurips-2025-paper-neural-decomposition
 
@@ -15,8 +15,8 @@ export FLEXIBLAS=blis2
 source envs/venv/bin/activate # Assuming we have all our environments in  `../envs/`
 
 wandb offline
-# OMP_NUM_THREADS=1 python -m pipelines.train_ppo --cpus=$SLURM_CPUS_PER_TASK --seed=$SLURM_ARRAY_TASK_ID \
-#     --game_width=8 --total_timesteps=2000000
-
 OMP_NUM_THREADS=1 python -m pipelines.train_ppo --cpus=$SLURM_CPUS_PER_TASK --seed=$SLURM_ARRAY_TASK_ID \
-    --env_seeds=14
+    --game_width=5 --total_timesteps=1000000 --hidden_size=6
+
+# OMP_NUM_THREADS=1 python -m pipelines.train_ppo --cpus=$SLURM_CPUS_PER_TASK --seed=$SLURM_ARRAY_TASK_ID \
+#     --env_seeds=14
