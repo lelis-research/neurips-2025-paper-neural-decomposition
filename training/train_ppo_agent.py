@@ -78,7 +78,8 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
-            global_step += (infos['action_size'] - 1).sum()
+            if "final_info" not in infos and args.method != "no_options":
+                global_step += (infos['action_size'] - 1).sum()
                 
 
             # if "final_info" in infos:
@@ -93,6 +94,8 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                 returns = []
                 lengths = []
                 for info in infos["final_info"]:
+                    if info is None:
+                        continue
                     if info and "episode" in info:  # Check if the episode data is available
                         returns.append(info["episode"]["r"])  # Collect episodic returns
                         # lengths.append(info["episode"]["l"])  # Collect episodic lengths
@@ -111,16 +114,16 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                         writer.add_scalar("Charts/episodic_return", avg_return, global_step)
                         writer.add_scalar("Charts/episodic_length", avg_length, global_step)
                     logger.info(f"global_step={global_step}, episodic_return={avg_return}, episodic_length={avg_length}, entropy={entropy.mean()}")
-                    if parameter_sweeps and OPTIMAL_TEST_REWARD[seed] - avg_return < 10 and entropy.mean() < 0.15: # FIX: just works for ComboGrid
-                        logger.info("Trying deterministically ...")
-                        if try_agent_deterministicly(agent, options, args, seed):
-                            logger.info(f"Optimal trajectory found on step {global_step}")
-                            envs.close()
-                            # writer.close()
-                            os.makedirs(os.path.dirname(model_file_name), exist_ok=True)
-                            torch.save(agent.state_dict(), model_file_name) # overrides the file if already exists
-                            logger.info(f"Saved on {model_file_name}")
-                            return
+                    # if parameter_sweeps and OPTIMAL_TEST_REWARD[seed] - avg_return < 10 and entropy.mean() < 0.15: # FIX: just works for ComboGrid
+                    #     logger.info("Trying deterministically ...")
+                    #     if try_agent_deterministicly(agent, options, args, seed):
+                    #         logger.info(f"Optimal trajectory found on step {global_step}")
+                    #         envs.close()
+                    #         # writer.close()
+                    #         os.makedirs(os.path.dirname(model_file_name), exist_ok=True)
+                    #         torch.save(agent.state_dict(), model_file_name) # overrides the file if already exists
+                    #         logger.info(f"Saved on {model_file_name}")
+                    #         return
         # bootstrap value if not done
         with torch.no_grad():
             next_value = agent.get_value(next_obs).reshape(1, -1)

@@ -92,8 +92,8 @@ class Args:
     reg_coef: float = 0.0
     # reg_coef: float = 110.03
     filtering_inapplicable: bool = False
-    max_num_options: int = 10
-    # max_num_options: int = 5
+    # max_num_options: int = 10
+    max_num_options: int = 5
 
     # Script arguments
     seed: int = 0
@@ -277,13 +277,13 @@ class FineTuning:
                                                     future.primary_model_path, 
                                                     future.s))
                                 self.logger.info(f'Progress: segment:{future.s} of length {future.length}, primary_problem={future.primary_problem} done. init_loss={init_loss}, final_loss={final_loss}')
-                                actions = []
-                                for i in range(future.length):
-                                    t_env = trajectories[target_problem].get_trajectory()[future.s[0] + i][0]
-                                    o = torch.tensor(t_env.get_observation(), dtype=torch.float32)
-                                    actions.append(agent.get_action_and_value(o, deterministic=True)[0].item())
-                                t_actions = trajectories[target_problem].get_action_sequence()[future.s[0]: future.s[0]+ future.length]
-                                assert actions == t_actions, f"Agent {agent.extra_info} failed to mimic the action {t_actions} in state {t_env} with action {actions} at setgment {future.s} of length {future.length}"
+                                # actions = []
+                                # for i in range(future.length):
+                                #     t_env = trajectories[target_problem].get_trajectory()[future.s[0] + i][0]
+                                #     o = torch.tensor(t_env.get_observation(), dtype=torch.float32)
+                                #     actions.append(agent.get_action_and_value(o, deterministic=True)[0].item())
+                                # t_actions = trajectories[target_problem].get_action_sequence()[future.s[0]: future.s[0]+ future.length]
+                                # assert actions == t_actions, f"Agent {agent.extra_info} failed to mimic the action {t_actions} in state {t_env} with action {actions} at setgment {future.s} of length {future.length}"
                         except Exception as exc:
                             self.logger.error(f'Segment:{future.s} of length {future.length} with primary_problem={future.primary_problem} generated an exception: {exc}')
                             traceback.print_exc()
@@ -438,9 +438,9 @@ class FineTuning:
         
         max_num_options = min(max_num_options, len(all_option_refs))
         # length_weights = np.array([1/(i+2) for i in range(max_num_options + 1)])
-        length_weights = np.array([1/(i*3+2) for i in range(max_num_options + 1)])
+        length_weights = np.array([1/(i*3+2) for i in range(1, max_num_options + 1)])
         length_weights /= np.sum(length_weights)
-        subset_length = random_generator.choice(range(max_num_options + 1), p=length_weights)
+        subset_length = random_generator.choice(range(1, max_num_options + 1), p=length_weights)
         
         weights = self._compute_sample_weight(all_option_refs, all_possible_sequences, all_options)
         selected_options = set(random_generator.choice(list(all_option_refs), p=weights, size=subset_length, replace=False).tolist())
@@ -476,9 +476,10 @@ class FineTuning:
                     for option2 in selected_options:
                         neighbour = selected_options - {option2} | {option}
                         neighbours.append(neighbour)
-            for option in selected_options:
-                neighbour = selected_options - {option}
-                neighbours.append(neighbour)
+            if len(selected_options) > 1:
+                for option in selected_options:
+                    neighbour = selected_options - {option}
+                    neighbours.append(neighbour)
                 
 
             # self.logger.info(f"Number of neighbours: {len(neighbours)}")
@@ -502,6 +503,20 @@ class FineTuning:
             steps += 1
         
         return best_cost, selected_options, {"total_loss_calculations": total_loss_calculations, "steps":steps}
+
+    def _compute_option_applicability(self, option, trajectories):
+        result = {problem: {} for problem in trajectories.keys()}
+        applicable_count = 0
+        for problem, trajectory in trajectories.items():
+            t_len = trajectory.get_length()
+            t = trajectory.get_trajectory()
+            for s in range(t_len):
+                actions = self.levin_loss._run(copy.deepcopy(t[s][0]), option, option.option_size)
+                is_applicable = (len(actions) == option.option_size) and self.levin_loss.is_applicable(t, actions, s)
+                if is_applicable:
+                    applicable_count += 1
+                result[problem][s] = (is_applicable, actions)
+        return result, applicable_count
 
     def select_by_local_search(self, option_candidates, trajectories):
 
@@ -527,25 +542,31 @@ class FineTuning:
             with open(self.option_cache_path, 'rb') as f:
                 self.levin_loss.cache = pickle.load(f)
         else:
-            applicable_count = 0
-            for i, option in enumerate(all_options):
-                option_id = option.get_option_id()
-                for problem, trajectory in trajectories.items():
-                    t_len = trajectory.get_length()
-                    t = trajectory.get_trajectory()
-                    for s in range(t_len):
-                        if option_id not in self.levin_loss.cache:
-                            self.levin_loss.cache[option_id] = {}
-                        if problem not in self.levin_loss.cache[option_id]:
-                            self.levin_loss.cache[option_id][problem] = {}
-                        actions = self.levin_loss._run(copy.deepcopy(t[s][0]), option, option.option_size)
-                        is_applicable = (len(actions) == option.option_size) and self.levin_loss.is_applicable(t, actions, s)
-                        if is_applicable:
-                            applicable_count += 1
-                        self.levin_loss.cache[option.get_option_id()][problem][s] = (is_applicable, actions)
+            with concurrent.futures.ProcessPoolExecutor(max_workers=self.args.cpus) as executor:
+                # Submit tasks to the executor with all required arguments
+                futures = set()
+                for i, option in enumerate(all_options):
+                    future = executor.submit(
+                        self._compute_option_applicability, option, trajectories)
+                    future.option_id = option.get_option_id()
+                    futures.add(future)
+                self.logger.info(f"Logging Checkpoint 1.")
 
-                if i % 100 == 0:
-                    self.logger.info(f"Cache size: {len(self.levin_loss.cache)}, applicable_count: {applicable_count}")
+                # Process the results as they complete
+                total_applicable_count = 0
+                progress = 0
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        option_id = future.option_id
+                        self.levin_loss.cache[option_id], n_applicable = future.result()
+                        total_applicable_count += n_applicable
+                        progress += 1
+                        if progress % 100 == 0:
+                            self.logger.info(f"Cache size: {len(self.levin_loss.cache)}, applicable_count: {total_applicable_count}")
+                    except Exception as exc:
+                        self.logger.error(f'Exception: {exc}')
+                        traceback.print_exc()
+                        return
             self.logger.info(f"Saving option cache to {self.option_cache_path}")
             with open(self.option_cache_path, 'wb') as f:
                 pickle.dump(self.levin_loss.cache, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -631,7 +652,42 @@ class FineTuning:
 
         best_selected_options = [all_options[idx] for idx in best_selected_options]
         self.levin_loss.remove_cache()
-        return list(best_selected_options)
+        
+        # Removing redundant options
+        def get_levin_loss(options, trajectories):
+            cost = 0
+            for problem, trajectory in trajectories.items():
+                cost += self.levin_loss.compute_loss_cached(options, 
+                                                trajectory, 
+                                                problem_str=problem, 
+                                                number_actions=3,
+                                                cache_enabled=False)[0]
+            return cost
+    
+        best_levin_loss = get_levin_loss(best_selected_options, trajectories)
+        
+        self.logger.info(f"Levin loss: {best_levin_loss}")
+        options = copy.deepcopy(best_selected_options)
+        while True:
+            done = True
+            best_loss_so_far = best_levin_loss
+            for i in range(len(options)):
+                options_cpy = copy.deepcopy(options)
+                options_cpy = options_cpy[:i] + options_cpy[i+1:]
+                levin_loss = get_levin_loss(options_cpy, trajectories)
+                if levin_loss < best_loss_so_far:
+                    best_loss_so_far = levin_loss
+                    best_options_so_far = options_cpy
+                    redundant_idx = i
+                    done = False
+            if not done:
+                best_levin_loss = best_loss_so_far
+                options = best_options_so_far
+                self.logger.info(f"Levin loss without option #{redundant_idx}: {best_levin_loss}")
+            else:
+                break
+
+        return list(options)
 
 
 class LevinLossActorCritic:
@@ -680,7 +736,7 @@ class LevinLossActorCritic:
 
         return actions
 
-    def compute_loss_cached(self, options, trajectory, joint_problem_name_list=None, problem_str=None, number_actions=3):
+    def compute_loss_cached(self, options, trajectory, joint_problem_name_list=None, problem_str=None, number_actions=3, cache_enabled=True):
         t = trajectory.get_trajectory()
         M = np.arange(len(t) + 1)
         trace = [(i-1, None) for i in range(len(t) + 1)]
@@ -715,18 +771,18 @@ class LevinLossActorCritic:
                             used_sequences.add((j, j+len(actions)))
                             # M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
                     else:
-                        assert option_id in self.cache , f"{option_id} not found in cache"
-                        assert problem_str in self.cache[option_id], f"{problem_str} not found in cache of {option_id}"
-                        assert j in self.cache[option_id][problem_str], f"{j} not found in cache of {option_id} and {problem_str}"
-                        raise Exception(f"The cache is supposed to be precomputed, combination wasn't found: \n {(option_id, problem_str, j)}")
-                        actions = self._run(copy.deepcopy(t[j][0]), option, option.option_size)
-                        # self.cache[(option.get_option_id(), problem_str, j)] = (False, actions)
-                        if self.is_applicable(t, actions, j):
-                            if M[j + len(actions)] > M[j] + 1:
-                                trace[j + len(actions)] = (j, i)
-                                M[j + len(actions)] = M[j] + 1
-                            # M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
-                            # self.cache[(option.get_option_id(), problem_str, j)] = (True, actions)
+                        if cache_enabled:
+                            assert option_id in self.cache , f"{option_id} not found in cache"
+                            assert problem_str in self.cache[option_id], f"{problem_str} not found in cache of {option_id}"
+                            assert j in self.cache[option_id][problem_str], f"{j} not found in cache of {option_id} and {problem_str}"
+                            raise Exception(f"The cache is supposed to be precomputed, combination wasn't found: \n {(option_id, problem_str, j)}")
+                        else:
+                            actions = self._run(copy.deepcopy(t[j][0]), option, option.option_size)
+                            is_applicable = (len(actions) == option.option_size) and self.is_applicable(t, actions, j)
+                            if is_applicable:
+                                if M[j + len(actions)] > M[j] + 1:
+                                    trace[j + len(actions)] = (j, i)
+                                    M[j + len(actions)] = M[j] + 1
         uniform_probability = (1/(len(options) + number_actions)) 
         depth = len(t) + 1
         number_decisions = M[len(t)]

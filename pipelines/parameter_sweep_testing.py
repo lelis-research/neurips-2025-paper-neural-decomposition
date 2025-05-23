@@ -22,7 +22,13 @@ from environments.environments_combogrid_gym import make_env as make_env_combogr
 
 @dataclass
 class Args:
-    exp_id: str = "extract_fineTuning_notFiltered_ComboGrid_gw5_h64_l10_envsd0,1,2,3_selectTypelocal_search_reg0.0"
+    exp_id: str = "extract_basePolicyTransferred_ComboGrid_gw5_h64_envsd0,1,2,3"
+    # exp_id: str = "extract_fineTuning_notFiltered_ComboGrid_gw5_h64_l10_envsd0,1,2,3_selectTypelocal_search_reg0.0maxNumOptions5"
+    # exp_id: str = "extract_learnOption_filtered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinput_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5"
+    # exp_id: str = "extract_learnOption_filtered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeboth_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5"
+    # exp_id: str = ""
+    # exp_id: str = "extract_wholeDecOption_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinternal_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5"
+    # exp_id: str = "extract_learnOption_filtered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinternal_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5"
     """The ID of the finished experiment"""
     env_id: str = "ComboGrid"
     """the id of the environment corresponding to the trained agent
@@ -48,17 +54,22 @@ class Args:
     # Testing specific arguments
     test_exp_id: str = ""
     """The ID of the new experiment"""
-    test_exp_name: str = "test_fine_tuning_unfiltered"
+    # test_exp_name: str = "test_learnOptions_input_filtered"
+    # test_exp_name: str = "test_learnOptions_both_filtered"
+    # test_exp_name: str = "test_learnOptions_internal_filtered"
+    # test_exp_name: str = "test_fine_tuning_unfiltered"
+    test_exp_name: str = "test_base_policy_transferred"
     # test_exp_name: str = "test_no_options"
+    # test_exp_name: str = "test_wholeDecOption"
     """the name of this experiment"""
     test_env_id: str = "ComboGrid"
     """the id of the environment for testing
     choices from [ComboGrid, MiniGrid-FourRooms-v0]"""
     test_problems: List[str] = tuple()
     """"""
-    test_env_seeds: Union[List[int], str] = (12,)
+    test_env_seeds: Union[List[int], str] = (14,)
     """the seeds of the environment for testing"""
-    total_timesteps: int = 2_000_000
+    total_timesteps: int = 1_000_000
     """total timesteps for testing"""
     # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 5e-05) # Vanilla RL
     # learning_rate: Union[List[float], float] = (0.0005, 0.001, 0.001)
@@ -71,7 +82,8 @@ class Args:
     """the number of steps to run in each environment per policy rollout for testing"""
     anneal_lr: bool = True
     """Toggle learning rate annealing for policy and value networks for testing"""
-    gamma: float = 0.99
+    # gamma: float = 0.99
+    gamma: float = 1
     """the discount factor gamma for testing"""
     gae_lambda: float = 0.95
     """the lambda for the general advantage estimation for testing"""
@@ -162,6 +174,9 @@ def train_ppo_with_options(options: List[PPOAgent], test_exp_id: str, env_seed: 
        problem = args.test_problem
     envs = gym.vector.SyncVectorEnv([get_single_environment_builder(args, env_seed, problem, options=options, is_test=True) for _ in range(args.num_envs)])
     
+    if args.method == "no_options":
+        assert envs.action_space[0].n == args.number_actions, f"no options should have same action space as the environment: {envs.action_space[0].n}"
+
     assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
     
     model_path = f'binary/models/parameter_sweep/{test_exp_id}/seed={args.seed}/extended_MODEL.pt'

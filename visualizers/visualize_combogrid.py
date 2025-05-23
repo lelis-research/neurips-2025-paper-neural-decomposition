@@ -4,6 +4,7 @@ import numpy as np
 import copy
 import matplotlib.pyplot as plt
 from minigrid.wrappers import RGBImgObsWrapper
+from environments.environments_combogrid import PROBLEM_NAMES
 from utils.utils import get_logger
 from agents.trajectory import Trajectory
 from environments.environments_combogrid_gym import ComboGym
@@ -75,21 +76,21 @@ def visualize_on_four_rooms(args):
             trajectories[problem] = trajectory
 
 
-def visualize_trained_agents(args):
-    trajectories = {}
-    verbose = False
-    for seed, problem, model_directory in zip(args.seeds, args.problems, args.model_paths):
-        print(problem, model_directory)
-        model_path = f'binary/models/{model_directory}/ppo_first_MODEL.pt'
-        
-        env = ComboGym(rows=args.game_width, columns=args.game_width, problem=problem)
+def visualize_trained_agent(seed, env_seed, game_width, hidden_size, directory):
+    # problem = PROBLEM_NAMES[env_seed]
+    problem = "MM-MR-ML-BM-TM|hallways"
+    model_path = f'binary/models/{directory}/seed={seed}/ppo_first_MODEL.pt'
+    
+    env = ComboGym(rows=game_width, columns=game_width, problem=problem)
 
-        agent = PPOAgent(env, hidden_size=args.hidden_size)
-        
-        agent.load_state_dict(torch.load(model_path))
+    agent = PPOAgent(env, hidden_size=hidden_size)
+    
+    agent.load_state_dict(torch.load(model_path))
 
-        trajectory = run(agent, env, verbose=verbose)
-        trajectories[problem] = trajectory
+    trajectory = run(agent, env, verbose=True)
+    return trajectory
+    trajectories[problem] = trajectory
+        
 
 
 def try_on_other_environments(args):
@@ -131,25 +132,32 @@ def visualize_envs(args):
 
 
 def main(args):
+
+    seed = 14
+    # problem = PROBLEM_NAMES[seed]
+    # env = ComboGym(rows=args.game_width, columns=args.game_width, problem=problem)
+    # visualize(env, verbose=True)
+
+    visualize_trained_agent(0, 14.5, 5, 6, "train_ppoAgent_ComboGrid_gw5_h6_lr0.00025_clip0.2_ent0.01_envsd14_MM-MR-ML-BM-TM|hallways")
     # visualize_trained_agents(args)
-    args.seeds = (0, 1, 2, 3)
-    # args.seeds = (41, 51, 8)
-    # args.env_id = "MiniGrid-FourRooms-v0"
-    args.env_id = "ComboGrid"
-    args.problems = (
-        "TL-BR", 
-                     "TR-BL", 
-                     "BR-TL", 
-                     "BL-TR"
-                     )
-    args.model_paths = [
-        'train_ppo_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_sd0_TL-BR',
-        'train_ppo_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_sd1_TR-BL',
-        'train_ppo_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_sd2_BR-TL',
-        'train_ppo_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_sd3_BL-TR'
-    ]
-    args.hidden_size = 64
-    visualize_trained_agents(args)
+    # args.seeds = (0, 1, 2, 3)
+    # # args.seeds = (41, 51, 8)
+    # # args.env_id = "MiniGrid-FourRooms-v0"
+    # args.env_id = "ComboGrid"
+    # args.problems = (
+    #     "TL-BR", 
+    #                  "TR-BL", 
+    #                  "BR-TL", 
+    #                  "BL-TR"
+    #                  )
+    # args.model_paths = [
+    #     'train_ppo_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_sd0_TL-BR',
+    #     'train_ppo_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_sd1_TR-BL',
+    #     'train_ppo_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_sd2_BR-TL',
+    #     'train_ppo_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_sd3_BL-TR'
+    # ]
+    # args.hidden_size = 64
+    # visualize_trained_agents(args)
     # try_on_other_environments(args)
     # visualize_envs(args)
     # visualize_on_four_rooms(args)

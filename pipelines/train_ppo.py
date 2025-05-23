@@ -26,6 +26,7 @@ class Args:
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0, MiniGrid-FourRooms-v0]
     """
+    method: str = ""
     # env_seeds: Union[List[int], str] = (0,1,2) # SimpleCrossing
     env_seeds: Union[List, str, Tuple] = (0,1,2,3) # ComboGrid
     # env_seeds: Union[List[int], str] = (41,51,8) # FourRooms
@@ -53,14 +54,15 @@ class Args:
     # hyperparameter arguments
     game_width: int = 5
     """the length of the combo/mini-grid square"""
-    hidden_size: int = 64
+    # hidden_size: int = 64
+    hidden_size: int = 6
     """"""
     l1_lambda: float = 0
     """"""
     number_actions: int = 3
 
     # Specific arguments
-    total_timesteps: int = 1_500_000
+    total_timesteps: int = 1_000_000
     """total timesteps for testinging"""
     learning_rate: Union[Tuple[float, ...], float] = (2.5e-4, 2.5e-4, 2.5e-4, 2.5e-4) # ComboGrid
     # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 5e-05) # Vanilla RL FourRooms
@@ -116,6 +118,7 @@ class Args:
     """"""
     log_path: str = "outputs/logs/"
     """The name of the log file"""
+    models_path_prefix: str = "binary/models"
     
     log_level: str = "INFO"
     """The logging level"""
@@ -181,7 +184,7 @@ def main(args: Args):
         problem = args.problem
     envs = gym.vector.SyncVectorEnv([get_single_environment_builder(args, args.env_seed, problem, is_test=False) for _ in range(args.num_envs)])
     
-    model_path = f'binary/models/{args.exp_id}/seed={args.seed}/ppo_first_MODEL.pt'
+    model_path = f'{args.models_path_prefix}/{args.exp_id}/seed={args.seed}/ppo_first_MODEL.pt'
 
     train_ppo(envs=envs, 
               seed=args.env_seed, 
@@ -198,20 +201,26 @@ def main(args: Args):
 if __name__ == "__main__":
     args = tyro.cli(Args)
 
-    env_idx = 0
-    args.seed = 15
+    env_idx = args.seed % len(args.env_seeds)
+    args.seed = int(args.seed // len(args.env_seeds))
 
     # Setting the experiment id
     if args.exp_id == "":
         args.exp_id = f'{args.exp_name}_{args.env_id}' + \
-        f'_gw{args.game_width}_h{args.hidden_size}_l1{args.l1_lambda}'
+        f'_gw{args.game_width}_h{args.hidden_size}'
     
     # Processing seeds from arguments
     if isinstance(args.env_seeds, list) or isinstance(args.env_seeds, tuple):
         args.env_seeds = list(map(int, args.env_seeds))
     elif isinstance(args.env_seeds, str):
-        start, end = map(int, args.env_seeds.split(","))
-        args.env_seeds = list(range(start, end + 1))
+        args.env_seeds = []
+        seed_intervals = args.env_seeds.split(",")
+        for interval in seed_intervals:
+            bounds = list(map(int, interval.split("-")))
+            if len(bounds) != 2:
+                bounds.append(bounds[0])
+            start, end = bounds
+            args.env_seeds += list(range(start, end + 1))
     else:
         raise NotImplementedError
     
@@ -220,6 +229,13 @@ if __name__ == "__main__":
     clip_coef = args.clip_coef
     ent_coef = args.ent_coef
     exp_id = args.exp_id
+    if isinstance(lrs, float) or len(lrs) == 1:
+        lrs = tuple(lrs) * len(args.env_seeds)
+    if isinstance(clip_coef, float) or len(clip_coef) == 1:
+        clip_coef = tuple(clip_coef) * len(args.env_seeds)
+    if isinstance(ent_coef, float) or len(ent_coef) == 1:
+        ent_coef = tuple(ent_coef) * len(args.env_seeds)
+    
     for i in range(len(args.env_seeds)):
         if i != env_idx:
             continue
