@@ -90,16 +90,21 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             #             # writer.add_scalar("Charts/episodic_length", info["episode"]["l"], global_step)
             #             wandb.log({"Charts/episodic_return": info["episode"]["r"], 
             #                        "Charts/episodic_length": info["episode"]["l"]}, step=global_step)
+
+            bootstrap_next_obs = next_obs.clone()
             if "final_info" in infos:
                 returns = []
                 lengths = []
-                for info in infos["final_info"]:
-                    if info is None:
-                        continue
-                    if info and "episode" in info:  # Check if the episode data is available
-                        returns.append(info["episode"]["r"])  # Collect episodic returns
+                for i, info in enumerate(infos["final_info"]["_episode"]):
+                    if info:
+                        returns.append(infos["final_info"]["episode"]["r"][i])  # Collect episodic returns
                         # lengths.append(info["episode"]["l"])  # Collect episodic lengths
-                        lengths.append(info["steps"])  # Collect episodic lengths
+                        lengths.append(infos["final_info"]["steps"][i])  # Collect episodic lengths
+                        bootstrap_next_obs[i] = torch.Tensor(infos["final_obs"][i]).to(device)
+                        # if infos["final_info"]["steps"][i] == 1000:
+                        #     print(infos["final_obs"][i])
+
+
 
                 # Log the average episodic return and length, if any episodes ended
                 if returns:
@@ -126,7 +131,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                     #         return
         # bootstrap value if not done
         with torch.no_grad():
-            next_value = agent.get_value(next_obs).reshape(1, -1)
+            next_value = agent.get_value(bootstrap_next_obs).reshape(1, -1)
             advantages = torch.zeros_like(rewards).to(device)
             lastgaelam = 0
             for t in reversed(range(args.num_steps)):
