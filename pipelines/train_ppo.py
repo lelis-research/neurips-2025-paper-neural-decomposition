@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 from environments.environments_combogrid_gym import make_env as make_env_combogrid
 from environments.environments_combogrid import PROBLEM_NAMES as COMBOGRID_PROBLEMS
 from environments.environments_minigrid import make_env_simple_crossing, make_env_four_rooms
-from training.train_ppo_agent import train_ppo
+from training.train_ppo_agent import train_ppo, train_ppo_async
 
 
 @dataclass
@@ -182,17 +182,29 @@ def main(args: Args):
     problem = None
     if "ComboGrid" in args.env_id:
         problem = args.problem
-    envs = gym.vector.SyncVectorEnv([get_single_environment_builder(args, args.env_seed, problem, is_test=False) for _ in range(args.num_envs)])
+    # envs = gym.vector.SyncVectorEnv([get_single_environment_builder(args, args.env_seed, problem, is_test=False,) for _ in range(args.num_envs)],
+    #                                 autoreset_mode=gym.vector.AutoresetMode.SAME_STEP)
+    envs = gym.vector.AsyncVectorEnv([get_single_environment_builder(args, args.env_seed, problem, is_test=False,) for _ in range(args.num_envs)],
+                                    autoreset_mode=gym.vector.AutoresetMode.SAME_STEP)
     
     model_path = f'{args.models_path_prefix}/{args.exp_id}/seed={args.seed}/ppo_first_MODEL.pt'
 
-    train_ppo(envs=envs, 
-              seed=args.env_seed, 
-              args=args, 
-              model_file_name=model_path, 
-              device=device, 
-              logger=logger, 
-              writer=writer)
+    if isinstance(envs, gym.vector.SyncVectorEnv):
+        train_ppo(envs=envs, 
+                seed=args.env_seed, 
+                args=args, 
+                model_file_name=model_path, 
+                device=device, 
+                logger=logger, 
+                writer=writer)
+    elif isinstance(envs, gym.vector.AsyncVectorEnv):
+        train_ppo_async(envs=envs, 
+                seed=args.env_seed, 
+                args=args, 
+                model_file_name=model_path, 
+                device=device, 
+                logger=logger, 
+                writer=writer)
     if args.track:
         wandb.finish()
     # wandb.finish()

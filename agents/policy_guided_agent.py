@@ -9,7 +9,7 @@ from typing import Union
 import matplotlib.pyplot as plt
 from environments.environments_combogrid_gym import ComboGym
 from environments.environments_minigrid import MiniGridWrap
-from gymnasium.vector import SyncVectorEnv
+from gymnasium.vector import SyncVectorEnv, AsyncVectorEnv
 from torch.distributions.categorical import Categorical
 from models.models_mlp import CustomRNN 
 from agents.trajectory import Trajectory
@@ -173,7 +173,7 @@ class PPOAgent(nn.Module):
         elif isinstance(envs, MiniGridWrap):
             observation_space_size = envs.get_observation_space()
             action_space_size = envs.get_action_space()
-        elif isinstance(envs, SyncVectorEnv):
+        elif isinstance(envs, SyncVectorEnv) or isinstance(envs, AsyncVectorEnv):
             observation_space_size = envs.observation_space.shape[1]
             action_space_size = envs.action_space[0].n.item()
         else:
