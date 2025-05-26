@@ -96,11 +96,12 @@ class arguments:
 
     # ----- train experiment settings -----
     agent_class:              str                = "A2CAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent, A2CAgent
-    seeds                                        = [int(os.environ.get("SEED", 1000))] 
-    exp_total_steps:          int                = 300_000
+    seeds                                        = list(range(1000, 13000, 1000)) #[int(os.environ.get("SEED", 1000))] 
+    exp_total_steps:          int                = 100_000 
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
     nametag:                  str                = "base1"#+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    num_workers:              int                = 32 # Number of parallel workers for training
 
     training_env_name:        str                = "MiniGrid-SimpleCrossingS9N1-v0" # Medium_Maze, Large_Maze, Hard_Maze
     training_env_params                          = {} 
@@ -108,7 +109,7 @@ class arguments:
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
     training_env_max_steps:   int                = 500
     training_render_mode:     str                = "rgb_array" #human, None, rgb_array_list, rgb_array
-    save_frame_freq:          int                = 100
+    save_frame_freq:          int                = None
     load_agent:               str                = None # "car-test_1000_1000000_Tanh64_20250503_222014"
 
     # ----- test experiment settings -----

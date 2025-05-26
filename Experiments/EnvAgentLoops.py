@@ -3,6 +3,7 @@ import numpy as np
 import imageio
 import torch
 import copy
+from PIL import Image
 
 
 def agent_environment_step_loop(env, agent, total_steps, training=True, writer=None, save_frame_freq=1, greedy=False, verbose=True):
@@ -15,6 +16,14 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
     episode_counter = 1
     results = []
     best_ep, best_agent = -np.inf, None
+    
+    if env.render_mode =="rgb_array" and save_frame_freq is None:
+        env.reset()
+        frame = env.render()
+        img = Image.fromarray(frame)
+        gif_path = os.path.join(writer.log_dir, "snapshot.png")
+        img.save(gif_path)
+
     while timestep < total_steps:
         observation, info = env.reset()
         episode_return_org = 0.0
@@ -35,7 +44,7 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
             if timestep >= total_steps:
                 truncated = True
  
-            if env.render_mode =="rgb_array" and (timestep >= total_steps or episode_counter % save_frame_freq == 0): 
+            if env.render_mode =="rgb_array" and save_frame_freq is not None and(timestep >= total_steps or episode_counter % save_frame_freq == 0): 
                 frames.append(env.render())
 
             if terminated or truncated:
@@ -53,7 +62,7 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
                               episode_return_wrapped,
                               global_step=timestep)
             
-            if timestep >= total_steps or episode_counter % save_frame_freq == 0:
+            if timestep >= total_steps or (save_frame_freq is not None and episode_counter % save_frame_freq == 0):
                 if env.render_mode == "rgb_array_list":
                     frames = env.render()
                 if len(frames) > 0:
@@ -93,6 +102,12 @@ def agent_environment_episode_loop(env, agent, total_episodes, training=True, wr
     timestep = 0
     results = []
     best_ep, best_agent = -np.inf, None
+    if env.render_mode =="rgb_array" and save_frame_freq is None:
+        env.reset()
+        frame = env.render()
+        img = Image.fromarray(frame)
+        gif_path = os.path.join(writer.log_dir, "snapshot.png")
+        img.save(gif_path)
 
     for episode_counter in range(1, total_episodes+1):
         observation, info = env.reset()
@@ -112,7 +127,7 @@ def agent_environment_episode_loop(env, agent, total_episodes, training=True, wr
             episode_length += 1
             timestep += 1
             
-            if env.render_mode =="rgb_array" and (episode_counter >= total_episodes or episode_counter % save_frame_freq == 0): 
+            if env.render_mode =="rgb_array" and save_frame_freq is not None and (episode_counter >= total_episodes or episode_counter % save_frame_freq == 0): 
                 frames.append(env.render())
             
             if terminated or truncated:
@@ -129,7 +144,7 @@ def agent_environment_episode_loop(env, agent, total_episodes, training=True, wr
                               episode_return_wrapped,
                               global_step=timestep)
 
-            if episode_counter >= total_episodes or episode_counter % save_frame_freq == 0:
+            if episode_counter >= total_episodes or (save_frame_freq is not None and episode_counter % save_frame_freq == 0):
                 if env.render_mode =="rgb_array_list":
                     frames = env.render()
                 if len(frames) > 0:
