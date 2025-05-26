@@ -37,10 +37,10 @@ def test_agent(seed, args):
 
 
     try:
-        print("Tryig PPOAgent Loading")
-        agent = PPOAgent.load(agent_path)
-        # print("Loading DQN")
-        # agent = DQNAgent.load(agent_path)
+        # print("Tryig PPOAgent Loading")
+        # agent = PPOAgent.load(agent_path)
+        print("Loading DQN")
+        agent = DQNAgent.load(agent_path)
         # print("Loading NStep DQN")
         # agent = NStepDQNAgent.load(agent_path)
     except Exception as e1:

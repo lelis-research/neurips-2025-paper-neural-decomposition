@@ -91,7 +91,7 @@ def default_env_wrappers(env_name):
 class arguments:
     # ----- experiment settings -----
     mode                                         = ["test"] # train, test, plot, tune, train_option, test_option
-    res_dir:                  str                = "Results_car_nstepdqn_best"
+    res_dir:                  str                = "Results_car_dqn_best"
     device:                   str                = torch.device("cpu")
 
     # ----- tune experiment settings -----
@@ -137,31 +137,16 @@ class arguments:
     load_agent:               str                = None #f"car-train_{seeds[0]}_1000000_"
 
     # ----- test experiment settings -----
-    test_agent_path:          str                = os.environ.get("TEST_AGENT_PATH",  "car-train_87000_2000000_")
+    test_agent_path:          str                = os.environ.get("TEST_AGENT_PATH",  "car-train_4000_1000000_")
     test_episodes:            int                = 100
     test_seed:                int                = 0 
     save_test:                bool               = False
 
-    test_env_name:            str                = os.environ.get("TEST_ENV_NAME",  "car-test")
+    test_env_name:            str                = os.environ.get("TEST_ENV_NAME",  "car-train")
     test_env_params                              = {}
     test_env_wrappers                            = default_env_wrappers(test_env_name)[0]
     test_wrapping_params                         = default_env_wrappers(test_env_name)[1]
       
-    #   car-train_10000_2000000_
-    #   car-train_11000_2000000_
-    #   car-train_15000_2000000_
-    #   car-train_18000_2000000_
-    #   car-train_24000_2000000_
-    #   car-train_26000_2000000_
-    #   car-train_39000_2000000_
-    #   car-train_43000_2000000_
-    #   car-train_48000_2000000_
-    #   car-train_53000_2000000_
-    #   car-train_70000_2000000_
-    #   car-train_77000_2000000_
-    #   car-train_79000_2000000_
-    #   car-train_86000_2000000_
-    #   car-train_87000_2000000_
 
     # ----- PPO hyper‑parameters -----
     # gamma:                    float              = 0.99

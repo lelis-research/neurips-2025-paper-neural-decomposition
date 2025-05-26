@@ -145,7 +145,7 @@ class DQNAgent:
         checkpoint = torch.load(file_path, map_location='cpu', weights_only=False)
         init_kwargs = {k: checkpoint[k] for k in [
             'gamma','step_size','batch_size',
-            'target_update_freq','epsilon','replay_buffer_cap','device', 'action_res'
+            'target_update_freq','epsilon','replay_buffer_cap','device', #'action_res'
         ]}
         agent = cls(
             checkpoint['observation_space'],

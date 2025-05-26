@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=car-dqn
-#SBATCH --time=0-12:00:00
-#SBATCH --mem=8G
-#SBATCH --cpus-per-task=1
+#SBATCH --job-name=minigrid
+#SBATCH --time=0-06:00:00
+#SBATCH --mem=16G
+#SBATCH --cpus-per-task=3
 #SBATCH --account=aip-lelis
-#SBATCH --array=1-100
-#SBATCH --output=logs/dqn_%A_%a.out
-#SBATCH --error=logs/dqn_%A_%a.err
+#SBATCH --array=1-30
+#SBATCH --output=logs/exp_%A_%a.out
+#SBATCH --error=logs/exp_%A_%a.err
 
 set -euo pipefail
 
@@ -31,4 +31,4 @@ export SEED=$(( SLURM_ARRAY_TASK_ID * 1000 ))
 echo "Running experiment with SEED=$SEED"
 
 # Run your training script
-python main.py --config_path ~/scratch/neurips-2025-paper-neural-decomposition/configs/config_car_dqn.py
+python main.py --config_path ~/scratch/neurips-2025-paper-neural-decomposition/configs/config_a2c.py

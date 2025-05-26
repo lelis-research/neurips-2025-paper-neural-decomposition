@@ -13,6 +13,8 @@ from Agents.SACAgent import SACAgent
 from Agents.DDPGAgent import DDPGAgent
 from Agents.DQNAgent import DQNAgent
 from Agents.NStepDQNAgent import NStepDQNAgent
+from Agents.A2CAgent import A2CAgent
+# from Agents.PPOAgentRNN import PPOAgentRNN    
 # from Agents.RandomAgentRNN import RandomAgent
 from Environments.GetEnvironment import get_env
 from Experiments.EnvAgentLoops import agent_environment_step_loop, agent_environment_episode_loop
@@ -52,6 +54,8 @@ def train_single_seed(seed, args):
                 "buf_size", "batch_size",
                 "noise_phi", "ou_theta", "ou_sigma",
                 "epsilon_end", "decay_steps"]
+    elif args.agent_class == "A2CAgent":
+        keys = ["gamma", "step_size", "rollout_steps", "lamda"]
     else:
         raise NotImplementedError("Agent class not known")
     
