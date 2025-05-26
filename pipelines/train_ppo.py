@@ -24,7 +24,7 @@ class Args:
     """the name of this experiment"""
     env_id: str = "MiniGrid-SimpleCrossingS9N1-v0"
     """the id of the environment corresponding to the trained agent
-    choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0, MiniGrid-FourRooms-v0]
+    choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0, MiniGrid-FourRooms-v0, MiniGrid-Unlock-v0]
     """
     method: str = "no_options"
     env_seeds: Union[List[int], str] = (0,1,2) # SimpleCrossing
@@ -60,6 +60,7 @@ class Args:
     l1_lambda: float = 0
     """"""
     number_actions: int = 3
+    # number_actions: int = 6 #Unlock and MultiRoom Unlock
 
     # Specific arguments
     total_timesteps: int = 1_000_000
@@ -68,6 +69,7 @@ class Args:
     # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 5e-05) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (5e-05,) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (0.0005, 0.001, 0.001) # SimpleCrossing
+    # learning_rate: Union[List[float], float] = (0.001, 0.001, 0.001) # Unlock
     """the learning rate of the optimize for testinging"""
     num_envs: int = 4
     """the number of parallel game environments for testinging"""
@@ -89,12 +91,14 @@ class Args:
     # clip_coef: Union[List[float], float] = (0.15, 0.1, 0.2) # Vanilla RL FourRooms
     # clip_coef: Union[List[float], float] = (0.2,) # Vanilla RL FourRooms
     # clip_coef: Union[List[float], float] = (0.25, 0.2, 0.2) # SimpleCrossing
+    # clip_coef: Union[List[float], float] = (0.2, 0.2, 0.2) # Unlock
     """the surrogate clipping coefficient"""
-    clip_vloss: bool = True
+    clip_vloss: bool = False
     """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
     ent_coef:Union[Tuple[float, ...], float] = (0.01, 0.01, 0.01, .01) # ComboGrid
     # ent_coef: Union[List[float], float] = (0.05, 0.2, 0.0) # Vanilla RL FourRooms
     # ent_coef: Union[List[float], float] = (0.1, 0.1, 0.1) # SimpleCrossing
+    # ent_coef: Union[List[float], float] = (0.08, 0.1, 0.05) # Unlock
     """coefficient of the entropy"""
     vf_coef: float = 0.5
     """coefficient of the value function"""

@@ -52,12 +52,19 @@ class MiniGridWrap(gym.Env):
         )
 
         self.spec = self.env.spec
+        self.agent_pos = self.env.unwrapped.agent_pos
 
     def setup_options(self, options):
         self.action_space = gym.spaces.Discrete(self.action_space.n + len(options))
         self.options = copy.deepcopy(options)
         self.goal_reward = 10
         self.step_reward = 0
+
+    def custom_reward(self, terminated):
+        if terminated:
+            return self.goal_reward
+        else:
+            return self.step_reward
 
     def one_hot_encode(self, observation):
         OBJECT_TO_ONEHOT = {
@@ -78,6 +85,7 @@ class MiniGridWrap(gym.Env):
 
     def get_observation(self):
         obs = self.env.unwrapped.gen_obs()
+        self.agent_pos = self.env.unwrapped.agent_pos
         image = self.one_hot_encode(self.env.observation(obs)['image'][:,:,0].flatten())
         if self.show_direction:
             return np.concatenate((
@@ -87,17 +95,6 @@ class MiniGridWrap(gym.Env):
             ))
         return np.concatenate((image, [self.agent_pos[0] - self.goal_position[0], self.agent_pos[1] - self.goal_position[1]]))
 
-    def take_basic_action(self, action):
-        _, reward, terminal, truncated, _ = self.env.step(action)
-        self.agent_pos = self.env.unwrapped.agent_pos
-        self.steps += 1
-        if terminal:
-            reward = self.goal_reward
-        if self.steps >= self.max_episode_steps:
-            truncated = True
-        if terminal or truncated:
-            self.reset()
-        return (terminal, truncated, reward)
 
     def _dir_to_numeric(self, direction: str):
         return {"R":0, "D":1, "L":2, "U":3}[direction.upper()]
@@ -108,14 +105,18 @@ class MiniGridWrap(gym.Env):
             option = self.options[action - self.n_discrete_actions]
             for idx in range(option.option_size):
                 option_action, _ = option.get_action_with_mask(torch.tensor(self.get_observation(), dtype=torch.float32).view(1, -1))
-                terminal, truncated, reward = self.take_basic_action(option_action)
-                reward_sum += reward + self.step_reward
-                if terminal or truncated:
+                self.steps += 1
+                _, temp_reward, terminated, truncated, _ = self.env.step(option_action)
+                reward_sum += self.custom_reward(terminated)
+                if terminated or truncated:
                     break
         else:
-            terminal, truncated, reward = self.take_basic_action(action)
-            reward_sum = reward + self.step_reward
-        return (self.get_observation(), reward_sum, bool(terminal), bool(truncated), {"steps": self.steps, 'action_size': idx + 1})
+            idx = 0
+            self.steps += 1
+            _, temp_reward, terminated, truncated, _ = self.env.step(action)
+            reward_sum = self.custom_reward(terminated)
+
+        return (self.get_observation(), reward_sum, bool(terminated), bool(truncated), {"steps": self.steps, 'action_size': idx + 1})
 
     def reset(self, init_loc=None, init_dir:str=None, seed=None, options=None):
         self.steps = 0
@@ -125,10 +126,11 @@ class MiniGridWrap(gym.Env):
         self.goal_position = [
             x for x, y in enumerate(self.env.unwrapped.grid.grid) if isinstance(y, Goal)
         ]
-        self.goal_position = (
-            int(self.goal_position[0] / self.env.unwrapped.height),
-            self.goal_position[0] % self.env.unwrapped.height,
-        )
+        if len(self.goal_position) > 0:
+            self.goal_position = (
+                int(self.goal_position[0] / self.env.unwrapped.height),
+                self.goal_position[0] % self.env.unwrapped.height,
+            )
         if init_loc and init_dir:
             self.env.unwrapped.agent_pos = np.array(init_loc)
             self.env.unwrapped.dir_init = self._dir_to_numeric(init_dir)
@@ -226,7 +228,7 @@ def get_unlock_env(*args, **kwargs):
     env = MiniGridWrap(
                 env=UnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], render_mode="rgb_array"),
                 seed=kwargs['seed'],
-                n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
+                n_discrete_actions=6 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
                 view_size=kwargs['view_size'] if 'view_size' in kwargs else 9,
                 show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
                 options=None if 'options' not in kwargs else kwargs['options'])
@@ -279,7 +281,7 @@ def make_env_unlock(*args, **kwargs):
         env = MiniGridWrap(
                 env = UnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], render_mode="rgb_array"),
                 seed=kwargs['seed'],
-                n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
+                n_discrete_actions=6 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
                 view_size=kwargs['view_size'] if 'view_size' in kwargs else 9,
                 show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
                 options=None if 'options' not in kwargs else kwargs['options'])
@@ -296,7 +298,7 @@ def make_env_multiroom(*args, **kwargs):
         env = MiniGridWrap(
                 env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=5, minNumRooms=3, render_mode="rgb_array", see_through_walls=True),
                 seed=kwargs['seed'],
-                n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
+                n_discrete_actions=6 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
                 view_size=kwargs['view_size'] if 'view_size' in kwargs else 9,
                 show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
                 options=None if 'options' not in kwargs else kwargs['options'],
@@ -315,7 +317,7 @@ def get_multiroom_env(*args, **kwargs):
     env = MiniGridWrap(
                 env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=5, minNumRooms=3, render_mode="rgb_array", see_through_walls=True),
                 seed=kwargs['seed'],
-                n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
+                n_discrete_actions=6 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
                 view_size=kwargs['view_size'] if 'view_size' in kwargs else 9,
                 show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
                 options=None if 'options' not in kwargs else kwargs['options'],
