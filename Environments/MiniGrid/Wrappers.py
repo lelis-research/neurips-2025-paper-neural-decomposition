@@ -63,6 +63,15 @@ class FlatOnehotObjectObsWrapper(ObservationWrapper):
 
     
 
+class FixedSeedWrapper(gym.Wrapper):
+    def __init__(self, env, seed):
+        super().__init__(env)
+        self._seed = seed
+
+    def reset(self, **kwargs):
+        # force the same seed every reset
+        return super().reset(seed=self._seed, **kwargs)
+    
     
 # Dictionary mapping string keys to corresponding wrapper classes.
 WRAPPING_TO_WRAPPER = {
@@ -71,4 +80,5 @@ WRAPPING_TO_WRAPPER = {
     "StepReward": StepRewardWrapper,
     "CompactAction": CompactActionWrapper,
     "FlattenOnehotObj": FlatOnehotObjectObsWrapper,
+    "FixedSeed": FixedSeedWrapper,
 }

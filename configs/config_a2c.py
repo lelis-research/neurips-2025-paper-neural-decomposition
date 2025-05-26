@@ -65,8 +65,8 @@ def default_env_wrappers(env_name):
         
 
     elif env_name in MINIGRID_ENV_LST:
-        env_wrappers= ["ViewSize", "FlattenOnehotObj", "StepReward"]
-        wrapping_params = [{"agent_view_size": 5}, {}, {"step_reward": -1}]
+        env_wrappers= ["ViewSize", "FlattenOnehotObj", "FixedSeed"]
+        wrapping_params = [{"agent_view_size": 5}, {}, {"seed": 1}]
 
     elif env_name in CAR_ENV_LST:
         env_wrappers= ["RecordReward", 
@@ -97,18 +97,18 @@ class arguments:
     # ----- train experiment settings -----
     agent_class:              str                = "A2CAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent, A2CAgent
     seeds                                        = [int(os.environ.get("SEED", 1000))] 
-    exp_total_steps:          int                = 100_000
+    exp_total_steps:          int                = 300_000
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
-    nametag:                  str                = "base"#+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    nametag:                  str                = "base1"#+datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     training_env_name:        str                = "MiniGrid-SimpleCrossingS9N1-v0" # Medium_Maze, Large_Maze, Hard_Maze
     training_env_params                          = {} 
     training_env_wrappers                        = default_env_wrappers(training_env_name)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name)[1]
     training_env_max_steps:   int                = 500
-    training_render_mode:     str                = None #human, None, rgb_array_list, rgb_array
-    save_frame_freq:          int                = 1000
+    training_render_mode:     str                = "rgb_array" #human, None, rgb_array_list, rgb_array
+    save_frame_freq:          int                = 100
     load_agent:               str                = None # "car-test_1000_1000000_Tanh64_20250503_222014"
 
     # ----- test experiment settings -----
