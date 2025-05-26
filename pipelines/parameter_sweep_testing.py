@@ -14,7 +14,7 @@ from agents.policy_guided_agent import PPOAgent
 from torch.utils.tensorboard import SummaryWriter
 from pipelines.option_discovery import load_options
 from dataclasses import dataclass
-from training.train_ppo_agent import train_ppo
+from training.train_ppo_agent import train_ppo, train_ppo_async
 from environments.environments_minigrid import make_env_four_rooms
 from environments.environments_combogrid import PROBLEM_NAMES as COMBOGRID_NAMES
 from environments.environments_combogrid_gym import make_env as make_env_combogrid
@@ -22,11 +22,11 @@ from environments.environments_combogrid_gym import make_env as make_env_combogr
 
 @dataclass
 class Args:
-    exp_id: str = "extract_basePolicyTransferred_ComboGrid_gw5_h64_envsd0,1,2,3"
+    # exp_id: str = "extract_basePolicyTransferred_ComboGrid_gw5_h64_envsd0,1,2,3"
     # exp_id: str = "extract_fineTuning_notFiltered_ComboGrid_gw5_h64_l10_envsd0,1,2,3_selectTypelocal_search_reg0.0maxNumOptions5"
     # exp_id: str = "extract_learnOption_filtered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinput_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5"
     # exp_id: str = "extract_learnOption_filtered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeboth_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5"
-    # exp_id: str = ""
+    exp_id: str = ""
     # exp_id: str = "extract_wholeDecOption_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinternal_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5"
     # exp_id: str = "extract_learnOption_filtered_ComboGrid_gw5_h64_l10_r400_envsd0,1,2,3_mskTypeinternal_mskTransformsoftmax_selectTypelocal_search_reg0maxNumOptions5"
     """The ID of the finished experiment"""
@@ -172,7 +172,9 @@ def train_ppo_with_options(options: List[PPOAgent], test_exp_id: str, env_seed: 
     problem = None
     if "ComboGrid" in args.env_id:
        problem = args.test_problem
-    envs = gym.vector.SyncVectorEnv([get_single_environment_builder(args, env_seed, problem, options=options, is_test=True) for _ in range(args.num_envs)])
+    # envs = gym.vector.SyncVectorEnv([get_single_environment_builder(args, env_seed, problem, options=options, is_test=True) for _ in range(args.num_envs)])
+    envs = gym.vector.AsyncVectorEnv([get_single_environment_builder(args, env_seed, problem, options=options, is_test=False) for _ in range(args.num_envs)],
+                                     autoreset_mode=gym.vector.AutoresetMode.SAME_STEP) # TODO: change is_test to True for testing
     
     if args.method == "no_options":
         assert envs.action_space[0].n == args.number_actions, f"no options should have same action space as the environment: {envs.action_space[0].n}"
@@ -199,15 +201,25 @@ def train_ppo_with_options(options: List[PPOAgent], test_exp_id: str, env_seed: 
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in options_info.items()])),)
     logger.info(f"Reporting tensorboard summary writer on outputs/tensorboard/runs/{run_name}")
 
-    train_ppo(envs=envs, 
-              seed=env_seed, 
-              args=args, 
-              model_file_name=model_path, 
-              options=options,
-              device=device, 
-              logger=logger, 
-              writer=writer,
-              parameter_sweeps=True)
+    if isinstance(envs, gym.vector.SyncVectorEnv):
+        train_ppo(envs=envs, 
+                seed=env_seed, 
+                args=args, 
+                model_file_name=model_path, 
+                device=device, 
+                logger=logger, 
+                writer=writer,
+                parameter_sweeps=True)
+    elif isinstance(envs, gym.vector.AsyncVectorEnv):
+        train_ppo_async(envs=envs, 
+                    seed=env_seed, 
+                    args=args, 
+                    model_file_name=model_path, 
+                    device=device, 
+                    logger=logger, 
+                    writer=writer,
+                    parameter_sweeps=True)
+    
     if args.track:
         wandb.finish()
 

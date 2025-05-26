@@ -29,7 +29,7 @@ def try_agent_deterministicly(agent: PPOAgent, options, args, env_seed):
     return reward == OPTIMAL_TEST_REWARD[env_seed] and entropy < 0.5
 
 
-def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, device, options=None, logger=None, writer=None, parameter_sweeps=False, deterministic=False):
+def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, device, logger=None, writer=None,  parameter_sweeps=False, deterministic=False):
     hidden_size = args.hidden_size
     l1_lambda = args.l1_lambda
     if not seed:
@@ -473,6 +473,7 @@ def train_ppo_async(envs: gym.vector.AsyncVectorEnv, seed, args, model_file_name
 
     envs.close()
     # writer.close()
-    os.makedirs(os.path.dirname(model_file_name), exist_ok=True)
-    torch.save(agent.state_dict(), model_file_name) # overrides the file if already exists
-    logger.info(f"Saved on {model_file_name}")
+    if not parameter_sweeps:
+        os.makedirs(os.path.dirname(model_file_name), exist_ok=True)
+        torch.save(agent.state_dict(), model_file_name) # overrides the file if already exists
+        logger.info(f"Saved on {model_file_name}")
