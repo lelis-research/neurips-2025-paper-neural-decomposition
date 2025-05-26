@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=minigrid
-#SBATCH --time=0-06:00:00
+#SBATCH --time=0-01:00:00
 #SBATCH --mem=16G
-#SBATCH --cpus-per-task=3
+#SBATCH --cpus-per-task=1
 #SBATCH --account=aip-lelis
 #SBATCH --array=1-30
 #SBATCH --output=logs/exp_%A_%a.out

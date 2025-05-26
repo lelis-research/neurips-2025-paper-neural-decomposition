@@ -96,7 +96,7 @@ class arguments:
 
     # ----- train experiment settings -----
     agent_class:              str                = "A2CAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent, A2CAgent
-    seeds                                        = list(range(1000, 13000, 1000)) #[int(os.environ.get("SEED", 1000))] 
+    seeds                                        = [int(os.environ.get("SEED", 1000))] 
     exp_total_steps:          int                = 100_000 
     exp_total_episodes:       int                = 0
     save_results:             bool               = True
