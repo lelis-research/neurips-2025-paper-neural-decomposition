@@ -5,7 +5,8 @@ from .Wrappers import WRAPPING_TO_WRAPPER
 MINIGRID_ENV_LST = [
     "MiniGrid-Empty-5x5-v0",
     "MiniGrid-SimpleCrossingS9N1-v0",
-    "MiniGrid-SimpleCrossingS9N2-v0"
+    "MiniGrid-SimpleCrossingS9N2-v0",
+    "MiniGrid-FourRooms-v0",
 ]
 
 def get_single_env(env_name, max_steps=None, render_mode=None, env_params={}, wrapping_lst=None, wrapping_params=[]):

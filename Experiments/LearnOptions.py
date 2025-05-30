@@ -10,6 +10,7 @@ import numpy as np
 import copy
 from multiprocessing import Pool
 
+from Networks.MaskedNetwork import NetworkMasker
 def extract_trajectory(agent, env):
     """
     Generate a single full trajectory by running the agent in the environment until termination.
@@ -22,7 +23,7 @@ def extract_trajectory(agent, env):
         List of [observation, action] pairs collected along the trajectory.
     """
     full_trajectory = []
-    observation, info = env.reset(seed=0)
+    observation, info = env.reset()
     while True:       
         action = agent.act(observation, greedy=True)
         full_trajectory.append([observation, action])
@@ -53,7 +54,7 @@ def generate_subtrajectories(traj, min_len, max_len):
             subs.append(traj[start : start + length])
     return subs
 
-def learn_mask(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e-3):
+def learn_mask(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e-3, mask_type=None):
     """
     Learn a mask tensor that selectively overrides state features so that
     agent.actor_critic.get_action(masked_state) matches the actions in sub_traj.
@@ -70,25 +71,22 @@ def learn_mask(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e-3):
                        Mask entries ≈0 leave that state dimension unchanged;
                        nonzero entries override that dimension.
     """
-
-    example_state_np, _ = sub_traj[0]
-    example_state = torch.from_numpy(example_state_np).float()
-    mask = nn.Parameter(torch.zeros_like(example_state))
-    loss_fn = nn.MSELoss()
-    optimizer = optim.Adam([mask], lr=lr)
+    masked_actor = NetworkMasker(agent.actor_critic.actor, mask_type=mask_type)
+    masked_actor.train()
     
+    loss_fn = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(masked_actor.mask_logits.parameters(), lr=lr)    
     
     for epoch in range(num_epochs):
         total_loss = 0.0
         for state_np, action_np in sub_traj:
-            state = torch.from_numpy(state_np).float()
-            target_action = torch.from_numpy(action_np).float()
-
-            masked_state = mask + state #torch.where(mask == 0, state, mask)
-            pred_action = agent.actor_critic.actor_mean(masked_state)
-
+            state = torch.from_numpy(state_np).float().unsqueeze(0)
+            target_action = torch.from_numpy(action_np).unsqueeze(0)
+            # masked_state = mask + state 
+            # masked_state = torch.where(mask == 0, state, mask)
+            pred_action = masked_actor(state).float()
             total_loss += loss_fn(pred_action, target_action)
-
+            
         optimizer.zero_grad()
         total_loss.backward()
         optimizer.step()
@@ -98,20 +96,22 @@ def learn_mask(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e-3):
             pbar.update(1)
     
     #test the mask for the sub_traj
-    failed = False
     for state_np, action_np in sub_traj:
-        state = torch.from_numpy(state_np).float()
-        target_action = torch.from_numpy(action_np).float()
+        state = torch.from_numpy(state_np).float().unsqueeze(0)
+        true_action = torch.from_numpy(action_np).float().item()
 
-        masked_state = mask + state #torch.where(mask == 0, state, mask)
-        pred_action = agent.actor_critic.actor_mean(masked_state)
-        if torch.norm(pred_action - target_action) > tol:
-            failed = True
-            break
-    
-    if failed:
-        return None
-    return mask.detach().cpu()
+        # masked_state = mask + state 
+        # #torch.where(mask == 0, state, mask)
+        
+        pred_action = torch.argmax(masked_actor(state), dim=-1).item()
+        
+        if pred_action != true_action:
+            return None
+
+    return {
+        name: tensor.detach().cpu().clone()
+        for name, tensor in masked_actor.mask_logits.items()
+    }
 
 
 def fine_tune_policy(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e-3):
@@ -140,18 +140,27 @@ def fine_tune_policy(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e
     for p in actor_critic_copy.critic.parameters():
         p.requires_grad = False
 
-    optimizer = optim.Adam(actor_critic_copy.actor_mean.parameters(), lr=lr)
-    loss_fn = nn.MSELoss()
-
+    optimizer = optim.Adam(actor_critic_copy.actor.parameters(), lr=lr)
+    # loss_fn = nn.MSELoss()
+    loss_fn = nn.CrossEntropyLoss()
+    
     # 3) Gradient-descent loop
     for epoch in range(num_epochs):
         total_loss = 0.0
         for state_np, action_np in sub_traj:
             state  = torch.from_numpy(state_np).float()
-            target = torch.from_numpy(action_np).float()
+            target = torch.from_numpy(action_np)
 
-            pred = actor_critic_copy.actor_mean(state)
-            loss = loss_fn(pred, target)
+            pred = actor_critic_copy.actor(state).float()
+            try:
+                loss = loss_fn(pred, target)
+            except:
+                print(action_np)
+                print(pred.shape, target.shape)
+                print(pred, target)
+                print("**********")
+                
+            
 
             optimizer.zero_grad()
             loss.backward()
@@ -165,11 +174,14 @@ def fine_tune_policy(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e
 
     # 4) Quick validation: ensure learned policy reproduces sub_traj within tol
     for state_np, action_np in sub_traj:
-        s = torch.from_numpy(state_np).float()
-        t = torch.from_numpy(action_np).float()
-        if torch.norm(actor_critic_copy.actor_mean(s) - t) > tol:
-            return None
+        state = torch.from_numpy(state_np).float()
+        
+        true_action = torch.from_numpy(action_np).item()
+        pred_action = torch.argmax(actor_critic_copy.actor(state), dim=-1).item()
 
+        if pred_action != true_action:
+            return None
+        
     return actor_critic_copy
 
 
@@ -311,7 +323,6 @@ def _one_restart(args):
     curr_loss = loss_fn([])
     best_subset = list(subset)
     best_loss = curr_loss
-
     for _ in range(max_iters):
         candidates = random.sample(options, 
                                 k=min(neighbor_samples, len(options)))
@@ -324,6 +335,7 @@ def _one_restart(args):
                     continue
                 cand = list(subset | {opt})
             cand_loss = loss_fn(cand)
+            
             if cand_loss < curr_loss:
                 subset, curr_loss = set(cand), cand_loss
                 improved = True

@@ -85,8 +85,7 @@ def levin_loss_discrete(trajectory, options, num_actions):
     if options is None:
         num_options = 0
     else:
-        num_options = options.n
-
+        num_options = len(options)
     T = len(trajectory)
 
     # M[j] stores the minimum number of decisions required to cover the first j transitions.
@@ -99,12 +98,12 @@ def levin_loss_discrete(trajectory, options, num_actions):
             M[j+1] = min(M[j+1], M[j] + 1)
         
         # Option 2: For each agent (mask), try to cover as many consecutive transitions as possible.
-        for index in range(num_options):
+        for opt in options:
             segment_length = 0
-            while j + segment_length < T:
+            while j + segment_length < T and segment_length < opt.max_len:
                 observation, true_action = trajectory[j + segment_length]
-                predicted_action = options.select_action(observation, index)
-                if predicted_action != true_action or options.is_terminated(observation):
+                predicted_action = opt.act(observation)
+                if predicted_action != true_action:
                     break
                 segment_length += 1
             # If the agent can cover at least one transition:

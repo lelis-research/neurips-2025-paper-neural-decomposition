@@ -1,3 +1,8 @@
+from multiprocessing import Pool
+import multiprocessing as mp
+mp.set_start_method('spawn', force=True)
+
+
 import os
 import torch
 import pickle
@@ -5,34 +10,41 @@ from tqdm import tqdm
 from functools import partial
 from concurrent.futures import ThreadPoolExecutor
 from torch.utils.tensorboard import SummaryWriter
-from multiprocessing import Pool
 
 
 from Experiments.LearnOptions import extract_trajectory, generate_subtrajectories, learn_mask, fine_tune_policy, find_best_subset_stochastic_parallel
-from Experiments.LevinLoss import levin_loss_continuous_with_maxlen
+from Experiments.LevinLoss import levin_loss_continuous_with_maxlen, levin_loss_discrete
 from Environments.GetEnvironment import get_env
-from Agents.PPOAgent import PPOAgent
+# from Agents.PPOAgent import PPOAgent
 from Agents.PPOAgentOption import PPOAgentOption
+from Agents.A2CAgentOption import A2CAgentOption
+from Agents.A2CAgent import A2CAgent
 from Experiments.EnvAgentLoops import agent_environment_step_loop, agent_environment_episode_loop
+from Networks.MaskedNetwork import NetworkMasker
             
 class Option():
-    def __init__(self, actor_mean, mask, max_len, info={}):
-        self.actor_mean = actor_mean
-        self.mask = mask
+    def __init__(self, actor, mask, max_len, info={}):
+        self.actor = actor
         self.max_len = max_len
         self.info = info
+        
+        self.mask = mask
+        if mask is not None:
+            self.masked_actor = NetworkMasker(actor, mask)
     
     def act(self, observation):
-        state = torch.from_numpy(observation).float()
-        masked_state = state + self.mask
-        action = self.actor_mean(masked_state)
-
+        state = torch.from_numpy(observation).float().unsqueeze(0)
+        action = self.actor(state) if self.mask is None else self.masked_actor(state)
+        
+        # for discrete actions
+        action = torch.argmax(action, dim=-1).item()
         return action
 
 def seq_loss_fn(all_traj, options_lst, tol=1e-3):
     loss = 0
     for e, traj in enumerate(all_traj):
-        loss += levin_loss_continuous_with_maxlen(traj, options_lst, tol=tol) / len(all_traj)
+        # loss += levin_loss_continuous_with_maxlen(traj, options_lst, tol=tol) / len(all_traj)
+        loss += levin_loss_discrete(traj, options_lst, num_actions=7) / len(all_traj)
     return loss
 
 def parallel_loss_fn(all_traj, options_lst, num_workers=4, tol=1e-3):
@@ -40,10 +52,15 @@ def parallel_loss_fn(all_traj, options_lst, num_workers=4, tol=1e-3):
     Parallel computation of loss over all_traj using threads
     (so it can be called from inside a multiprocessing worker).
     """
+    # worker_fn = partial(
+    #     levin_loss_continuous_with_maxlen,
+    #     options=options_lst,
+    #     tol=tol
+    # )
     worker_fn = partial(
-        levin_loss_continuous_with_maxlen,
+        levin_loss_discrete,
         options=options_lst,
-        tol=tol
+        num_actions=7,
     )
     n = len(all_traj)
     # use threads rather than processes
@@ -56,20 +73,20 @@ def train_one_option(args):
     Worker function to process one (i,j,sub_traj) task.
     Returns either an Option or None.
     """
-    i, j, sub_traj1_env, sub_traj2_env, agent, sub_traj, baseline, mask_epochs, tol = args
+    i, j, sub_traj1_env, sub_traj2_env, agent, sub_traj, baseline, mask_epochs, tol, mask_type = args
     # create a local tqdm just for the epochs if you really need it,
     # otherwise you can omit per-task bars.
     if baseline == "Mask":
         mask = learn_mask(agent, sub_traj,
                           num_epochs=mask_epochs,
-                          tol=tol)
+                          tol=tol, mask_type=mask_type)
         if mask is None:
             return None
         info = {
             "org_policy_env": sub_traj1_env,
             "sub_traj_env": sub_traj2_env,
         }
-        return Option(agent.actor_critic.actor_mean,
+        return Option(agent.actor_critic.actor,
                       mask,
                       len(sub_traj),
                       info=info)
@@ -84,8 +101,8 @@ def train_one_option(args):
             "org_policy_env": sub_traj1_env,
             "sub_traj_env": sub_traj2_env,
         }
-        return Option(actor_critic.actor_mean,
-                      0,
+        return Option(actor_critic.actor,
+                      None,
                       len(sub_traj),
                       info=info)
 
@@ -94,8 +111,8 @@ def train_one_option(args):
             "org_policy_env": sub_traj1_env,
             "sub_traj_env": sub_traj2_env,
         }
-        return Option(agent.actor_critic.actor_mean,
-                      0,
+        return Option(agent.actor_critic.actor,
+                      None,
                       len(sub_traj),
                       info=info)
     return None
@@ -110,8 +127,8 @@ def train_options(args):
         options_lst = []
         for env_agent in args.env_agent_list:
             agent_path = os.path.join(args.res_dir, env_agent["agent_path"], "final.pt")
-            agent = PPOAgent.load(agent_path) 
-            options_lst.append(Option(agent.actor_critic.actor_mean, 0, 1))
+            agent = A2CAgent.load(agent_path) 
+            options_lst.append(Option(agent.actor_critic.actor, None, 1))
         best_options = options_lst
         torch.save(best_options, os.path.join(exp_dir, "selected_options.pt"))
     else:
@@ -129,11 +146,13 @@ def train_options(args):
                             max_steps=env_agent["env_max_steps"],
                             )
                 agent_path = os.path.join(args.res_dir, env_agent["agent_path"], "final.pt")
-                agent = PPOAgent.load(agent_path) 
+                agent = A2CAgent.load(agent_path) 
 
                 print("extracting trajectory for: ", env_agent["env_name"])
                 traj = extract_trajectory(agent, env)
                 print("Len traj extracted: ", len(traj))
+                if len(traj) > 300:
+                    continue
                 sub_traj = generate_subtrajectories(traj, args.sub_trajectory_min_len, args.sub_trajectory_max_len)
                 print("Num sub-traj extracted: ", len(sub_traj))
                 all_trajectories.append(traj)
@@ -154,7 +173,7 @@ def train_options(args):
             traj_data = torch.load(os.path.join(exp_dir, "trajectories.pt"), weights_only=False)
             all_sub_trajectories = traj_data["all_sub_trajectories"]
             all_trajectories = traj_data["all_trajectories"]
-            
+
         print("\n","*** Total num sub-trajectories: ", sum([len(d["sub_traj"]) for d in all_sub_trajectories]), " ***")
 
         # Train the masks or fine-tuning for options
@@ -177,7 +196,8 @@ def train_options(args):
                             sub,
                             args.baseline,
                             args.mask_epochs,
-                            args.action_dif_tolerance
+                            args.action_dif_tolerance,
+                            args.mask_type if args.baseline == "Mask" else None
                         ))
 
             options_lst = []
@@ -188,9 +208,11 @@ def train_options(args):
                                 desc="Building Options"):
                     if opt is not None:
                         options_lst.append(opt)
+            
             torch.save(options_lst, os.path.join(exp_dir, "all_options.pt"))
         else:
             print("\n\n", "*"*20, "LOADING MASKS", "*"*20)
+            
             options_lst = torch.load(os.path.join(exp_dir, "all_options.pt"), weights_only=False)
         
         for option in options_lst:
@@ -235,8 +257,7 @@ def test_options(args):
     print(f"Loaded Options from: {os.path.join(option_dir, file_name)}")
     print("Num options: ", len(best_options))
     
-    test_option_dir = f"{option_dir}_{args.test_option_env_name}_{file_name[:-3]}"
-
+    test_option_dir = f"{option_dir}_{args.test_option_env_name}_{file_name[:-3]}_{args.option_name_tag}"
     env = get_env(env_name=args.test_option_env_name,
                   env_params=args.test_option_env_params,
                   wrapping_lst=args.test_option_env_wrappers,
@@ -247,16 +268,19 @@ def test_options(args):
     print(f"Obs Space: {env.observation_space}")
     print(f"Action Space: {env.action_space}")
     
-    ppo_keys = ["gamma", "lamda",
-                "epochs", "total_steps", "rollout_steps", "num_minibatches",
-                "flag_anneal_step_size", "step_size",
-                "entropy_coef", "critic_coef",  "clip_ratio", 
-                "flag_clip_vloss", "flag_norm_adv", "max_grad_norm",
-                "flag_anneal_var", "var_coef",
-                ]
-    agent_kwargs = {k: getattr(args, k) for k in ppo_keys}
+    # keys = ["gamma", "lamda",
+    #             "epochs", "total_steps", "rollout_steps", "num_minibatches",
+    #             "flag_anneal_step_size", "step_size",
+    #             "entropy_coef", "critic_coef",  "clip_ratio", 
+    #             "flag_clip_vloss", "flag_norm_adv", "max_grad_norm",
+    #             "flag_anneal_var", "var_coef",
+    #             ]
+    keys = ["gamma", "step_size", "rollout_steps", "lamda"]
+    
+    agent_kwargs = {k: getattr(args, k) for k in keys}
 
-    agent = PPOAgentOption(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space, 
+    agent = A2CAgentOption(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space, 
+                           env.single_action_space if hasattr(env, "single_action_space") else env.action_space, 
                             best_options,
                             device=args.device,
                             **agent_kwargs

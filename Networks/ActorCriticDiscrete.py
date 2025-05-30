@@ -17,18 +17,18 @@ class ActorCriticDiscrete(nn.Module):
         # policy: outputs logits over actions
         self.actor = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
-            nn.Tanh(),
+            nn.ReLU(),
             layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
+            nn.ReLU(),
             layer_init(nn.Linear(64, n_actions), std=0.01),
         )
 
         # value function
         self.critic = nn.Sequential(
             layer_init(nn.Linear(obs_dim, 64)),
-            nn.Tanh(),
+            nn.ReLU(),
             layer_init(nn.Linear(64, 64)),
-            nn.Tanh(),
+            nn.ReLU(),
             layer_init(nn.Linear(64, 1), std=1.0),
         )
 

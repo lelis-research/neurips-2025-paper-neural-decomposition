@@ -10,6 +10,8 @@
 
 set -euo pipefail
 
+cd ~/scratch/neurips-2025-paper-neural-decomposition
+
 # ensure logs folder exists
 mkdir -p logs
 
@@ -26,9 +28,13 @@ source /home/aghakasi/ENV/bin/activate
 export PYTHONUNBUFFERED=1  
 export FLEXIBLAS=imkl
 
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
 # Compute the seed for this array task
 export SEED=$(( SLURM_ARRAY_TASK_ID * 1000 ))
 echo "Running experiment with SEED=$SEED"
 
+
 # Run your training script
-python main.py --config_path ~/scratch/neurips-2025-paper-neural-decomposition/configs/config_a2c.py
+python main.py --config_path configs/config_a2c.py

@@ -90,7 +90,7 @@ def default_env_wrappers(env_name, **kwargs):
 @dataclass
 class arguments:
     # ----- experiment settings -----
-    mode                                         = ["test_option"] # train, test, plot, tune, train_option, test_option
+    mode                                         = ["train"] # train, test, plot, tune, train_option, test_option
     res_dir:                  str                = "Results_MiniGrid_A2C_ReLU"
     device:                   str                = torch.device("cpu")
 
@@ -266,7 +266,7 @@ class arguments:
     
     # ----- test option experiment settings -----
     option_save_results:      bool               = True
-    option_name_tag:          str                = f"distractors_50_stepsize_{step_size}"
+    option_name_tag:          str                = f"distractors_20_stepsize_{step_size}"
     test_option_env_name:     str                = os.environ.get("TEST_OPTION_ENV_NAME", "MiniGrid-FourRooms-v0") #Medium_Maze, Large_Maze, Hard_Maze
     test_option_env_params                       = {}
     test_option_env_wrappers                     = default_env_wrappers(test_option_env_name, env_seed=19000)[0]

@@ -112,20 +112,23 @@ def train_single_seed(seed, args):
 def train_parallel_seeds(seeds, args):
     # cap the number of workers to at most len(seeds) or the cpu count
     num_workers = min(args.num_workers, len(seeds), multiprocessing.cpu_count())
-    pool = multiprocessing.Pool(processes=num_workers)
-    try:
-        results_bestagents = pool.starmap(train_single_seed, [(seed, args) for seed in seeds], chunksize=1)
-    except KeyboardInterrupt:
-        print("Keyboard interrupt detected. Terminating all processes…")
-        pool.terminate()
-        raise
-    finally:
-        pool.close()
-        pool.join()
+    if args.num_workers > 1:
+        pool = multiprocessing.Pool(processes=num_workers)
+        try:
+            results_bestagents = pool.starmap(train_single_seed, [(seed, args) for seed in seeds], chunksize=1)
+        except KeyboardInterrupt:
+            print("Keyboard interrupt detected. Terminating all processes…")
+            pool.terminate()
+            raise
+        finally:
+            pool.close()
+            pool.join()
 
-    results = [x[0] for x in results_bestagents]
-    best_agents = [x[1] for x in results_bestagents]
-    return results, best_agents
+        results = [x[0] for x in results_bestagents]
+        best_agents = [x[1] for x in results_bestagents]
+        return results, best_agents
+    else:
+        return train_single_seed(seeds[0], args)
 
     
 
