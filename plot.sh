@@ -2,7 +2,7 @@
 #SBATCH --job-name=minigrid
 #SBATCH --time=0-00:10:00
 #SBATCH --mem=16G
-#SBATCH --cpus-per-task=64
+#SBATCH --cpus-per-task=16
 #SBATCH --account=aip-lelis
 #SBATCH --array=1-1      
 #SBATCH --output=logs/exp_%A_%a.out
@@ -27,6 +27,6 @@ export FLEXIBLAS=imkl
 # Compute array‐task index
 IDX=$SLURM_ARRAY_TASK_ID   # 1…300
 
-
+export NUM_DISTRACTORS=50
 # Run your script (it should read both $SEED and $ENV_SEED from os.environ)
 python -u main.py --config_path configs/config_a2c_plot.py

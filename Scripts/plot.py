@@ -165,24 +165,6 @@ def load_results(args):
     return runs_metrics, folders
  
  
-def load_method_runs(args):
-    """
-    Load all runs for one (method_name, pattern, color).
-    Returns: (method_name, runs, color)
-    """
-    method_name, pattern, color, res_dir = args
-    print(f"[{method_name}] scanning folders…")
-    folders = glob.glob(f"{res_dir}/{pattern}")
-    print(f"[{method_name}] found {len(folders)} folders")
-
-    runs = []
-    for folder in folders:
-        try:
-            with open(os.path.join(folder, "res.pkl"), "rb") as f:
-                runs.append(pickle.load(f))
-        except Exception as e:
-            print(f"  Failed loading {folder}: {e!r}")
-    return method_name, runs, color
 
 def plot_comparison(method_patterns, 
                     res_dir,
@@ -190,48 +172,50 @@ def plot_comparison(method_patterns,
                     interpolation_resolution,
                     out_fname="method_comparison.png"):
     """
-    Overlay return curves. The outer loop over methods is parallelized.
+    Overlay the average return curves of multiple methods on a single plot.
     """
-    # build the list of tasks (method_name, pattern, color, res_dir)
-    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-    tasks = [
-        (method_name, pattern, colors[i], res_dir)
-        for i, (method_name, pattern) in enumerate(method_patterns.items())
-    ]
-
-    # 1) In parallel, load every method’s runs
-    with ThreadPoolExecutor(max_workers=min(len(tasks), 32)) as executor:
-        results = list(executor.map(load_method_runs, tasks))
-
-    # 2) Plot everything in the original order
+    # create shared figure/axes
     fig, ax = plt.subplots(figsize=(10, 6))
     plt.tight_layout(pad=3.0)
 
-    # reorder results to match method_patterns order
-    name_to_result = { name: (runs, color) for name, runs, color in results }
-    for method_name, color in zip(method_patterns.keys(), colors):
-        runs, col = name_to_result[method_name]
-        if not runs:
-            print(f"Warning: no data for {method_name}, skipping plot")
+    # automatic distinct colors
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
+    for (method_name, pattern), color in zip(method_patterns.items(), colors):
+        print(f"Loading {method_name}")
+        folders = glob.glob(f"{res_dir}/{pattern}")
+        print(f"{len(folders)} experiments found")
+        if not folders:
+            print(f"Warning: no folders match pattern {res_dir}/{pattern}")
             continue
 
+        # load each run's res.pkl
+        runs = []
+        for folder in folders:
+            with open(os.path.join(folder, "res.pkl"), "rb") as f:
+                r = pickle.load(f)
+                runs.append(r)
+
+        # overlay the average return curve
         plot_results(
             runs,
             window_size=window_size,
             interpolation_resolution=interpolation_resolution,
-            nametag=None,
+            nametag=None,         # skip per‐method saving
             fig=fig, ax=ax,
-            color=col,
+            color=color,
             avg_label=method_name,
             individual_label=None,
             plot_individual=False
         )
 
+    # finalize styling
     ax.set_title(out_fname)
     ax.set_xlabel("Environment Steps")
     ax.set_ylabel("Episode Return")
     ax.grid(True)
     ax.legend(loc="best")
 
+    # save once
     fig.savefig(out_fname)
     return fig, ax

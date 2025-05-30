@@ -132,113 +132,113 @@ class arguments:
     
 
     # ----- plot setting -----
-    num_distractors:           int                = 50 # Number of distractors in the environment
+    num_distractors:           int                = int(os.environ.get("NUM_DISTRACTORS", 50)) # Number of distractors in the environment
     pattern                                      = {
-                                                        # # *********************   No Distractors   *********************
-                                                        # # "No Options_1":  "MiniGrid-FourRooms-v0_*_3000000_stepsize_0.01",
-                                                        # # "No Options_2":  "MiniGrid-FourRooms-v0_*_3000000_stepsize_0.001",
+                                                        # *********************   No Distractors   *********************
+                                                        # "No Options_1":  "MiniGrid-FourRooms-v0_*_3000000_stepsize_0.01",
+                                                        # "No Options_2":  "MiniGrid-FourRooms-v0_*_3000000_stepsize_0.001",
                                                         # "No Options_3":  "MiniGrid-FourRooms-v0_*_3000000_stepsize_0.0001", #best
                                                         
-                                                        # # "Transfer_1":       "Options_Transfer_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_stepsize_0.01", 
-                                                        # # "Transfer_2":       "Options_Transfer_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_stepsize_0.001",
+                                                        # "Transfer_1":       "Options_Transfer_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_stepsize_0.01", 
+                                                        # "Transfer_2":       "Options_Transfer_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_stepsize_0.001",
                                                         # "Transfer_3":       "Options_Transfer_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_stepsize_0.0001", #best
                                                         
-                                                        # # "DecWhole5_1":       "Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.01",
-                                                        # # "DecWhole5_2":       "Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.001", 
+                                                        # "DecWhole5_1":       "Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.01",
+                                                        # "DecWhole5_2":       "Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.001", 
                                                         # "DecWhole5_3":       "Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.0001", #best
                                                         
-                                                        # # "DecWhole10_1":       "Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.01",
-                                                        # # "DecWhole10_2":       "Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.001", 
+                                                        # "DecWhole10_1":       "Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.01",
+                                                        # "DecWhole10_2":       "Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.001", 
                                                         # "DecWhole10_3":       "Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.0001", #best
                                                         
-                                                        # # "DecWhole20_1":       "Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.01",
-                                                        # # "DecWhole20_2":       "Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.001", 
+                                                        # "DecWhole20_1":       "Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.01",
+                                                        # "DecWhole20_2":       "Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.001", 
                                                         # "DecWhole20_3":       "Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.0001", #best
                                                         
-                                                        # # "FineTune5_1":      "Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.01",
-                                                        # # "FineTune5_2":      "Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.001",
+                                                        # "FineTune5_1":      "Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.01",
+                                                        # "FineTune5_2":      "Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.001",
                                                         # "FineTune5_3":      "Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.0001", #best
                                                         
-                                                        # # "FineTune10_1":      "Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.01",
-                                                        # # "FineTune10_2":      "Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.001", 
+                                                        # "FineTune10_1":      "Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.01",
+                                                        # "FineTune10_2":      "Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.001", 
                                                         # "FineTune10_3":      "Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.0001", #best 
                                                         
-                                                        # # "FineTune20_1":      "Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.01",
-                                                        # # "FineTune20_2":      "Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.001", 
+                                                        # "FineTune20_1":      "Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.01",
+                                                        # "FineTune20_2":      "Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.001", 
                                                         # "FineTune20_3":      "Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.0001", #best 
                                                         
-                                                        # # "MaskNetwork5_1":      "Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.01",
-                                                        # # "MaskNetwork5_2":      "Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.001",
+                                                        # "MaskNetwork5_1":      "Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.01",
+                                                        # "MaskNetwork5_2":      "Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.001",
                                                         # "MaskNetwork5_3":      "Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.0001", #best
                                                         
-                                                        # # "MaskNetwork10_1":      "Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.01",
-                                                        # # "MaskNetwork10_2":      "Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.001",
+                                                        # "MaskNetwork10_1":      "Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.01",
+                                                        # "MaskNetwork10_2":      "Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.001",
                                                         # "MaskNetwork10_3":      "Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.0001", #best
                                                         
-                                                        # # "MaskNetwork20_1":      "Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.01",
-                                                        # # "MaskNetwork20_2":      "Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.001",
+                                                        # "MaskNetwork20_1":      "Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.01",
+                                                        # "MaskNetwork20_2":      "Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.001",
                                                         # "MaskNetwork20_3":      "Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.0001", #best
                                                         
-                                                        # # "MaskInput5_1":      "Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.01",
-                                                        # # "MaskInput5_2":      "Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.001",
+                                                        # "MaskInput5_1":      "Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.01",
+                                                        # "MaskInput5_2":      "Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.001",
                                                         # "MaskInput5_3":      "Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.0001", #best
                                                         
-                                                        # # "MaskInput10_1":      "Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.01",
-                                                        # # "MaskInput10_2":      "Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.001",
+                                                        # "MaskInput10_1":      "Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.01",
+                                                        # "MaskInput10_2":      "Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.001",
                                                         # "MaskInput10_3":      "Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.0001", #best
                                                         
-                                                        # # "MaskInput20_1":      "Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.01",
-                                                        # # "MaskInput20_2":      "Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.001",
+                                                        # "MaskInput20_1":      "Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.01",
+                                                        # "MaskInput20_2":      "Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.001",
                                                         # "MaskInput20_3":      "Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.0001", #best
                                                         
-                                                        # # "MaskBoth5_1":      "Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.01",
-                                                        # # "MaskBoth5_2":      "Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.001",
+                                                        # "MaskBoth5_1":      "Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.01",
+                                                        # "MaskBoth5_2":      "Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.001",
                                                         # "MaskBoth5_3":      "Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.0001", #best
                                                         
-                                                        # # "MaskBoth10_1":      "Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.01",
-                                                        # # "MaskBoth10_2":      "Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.001",
+                                                        # "MaskBoth10_1":      "Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.01",
+                                                        # "MaskBoth10_2":      "Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.001",
                                                         # "MaskBoth10_3":      "Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.0001", #best
                                                         
-                                                        # # "MaskBoth20_1":      "Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.01",
-                                                        # # "MaskBoth20_2":      "Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.001",
+                                                        # "MaskBoth20_1":      "Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.01",
+                                                        # "MaskBoth20_2":      "Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.001",
                                                         # "MaskBoth20_3":      "Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_20_stepsize_0.0001", #best
                                                         
-                                                        # *********************   Distractors 20  *********************
+                                                        # *********************   Distractors N  *********************
                                                         # "D_No Options_1":  "MiniGrid-FourRooms-v0_*_3000000_distractors_20_stepsize_0.01",
                                                         # "D_No Options_2":  "MiniGrid-FourRooms-v0_*_3000000_distractors_20_stepsize_0.001",
-                                                        "D_No Options_3":  "MiniGrid-FourRooms-v0_*_3000000_distractors_20_stepsize_0.0001", #best
+                                                        # "D_No Options_3":  "MiniGrid-FourRooms-v0_*_3000000_distractors_20_stepsize_0.0001", #best
 
                                                         # "D_Transfer_1":  f"Options_Transfer_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_Transfer_2":  f"Options_Transfer_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_distractors_{num_distractors}_stepsize_0.001",
-                                                        "D_Transfer_3":  f"Options_Transfer_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_distractors_{num_distractors}_stepsize_0.0001", #best
+                                                        # "D_Transfer_3":  f"Options_Transfer_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_distractors_{num_distractors}_stepsize_0.0001", #best
 
                                                         # "D_DecWhole5_1":  f"Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_DecWhole5_2":  f"Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.001",
-                                                        "D_DecWhole5_3":  f"Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.0001", #best
+                                                        # "D_DecWhole5_3":  f"Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.0001", #best
 
                                                         # "D_DecWhole10_1":  f"Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_DecWhole10_2":  f"Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.001",
-                                                        "D_DecWhole10_3":  f"Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.0001", #best
+                                                        # "D_DecWhole10_3":  f"Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.0001", #best
 
                                                         # "D_DecWhole20_1":  f"Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_DecWhole20_2":  f"Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.001",
-                                                        "D_DecWhole20_3":  f"Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.0001", #best
+                                                        # "D_DecWhole20_3":  f"Options_DecWhole_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.0001", #best
 
                                                         # "D_FineTune5_1":  f"Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_FineTune5_2":  f"Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.001",
-                                                        "D_FineTune5_3":  f"Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.0001", #best
+                                                        # "D_FineTune5_3":  f"Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.0001", #best
 
                                                         # "D_FineTune10_1":  f"Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_FineTune10_2":  f"Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.001",
-                                                        "D_FineTune10_3":  f"Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.0001", #best
+                                                        # "D_FineTune10_3":  f"Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.0001", #best
 
                                                         # "D_FineTune20_1":  f"Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_FineTune20_2":  f"Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.001",
-                                                        "D_FineTune20_3":  f"Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.0001", #best
+                                                        # "D_FineTune20_3":  f"Options_FineTune_SimpleCrossing_Seed_*_None_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.0001", #best
 
                                                         # "D_MaskNetwork5_1":  f"Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_MaskNetwork5_2":  f"Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.001",
-                                                        "D_MaskNetwork5_3":  f"Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.0001", #best
+                                                        # "D_MaskNetwork5_3":  f"Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.0001", #best
 
                                                         # "D_MaskNetwork10_1":  f"Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_MaskNetwork10_2":  f"Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.001",
@@ -246,15 +246,15 @@ class arguments:
 
                                                         # "D_MaskNetwork20_1":  f"Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_MaskNetwork20_2":  f"Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.001",
-                                                        "D_MaskNetwork20_3":  f"Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.0001", #best
+                                                        # "D_MaskNetwork20_3":  f"Options_Mask_SimpleCrossing_Seed_*_network_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.0001", #best
 
                                                         # "D_MaskInput5_1":  f"Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_MaskInput5_2":  f"Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.001",
-                                                        "D_MaskInput5_3":  f"Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.0001", #best
+                                                        # "D_MaskInput5_3":  f"Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.0001", #best
 
                                                         # "D_MaskInput10_1":  f"Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_MaskInput10_2":  f"Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.001",
-                                                        "D_MaskInput10_3":  f"Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.0001", #best
+                                                        # "D_MaskInput10_3":  f"Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.0001", #best
 
                                                         # "D_MaskInput20_1":  f"Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_MaskInput20_2":  f"Options_Mask_SimpleCrossing_Seed_*_input_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.001",
@@ -262,7 +262,7 @@ class arguments:
 
                                                         # "D_MaskBoth5_1":  f"Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_MaskBoth5_2":  f"Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.001",
-                                                        "D_MaskBoth5_3":  f"Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.0001", #best
+                                                        # "D_MaskBoth5_3":  f"Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_5_distractors_{num_distractors}_stepsize_0.0001", #best
 
                                                         # "D_MaskBoth10_1":  f"Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_MaskBoth10_2":  f"Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_10_distractors_{num_distractors}_stepsize_0.001",
@@ -270,7 +270,7 @@ class arguments:
 
                                                         # "D_MaskBoth20_1":  f"Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.01",
                                                         # "D_MaskBoth20_2":  f"Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.001",
-                                                        "D_MaskBoth20_3":  f"Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.0001", #best
+                                                        # "D_MaskBoth20_3":  f"Options_Mask_SimpleCrossing_Seed_*_both_MiniGrid-FourRooms-v0_selected_options_20_distractors_{num_distractors}_stepsize_0.0001", #best
                                                                          
                                                     }
     
@@ -278,7 +278,7 @@ class arguments:
     
     smoothing_window_size:    int                = 1000
     interpolation_resolution: int                = 100_000
-    plot_name:                str                = f"4Rooms_{num_distractors}_Distractions"
+    plot_name:                str                = f"4Rooms_{num_distractors}_Distractions_Only_masking"
 
     # ----- Option setting -----
     tmp_seed = int(os.environ.get("TMP_SEED", 1000))
