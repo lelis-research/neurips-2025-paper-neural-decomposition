@@ -46,6 +46,11 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
 
+    log_data = {
+    "steps": [],
+    "returns": []
+    }
+
     # TRY NOT TO MODIFY: start the game
     global_step = 0
     start_time = time.time()
@@ -252,10 +257,27 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             logger.info(f"SPS: {int(global_step / (time.time() - start_time))}")
             logger.info("Training finished.")
             break
+        
+        try:
+            log_data["returns"].append(float(avg_return))
+            log_data["steps"].append(int(global_step))
+        except:
+            log_data["returns"].append(0.0)
+            log_data["steps"].append(int(global_step))
 
     envs.close()
     # writer.close()
     os.makedirs(os.path.dirname(model_file_name), exist_ok=True)
-    torch.save(agent.state_dict(), model_file_name) # overrides the file if already exists
+    if args.save_run_info == 1:
+        checkpoint = {
+                'state_dict': agent.state_dict(),
+                'steps': log_data["steps"],
+                'average_returns': log_data["returns"],
+                'args': args,
+            }
+    else:
+        checkpoint = agent.state_dict()
+
+    torch.save(checkpoint, model_file_name) # overrides the file if already exists
     logger.info(f"Saved on {model_file_name}")
 

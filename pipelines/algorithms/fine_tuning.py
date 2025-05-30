@@ -5,7 +5,7 @@ import pickle
 import random
 import traceback
 
-from ordered_set import OrderedSet
+# from ordered_set import OrderedSet
 from environments.environments_combogrid import DIRECTIONS, PROBLEM_NAMES as COMBO_PROBLEM_NAMES
 from environments.environments_combogrid_gym import ComboGym
 from environments.environments_minigrid import get_training_tasks_simplecross
@@ -33,7 +33,8 @@ class Args:
     # exp_name: str = "extract_learnOptions_randomInit_discreteMasks"
     # exp_name: str = "extract_learnOptions_randomInit_pitisFunction"
     """the name of this experiment"""
-    env_seeds: Union[List, str, Tuple] = (0,1,2,3)
+    # env_seeds: Union[List, str, Tuple] = (0,1,2,3)
+    env_seeds: Union[List, str, Tuple] = (0,1,2)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
     # model_paths: List[str] = (
     #     'train_ppoAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
@@ -51,10 +52,9 @@ class Args:
     #     'train_ppoAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2',
     #     )
     model_paths: List[str] = (
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd0_TL-BR',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd1_TR-BL',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd2_BR-TL',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd3_BL-TR',
+        'minigrid-simplecrossings9n1-v0-0',
+        'minigrid-simplecrossings9n1-v0-1',
+        'minigrid-simplecrossings9n1-v0-2'
     )
 
     # These attributes will be filled in the runtime
@@ -64,7 +64,7 @@ class Args:
     """the name of the problems the agents were trained on; To be filled in runtime"""
 
     # Algorithm specific arguments
-    env_id: str = "ComboGrid"
+    env_id: str = "MiniGrid-SimpleCrossingS9N1-v0"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
@@ -72,7 +72,7 @@ class Args:
     """"The number of CPUTs used in this experiment."""
     
     # hyperparameters
-    game_width: int = 5
+    game_width: int = 9
     """the length of the combo/mini grid square"""
     hidden_size: int = 64
     """"""
@@ -91,9 +91,10 @@ class Args:
     """Path to the directory where the options are saved"""
     reg_coef: float = 0.0
     # reg_coef: float = 110.03
-    filtering_inapplicable: bool = False
+    filtering_inapplicable: bool = True
     # max_num_options: int = 10
     max_num_options: int = 5
+    option_mode:str = "fine-tune"
 
     # Script arguments
     seed: int = 0
@@ -160,8 +161,8 @@ class FineTuning:
         self.selection_type = args.selection_type
         if args.cache_path == "":
             args.cache_path = "binary/cache/"
-            self.option_candidates_path = os.path.join(args.cache_path, args.exp_id, f"seed={args.seed}", "data.pkl")
-            self.option_cache_path = os.path.join(args.cache_path, args.exp_id, f"seed={args.seed}", "option_cache.pkl")
+            self.option_candidates_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_fine-tune", f"seed={args.seed}", "data.pkl")
+            self.option_cache_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_fine-tune", f"seed={args.seed}", "option_cache.pkl")
         else:
             self.option_candidates_path = os.path.join(args.cache_path, f"seed={args.seed}", "data.pkl")
             self.option_cache_path = os.path.join(args.cache_path, f"seed={args.seed}", "option_cache.pkl")
@@ -236,7 +237,7 @@ class FineTuning:
                 for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
                     if primary_problem == target_problem:
                         continue
-                    model_path = f'binary/models/{primary_model_directory}/seed={self.args.seed}/ppo_first_MODEL.pt'
+                    model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}.pt'
                     primary_env = get_single_environment(self.args, seed=primary_seed)
                     primary_agent = PPOAgent(primary_env, hidden_size=self.args.hidden_size)
                     primary_agent.load_state_dict(torch.load(model_path))

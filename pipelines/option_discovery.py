@@ -36,14 +36,14 @@ class Args:
     # exp_name: str = "extract_learnOptions_randomInit_discreteMasks"
     # exp_name: str = "extract_learnOptions_randomInit_pitisFunction"
     """the name of this experiment"""
-    env_seeds: Union[List, str, Tuple] = (0,1,2,3)
-    # env_seeds: Union[List, str, Tuple] = (0,1,2)
+    # env_seeds: Union[List, str, Tuple] = (0,1,2,3)
+    env_seeds: Union[List, str, Tuple] = (0,1,2)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
-    # model_paths: List[str] = (
-    #     'train_ppoAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
-    #     'train_ppoAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd1',
-    #     'train_ppoAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2'
-    # )
+    model_paths: List[str] = (
+        'minigrid-simplecrossings9n1-v0-0',
+        'minigrid-simplecrossings9n1-v0-1',
+        'minigrid-simplecrossings9n1-v0-2'
+    )
     # model_paths: List[str] = (
     #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.0005_clip0.25_ent0.1_envsd0',
     #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.001_clip0.2_ent0.1_envsd1',
@@ -55,12 +55,12 @@ class Args:
     #     'train_ppoAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2',
     #     )
     
-    model_paths: List[str] = (
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd0_TL-BR',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd1_TR-BL',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd2_BR-TL',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd3_BL-TR',
-    )
+    # model_paths: List[str] = (
+    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd0_TL-BR',
+    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd1_TR-BL',
+    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd2_BR-TL',
+    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd3_BL-TR',
+    # )
 
     # These attributes will be filled in the runtime
     exp_id: str = ""
@@ -69,15 +69,15 @@ class Args:
     """the name of the problems the agents were trained on; To be filled in runtime"""
 
     # Algorithm specific arguments
-    env_id: str = "ComboGrid"
+    env_id: str = "MiniGrid-SimpleCrossingS9N1-v0"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
-    cpus: int = 4
+    cpus: int = 1
     """"The number of CPUTs used in this experiment."""
     
     # hyperparameters
-    game_width: int = 5
+    game_width: int = 9
     """the length of the combo/mini grid square"""
     hidden_size: int = 64
     """"""
@@ -107,10 +107,12 @@ class Args:
     """Path to the directory where the options are saved. If empty, it will be replaced based on the current `exp_id`"""
     # reg_coef: float = 0.0
     # reg_coef: float = 110.03 # Combogrid 4 environments
-    reg_coef: float = 0
+    reg_coef: float = 0.01
     filtering_inapplicable: bool = True
     # max_num_options: int = 10
     max_num_options: int = 5
+    """"""
+    option_mode:str = "didec-reg"
 
     # Script arguments
     seed: int = 0
@@ -180,9 +182,10 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     """
     
     trajectories = {}
+    print(args.env_seeds, args.problems, args.model_paths)
     
     for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
+        model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}.pt'
         env = get_single_environment(args, seed=seed)
         
         if verbose:
@@ -197,6 +200,10 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
 
         if verbose:
             logger.info(f"The trajectory length: {len(trajectory.get_state_sequence())}")
+        
+        if len(trajectory.get_state_sequence()) > 20:
+            logger.warning("The trajectory is longer than 20 steps, stopping the process..")
+            exit()
 
     return trajectories
 
@@ -210,7 +217,7 @@ def save_options(options: List[PPOAgent], trajectories: dict, args: Args, logger
         trajectories (Dict[str, Trajectory]): The trajectories corresponding to the these options
         save_dir (str): The directory where the options will be saved.
     """
-    save_dir = f"binary/options/{args.exp_id}/seed={args.seed}"
+    save_dir = f"binary/options/{args.env_id}_width={args.game_width}_{args.option_mode}/seed={args.seed}"
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     else:
@@ -257,7 +264,10 @@ def load_options(args, logger):
     """
 
     # Load the models and iterations
-    save_dir = f"binary/options/{args.exp_id}/seed={args.seed}"
+    args = copy.deepcopy(args)
+    if args.env_id == "MiniGrid-FourRooms-v0":
+        args.env_id = "MiniGrid-SimpleCrossingS9N1-v0"
+    save_dir = f"binary/options/{args.env_id}_width={args.game_width}_{args.option_mode}/seed={args.seed}"
 
     logger.info(f"Option directory: {save_dir}")
 
@@ -281,6 +291,7 @@ def load_options(args, logger):
                 seed = int(checkpoint['environment_args']['seed'])
             else:
                 seed = int(checkpoint['problem'][-1])
+            problem = None
         elif args.env_id == "ComboGrid":
             seed = None
             problem = checkpoint['problem']
@@ -751,7 +762,7 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
         best_mask_model = None
 
         for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-            model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
+            model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}.pt'
             logger.info(f'Extracting from the agent trained on {problem}, seed={seed}')
             env = get_single_environment(args, seed=seed)
 
@@ -841,6 +852,7 @@ class STEQuantize(torch.autograd.Function):
 
 class LearnOptions:
     def __init__(self, args: Args, logger: logging.Logger):
+        # args.option_mode = "didec"
         self.args = args
         self.logger = logger
         self.mask_transform_type = args.mask_transform_type
@@ -852,8 +864,8 @@ class LearnOptions:
         self.selection_type = args.selection_type
         if args.cache_path == "":
             args.cache_path = "binary/cache/"
-            self.option_candidates_path = os.path.join(args.cache_path, args.exp_id, f"seed={args.seed}", "data.pkl")
-            self.option_cache_path = os.path.join(args.cache_path, args.exp_id, f"seed={args.seed}", "option_cache.pkl")
+            self.option_candidates_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_{args.option_mode}", f"seed={args.seed}", "data.pkl")
+            self.option_cache_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_{args.option_mode}", f"seed={args.seed}", "option_cache.pkl")
         else:
             self.option_candidates_path = os.path.join(args.cache_path, f"seed={args.seed}", "data.pkl")
             self.option_cache_path = os.path.join(args.cache_path, f"seed={args.seed}", "option_cache.pkl")
@@ -898,7 +910,7 @@ class LearnOptions:
                 for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
                     if primary_problem == target_problem:
                         continue
-                    model_path = f'binary/models/{primary_model_directory}/seed={self.args.seed}/ppo_first_MODEL.pt'
+                    model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}.pt'
                     primary_env = get_single_environment(self.args, seed=primary_seed)
                     primary_agent = PPOAgent(primary_env, hidden_size=self.args.hidden_size)
                     primary_agent.load_state_dict(torch.load(model_path))
@@ -1442,7 +1454,7 @@ class LearnOptions:
                 # loss_fn = torch.nn.KLDivLoss(reduction='batchmean')
                 # mask_loss = loss_fn(input_probs, target_probs)
                 loss_fn = torch.nn.CrossEntropyLoss()
-                mask_loss = loss_fn(torch.stack(new_trajectory.logits), torch.tensor(actions))
+                mask_loss = loss_fn(torch.stack(new_trajectory.logits), torch.tensor(actions)) + self.args.reg_coef * mask[-1, :].sum()**2
                 if not init_loss:
                     init_loss = mask_loss.item()
                     best_loss = init_loss
@@ -1504,7 +1516,8 @@ class LearnOptions:
                 new_trajectory = rollout_func(envs, input_mask_discretized, internal_mask_discretized, trajectory.get_length())
 
                 loss_fn = torch.nn.CrossEntropyLoss()
-                mask_loss = loss_fn(torch.stack(new_trajectory.logits), torch.tensor(actions)) 
+                # mask_loss = loss_fn(torch.stack(new_trajectory.logits), torch.tensor(actions)) 
+                mask_loss = loss_fn(torch.stack(new_trajectory.logits), torch.tensor(actions)) + self.args.reg_coef * input_mask[-1, :].sum()**2
 
                 if not init_loss:
                     init_loss = mask_loss.item()
@@ -1543,6 +1556,7 @@ class LearnOptions:
 
 class WholeDecOption:
     def __init__(self, args: Args, logger: logging.Logger):
+        args.option_mode = "dec-whole"
         self.args = args
         self.logger = logger
         self.mask_transform_type = args.mask_transform_type
@@ -1554,8 +1568,8 @@ class WholeDecOption:
         self.selection_type = args.selection_type
         if args.cache_path == "":
             args.cache_path = "binary/cache/"
-            self.option_candidates_path = os.path.join(args.cache_path, args.exp_id, f"seed={args.seed}", "data.pkl")
-            self.option_cache_path = os.path.join(args.cache_path, args.exp_id, f"seed={args.seed}", "option_cache.pkl")
+            self.option_candidates_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_{args.option_mode}", f"seed={args.seed}", "data.pkl")
+            self.option_cache_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_{args.option_mode}", f"seed={args.seed}", "option_cache.pkl")
         else:
             self.option_candidates_path = os.path.join(args.cache_path, f"seed={args.seed}", "data.pkl")
             self.option_cache_path = os.path.join(args.cache_path, f"seed={args.seed}", "option_cache.pkl")
@@ -1589,7 +1603,7 @@ class WholeDecOption:
         option_candidates = []
         for primary_env_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
             t_length = trajectories[primary_problem].get_length()
-            model_path = f'binary/models/{primary_model_directory}/seed={self.args.seed}/ppo_first_MODEL.pt'
+            model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}.pt'
             if self.mask_transform_type == "quantize":
                 mask = torch.zeros(self.args.hidden_size) - 1
             elif self.mask_transform_type == "softmax":
@@ -2188,9 +2202,12 @@ def main():
     module_extractor = LearnOptions(args, logger)
     module_extractor.discover()
 
+    # module_extractor = WholeDecOption(args, logger)
+    # module_extractor.discover()
+
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()
-    # whole_dec_options_training_data_levin_loss()
+    # whole_dec_options_training_data_levin_loss(args, logger)
     # hill_climbing_all_segments()
     # learn_options(args, logger)
 

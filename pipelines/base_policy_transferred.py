@@ -31,14 +31,20 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 class Args:
     exp_name: str = "extract_basePolicyTransferred"
     """the name of this experiment"""
-    env_seeds: Union[List, str, Tuple] = (0,1,2,3)
-    # env_seeds: Union[List, str, Tuple] = (0,1,2)
+    # env_seeds: Union[List, str, Tuple] = (0,1,2,3)
+    env_seeds: Union[List, str, Tuple] = (0,1,2)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
+    # model_paths: List[str] = (
+    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd0_TL-BR',
+    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd1_TR-BL',
+    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd2_BR-TL',
+    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd3_BL-TR',
+    # )
+
     model_paths: List[str] = (
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd0_TL-BR',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd1_TR-BL',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd2_BR-TL',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd3_BL-TR',
+        'minigrid-simplecrossings9n1-v0-0',
+        'minigrid-simplecrossings9n1-v0-1',
+        'minigrid-simplecrossings9n1-v0-2'
     )
 
     # These attributes will be filled in the runtime
@@ -48,7 +54,7 @@ class Args:
     """the name of the problems the agents were trained on; To be filled in runtime"""
 
     # Algorithm specific arguments
-    env_id: str = "ComboGrid"
+    env_id: str = "MiniGrid-SimpleCrossingS9N1-v0"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
@@ -56,11 +62,12 @@ class Args:
     """"The number of CPUTs used in this experiment."""
     
     # hyperparameters
-    game_width: int = 5
+    game_width: int = 9
     """the length of the combo/mini grid square"""
     hidden_size: int = 64
     """"""
     mask_transform_type: str = "softmax"
+    option_mode: str = "neural-augmented"
 
     # Script arguments
     seed: int = 0
@@ -124,7 +131,7 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     trajectories = {}
     
     for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
+        model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}.pt'
         env = get_single_environment(args, seed=seed)
         
         if verbose:
@@ -152,7 +159,7 @@ def save_options(options: List[PPOAgent], trajectories: dict, args: Args, logger
         trajectories (Dict[str, Trajectory]): The trajectories corresponding to the these options
         save_dir (str): The directory where the options will be saved.
     """
-    save_dir = f"binary/options/{args.exp_id}/seed={args.seed}"
+    save_dir = f"binary/options/{args.env_id}_width={args.game_width}_{args.option_mode}/seed={args.seed}"
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     else:
@@ -267,7 +274,7 @@ class WholeDecOption:
         for primary_env_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
             env = get_single_environment(self.args, seed=primary_env_seed)
             option = PPOAgent(env, hidden_size=self.args.hidden_size)
-            option.load_state_dict(torch.load(os.path.join("binary/models", primary_model_directory, f"seed={self.args.seed}", "ppo_first_MODEL.pt")))
+            option.load_state_dict(torch.load(os.path.join("binary/models", f"{self.args.env_id}_width={self.args.game_width}_vanilla" ,f"seed={self.args.seed}", f"{primary_model_directory}.pt")))
             mask = torch.zeros(3, self.args.hidden_size)
             mask[-1] = 1
             option.to_option(mask, 1, primary_problem)  

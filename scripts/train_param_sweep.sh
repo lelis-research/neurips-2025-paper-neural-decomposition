@@ -1,50 +1,70 @@
 #!/bin/bash
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=1G
-#SBATCH --time=0-1:00
-#SBATCH --output=%j-%N.out
+#SBATCH --time=00:40:00
+#SBATCH --output=unlock-sweep/%A-%a.out
 #SBATCH --account=aip-lelis
-#SBATCH --array=0-239  #0-719  # 240 experiments × 3 seeds = 720 jobs
+#SBATCH --array=1-1000 #1080
 
-cd /home/rezaabdz/projects/aip-lelis/rezaabdz/neurips-2025-paper-neural-decomposition
+source /home/iprnb/venvs/neural-decomposition/bin/activate
+
+export FLEXIBLAS=imkl
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export PYTHONPATH=":$PYTHONPATH"
+
+seeds=(0 1 3 4 6 7) #6
+learning_rates=(0.005 0.001 0.0001 0.0005 0.00005) #5
+clip_coef=(0.1 0.15 0.2 0.3 0.5) #5
+ent_coefs=(0.01 0.02 0.03 0.05 0.1) #5
+num_steps=(128 500 1000 2000) #4
 
 
-module load flexiblas
-export FLEXIBLAS=blis2
+num_seed=${#seeds[@]}
+num_lr=${#learning_rates[@]}
+num_ent_coef=${#ent_coefs[@]}
+num_clip_coef=${#clip_coef[@]}
+num_s=${#num_steps[@]}
 
-source envs/venv/bin/activate
+#idx=$SLURM_ARRAY_TASK_ID
+idx=$(( $SLURM_ARRAY_TASK_ID + 2000 ))
 
-# Parameter ranges
-learning_rates=(0.0005 0.001 0.005 0.01 0.05)      # 5
-clip_coefs=(0.1 0.15 0.2 0.3 0.4 0.5)              # 6
-ent_coefs=(0.01 0.05 0.1 0.15 0.2 0.25 0.3 0.35)   # 8
 
-num_seeds=3
-total_experiments=$((5 * 6 * 8))  # 240
+# Get index for learning rate
+lr_index=$(( idx % num_lr ))
+idx=$(( idx / num_lr ))
 
-global_idx=$SLURM_ARRAY_TASK_ID
-exp_idx=$((global_idx / num_seeds))  # 0–239
-seed=$((global_idx % num_seeds))     # 0–2
+# Get index for entropy coef
+ent_index=$(( idx % num_ent_coef ))
+idx=$(( idx / num_ent_coef ))
 
-lr_idx=$((exp_idx / 48))             # 0–4
-cc_idx=$(((exp_idx % 48) / 8))       # 0–5
-ec_idx=$((exp_idx % 8))              # 0–7
+# Get index for clip coef
+clip_index=$(( idx % num_clip_coef ))
+idx=$(( idx / num_clip_coef ))
 
-lr=${learning_rates[$lr_idx]}
-clip=${clip_coefs[$cc_idx]}
-ent=${ent_coefs[$ec_idx]}
+num_index=$(( idx % num_s ))
+idx=$(( idx / num_s ))
 
-echo "Running job $global_idx (exp=$exp_idx, seed=$seed) with:"
-echo "  Learning rate: $lr"
-echo "  Clip coef: $clip"
-echo "  Entropy coef: $ent"
-echo "  Seed: $seed"
 
-OMP_NUM_THREADS=1 python -m pipelines.train_ppo \
-  --seed=2 \
-  --learning_rate=$lr \
-  --clip_coef=$clip \
-  --ent_coef=$ent \
-  --game_width=8 \
-  --hidden_size=6 \
-  --models_path_prefix="binary/models/parameter_sweep"
+# Get index for seed
+sd_index=$(( idx % num_seed ))
+
+SD="${seeds[${sd_index}]}"
+LR="${learning_rates[${lr_index}]}"
+ENT="${ent_coefs[${ent_index}]}"
+CLIP="${clip_coef[${clip_index}]}"
+NUM="${num_steps[${num_index}]}"
+
+OMP_NUM_THREADS=1 python3.11 ~/scratch/neurips-2025-paper-neural-decomposition/pipelines/train_ppo.py \
+    --seed "${SD}" \
+    --learning_rate "${LR}"\
+    --ent_coef "${ENT}"\
+    --num_steps "${NUM}"\
+    --clip_coef "${CLIP}"\
+    --env_id "MiniGrid-Unlock-v0"\
+    --game_width 9\
+    --total_timesteps 1000000\
+    --save_run_info 1\
+    --method "no_options"\
+    --option_mode "vanilla"

@@ -453,6 +453,8 @@ class PPOAgent(nn.Module):
 
     def get_action_with_mask(self, x_tensor, mask=None):
         if mask == None:
+            if self.mask is None:
+                return (self.get_action_and_value(x_tensor)[0], [])
             mask = self.mask
         if self.mask_type == "internal":
             if self.mask_transform_type == "softmax":
