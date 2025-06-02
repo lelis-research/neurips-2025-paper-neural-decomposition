@@ -27,7 +27,7 @@ class Args:
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0, MiniGrid-FourRooms-v0, MiniGrid-Unlock-v0]
     """
     method: str = "no_options"
-    # env_seeds: Union[List, str, Tuple] = (0,1,2) # SimpleCrossing
+    # env_seeds: Union[Tuple[int, ...], str] = (0,1,2) # SimpleCrossing
     env_seeds: Union[List, str, Tuple] = (0,1,2,3) # ComboGrid
     # env_seeds: Union[List[int], str] = (41,51,8) # FourRooms
     # env_seeds: Union[List[int], str] = (8,) # FourRooms
