@@ -11,7 +11,7 @@ export FLEXIBLAS=blis2
 
 cd /home/rezaabdz/projects/aip-lelis/rezaabdz/neurips-2025-paper-neural-decomposition
 
-source envs/venv/bin/activate
+source /home/rezaabdz/scratch/envs/venv/bin/activate
 
 # Parameter ranges
 learning_rates=(0.0005 0.001 0.005 0.01 0.05)      # 5
