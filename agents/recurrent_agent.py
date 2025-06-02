@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 from typing import Union
-from gymnasium.vector import SyncVectorEnv
+from gymnasium.vector import SyncVectorEnv, AsyncVectorEnv
 from torch.distributions.categorical import Categorical
 
 from environments.environments_combogrid_gym import ComboGym
@@ -90,7 +90,7 @@ class GruAgent(nn.Module):
         elif isinstance(envs, MiniGridWrap):
             observation_space_size = envs.get_observation_space()
             action_space_size = envs.get_action_space()
-        elif isinstance(envs, SyncVectorEnv):
+        elif isinstance(envs, SyncVectorEnv) or isinstance(envs, AsyncVectorEnv):
             observation_space_size = envs.single_observation_space.shape[0]
             action_space_size = envs.single_action_space.n
         else:
@@ -169,20 +169,23 @@ class GruAgent(nn.Module):
             )
 
     def get_states(self, x, gru_state, done):
-        hidden = self.network(x)
-        # GRU logic
-        batch_size = gru_state.shape[1]
-        hidden = hidden.reshape((-1, batch_size, self.gru.input_size))
-        done = done.reshape((-1, batch_size))
-        new_hidden = []
-        for h, d in zip(hidden, done):
-            h, gru_state = self.gru(h.unsqueeze(0), (1.0 - d).view(1, -1, 1) * gru_state)
-            if self.quantized == 1:
-                gru_state = STEQuantize.apply(gru_state)
-            # new_hidden += [STEQuantize.apply(h)]
-            new_hidden += [h]
-        new_hidden = torch.flatten(torch.cat(new_hidden), 0, 1)
-        return new_hidden, gru_state
+        N = x.shape[0]
+        assert gru_state.shape[1] == N, f"gru_state batch mismatch: {gru_state.shape} vs x {x.shape}"
+
+        # Feature extraction (Identity or custom network)
+        hidden = self.network(x)             # [N, D]
+        hidden = hidden.unsqueeze(0)         # [1, N, D] for GRU input
+
+        if done.dtype != torch.float32:
+            done = done.float()
+
+        mask = (1.0 - done).view(1, N, 1).to(gru_state.device)  # [1, N, 1]
+        masked_gru_state = gru_state * mask                    # [1, N, H]
+
+        # Forward GRU pass
+        gru_output, next_gru_state = self.gru(hidden, masked_gru_state)  # [1, N, H], [1, N, H]
+        gru_output = gru_output.squeeze(0)  # [N, H]
+        return gru_output, next_gru_state
 
     def get_value(self, x, gru_state, done):
         if self.input_to_actor:
@@ -235,7 +238,7 @@ class GruAgent(nn.Module):
 
     def _masked_input_softmax(self, input, mask):
         if mask is None or len(mask) == 0:
-            raise Exception("No mask is set for the agent.")
+            return input
         
         return (mask[0] * 0) + (mask[1] * 1) + (mask[2] * input)
     
@@ -310,8 +313,9 @@ class GruAgent(nn.Module):
         # discrete_hidden = STEQuantize.apply(h)
         discrete_hidden = h
         
-        concatenated = torch.cat((discrete_hidden, x), dim=1)
-        concatenated = self._masked_input_softmax(concatenated, mask_a)
+        
+        x_masked_2 = self._masked_input_softmax(x, mask_a)
+        concatenated = torch.cat((discrete_hidden, x_masked_2), dim=1)
 
         logits = self.actor(concatenated)
         
@@ -503,3 +507,8 @@ class GruAgent(nn.Module):
         self._h = None
         if verbose: print("End Trajectory \n\n")
         return trajectory
+
+    def get_option_id(self):
+        """Warning: Option ID and just for when we are learning the option and this is used within one experiment 
+        Not to be shared between multiple experiments"""
+        return self.extra_info['id']

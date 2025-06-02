@@ -44,7 +44,7 @@ class Args:
     """if toggled, this experiment will be tracked with Weights and Biases"""
     track_tensorboard: bool = False
     """if toggled, this experiment will be tracked with Tensorboard SummaryWriter"""
-    wandb_project_name: str = "BASELINE0_Combogrid"
+    wandb_project_name: str = "BASELINE1_Combogrid"
     """the wandb's project name"""
     wandb_entity: str = None
     """the entity (team) of wandb's project"""
@@ -54,13 +54,15 @@ class Args:
     """"Not used in this experiment"""
     
     # hyperparameter arguments
-    game_width: int = 5
+    game_width: int = 3
     """the length of the combo/mini-grid square"""
-    max_episode_length: int = 100
+    max_episode_length: int = 30
     """"""
-    visitation_bonus: int = 1
+    visitation_bonus: int = 0
     """"""
     use_options: int = 0
+    """"""
+    processed_options: int = 1
     """"""
     hidden_size: int = 64
     """"""
@@ -72,6 +74,15 @@ class Args:
     """the size of the agent's view in the mini-grid environment"""
     save_run_info: int = 0
     """save entropy and episode length along with satate dict if set to 1"""
+    sweep_mode:int = 0
+    """Toggle on if the model is trained as a part of the hyperparameter sweep."""
+    sweep_early_stop: int = 0
+    """"""
+    entropy_threshold: float = 0.2
+    """"""
+    return_threshold: int = 10
+    """"""
+    exp_mode: str = None
 
     # Specific arguments
     total_timesteps: int = 2_000_000
@@ -80,35 +91,35 @@ class Args:
     # learning_rate: Union[List[float], float] = (0.0005, 0.0005, 5e-05) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (5e-05,) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (0.0005, 0.001, 0.001) # SimpleCrossing
-    actor_lr: float = 5e-3
-    critic_lr: float = 1e-3
-    """the learning rate of the optimize for testinging"""
+    actor_lr: float = 0.001
+    critic_lr: float = 0.001
+    """the learning rate of the optimize for testing"""
     num_envs: int = 8
-    """the number of parallel game environments for testinging"""
-    num_steps: int = 300
-    """the number of steps to run in each environment per policy rollout for testinging"""
+    """the number of parallel game environments for testing"""
+    num_steps: int = 60
+    """the number of steps to run in each environment per policy rollout for testing"""
     anneal_lr: bool = True
-    """Toggle learning rate annealing for policy and value networks for testinging"""
+    """Toggle learning rate annealing for policy and value networks for testing"""
     anneal_entropy: int = 0
     """Toggle entropy coefficient annealing"""
     gamma: float = 0.99
-    """the discount factor gamma for testinging"""
+    """the discount factor gamma for testing"""
     gae_lambda: float = 0.95
-    """the lambda for the general advantage estimation for testinging"""
-    num_minibatches: int = 8
-    """the number of mini-batches for testinging"""
-    update_epochs: int = 6
-    """the K epochs to update the policy for testinging"""
+    """the lambda for the general advantage estimation for testing"""
+    num_minibatches: int = 4
+    """the number of mini-batches for testing"""
+    update_epochs: int = 8
+    """the K epochs to update the policy for testing"""
     norm_adv: bool = True
-    """Toggles advantages normalization for testinging"""
-    clip_coef: float = 0.15 # ComboGrid
+    """Toggles advantages normalization for testing"""
+    clip_coef: float = 0.3 # ComboGrid
     # clip_coef: Union[List[float], float] = (0.15, 0.1, 0.2) # Vanilla RL FourRooms
     # clip_coef: Union[List[float], float] = (0.2,) # Vanilla RL FourRooms
     # clip_coef: Union[List[float], float] = (0.25, 0.2, 0.2) # SimpleCrossing
     """the surrogate clipping coefficient"""
     clip_vloss: bool = False
     """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
-    ent_coef: float = 0.13 # ComboGrid
+    ent_coef: float = 0.02 # ComboGrid
     # ent_coef: Union[List[float], float] = (0.05, 0.2, 0.0) # Vanilla RL FourRooms
     # ent_coef: Union[List[float], float] = (0.1, 0.1, 0.1) # SimpleCrossing
     """coefficient of the entropy"""
@@ -126,9 +137,9 @@ class Args:
     """the mini-batch size (computed in runtime)"""
     num_iterations: int = 0
     """the number of iterations (computed in runtime)"""
-    env_seed: int = 0
+    env_seed: int = 12
     """the seed of the environment (set in runtime)"""
-    seed: int = 16
+    seed: int = 23
     """experiment randomness seed (set in runtime)"""
     problem: str = ""
     """"""
@@ -151,22 +162,42 @@ def main(args: Args):
 
     logger.info(f"\n\nExperiment: {args.exp_id}\n\n")
 
+
     options = None
     if args.use_options == 1:
+        fold = "selected_options"
+        if args.exp_mode is not None:
+            fold = f"selected_options_{args.exp_mode}"
         if args.env_id == "FourRooms":
-            option_folder = f"selected_options/SimpleCrossing"
+            options = {
+            'option_folder': f"{fold}/SimpleCrossing",
+            'seed': args.seed,
+            'env_id': args.env_id,
+            'game_width': args.game_width
+            }
         elif args.env_id == "ComboGrid":
-            option_folder = f"selected_options/ComboGrid"
+            options = {
+            'option_folder': f"{fold}/ComboGrid",
+            'seed': args.seed,
+            'env_id': args.env_id,
+            'game_width': args.game_width
+            }
         elif args.env_id == "MultiRoom":
-            option_folder = f"selected_options/Unlock"
-        options, _ = load_options(args, logger, folder=option_folder)
+            options = {
+            'option_folder': f"{fold}/Unlock",
+            'seed': args.seed,
+            'env_id': args.env_id,
+            'game_width': args.game_width
+            }
+            
+        
 
     if args.track:
         import wandb
 
         wandb.init(
             project=args.wandb_project_name,
-            group=args.exp_id,
+            group="Fixed_str",
             job_type="eval",
             entity=args.wandb_entity,
             sync_tensorboard=False,
@@ -207,35 +238,40 @@ def main(args: Args):
 
     # Environment creation
     if args.env_id == "SimpleCrossing":
-        envs = gym.vector.SyncVectorEnv( 
+        envs = gym.vector.AsyncVectorEnv( 
             [make_env_simple_crossing(max_episode_steps=args.max_episode_length, view_size=args.view_size, seed=args.env_seed, visitation_bonus=args.visitation_bonus, options=options) for _ in range(args.num_envs)],
             autoreset_mode=gym.vector.AutoresetMode.SAME_STEP
             )
     elif "ComboGrid" in args.env_id:
         problem = args.problem
-        envs = gym.vector.SyncVectorEnv(
+        envs = gym.vector.AsyncVectorEnv(
             [make_env_combogrid(rows=args.game_width, columns=args.game_width, problem=problem, max_length=args.max_episode_length, visitation_bonus=visitation_bonus, options=options) for _ in range(args.num_envs)],
             autoreset_mode=gym.vector.AutoresetMode.SAME_STEP
         )    
     elif args.env_id == "FourRooms":
-        envs = gym.vector.SyncVectorEnv( 
+        envs = gym.vector.AsyncVectorEnv( 
             [make_env_four_rooms(max_episode_steps=args.max_episode_length, view_size=args.view_size, seed=args.env_seed, visitation_bonus=args.visitation_bonus, options=options) for _ in range(args.num_envs)],
             autoreset_mode=gym.vector.AutoresetMode.SAME_STEP
             )
     elif args.env_id == "Unlock":
-        envs = gym.vector.SyncVectorEnv(
+        envs = gym.vector.AsyncVectorEnv(
             [make_env_unlock(max_episode_steps=args.max_episode_length, view_size=args.view_size, seed=args.env_seed, visitation_bonus=args.visitation_bonus, n_discrete_actions=args.number_actions) for _ in range(args.num_envs)],
             autoreset_mode=gym.vector.AutoresetMode.SAME_STEP
         )
     elif args.env_id == "MultiRoom":
-        envs = gym.vector.SyncVectorEnv( 
+        envs = gym.vector.AsyncVectorEnv( 
             [make_env_multiroom(max_episode_steps=args.max_episode_length, view_size=args.view_size, seed=args.env_seed, visitation_bonus=args.visitation_bonus, n_discrete_actions=args.number_actions, options=options) for _ in range(args.num_envs)],
             autoreset_mode=gym.vector.AutoresetMode.SAME_STEP
             )
     else:
         raise NotImplementedError
+        
+    base_dir = "binary_9" if args.view_size == 9 else "binary"
+
+    model_path = f'{base_dir}/models/{args.env_id}_{args.exp_mode if args.exp_mode is not None else "dec"}/width={args.game_width}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-{args.seed}.pt'
+    if args.sweep_mode == 1:
+        model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}_{args.exp_mode if args.exp_mode is not None else "dec"}/seed={args.seed}/{args.exp_id}.pt'
     
-    model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}/seed={args.seed}/{args.exp_id}.pt'
 
     train_ppo(envs=envs, 
               seed=args.env_seed, 
@@ -258,13 +294,13 @@ if __name__ == "__main__":
         args.exp_id = f'{args.exp_name}_{args.env_id}_option{args.use_options}' + \
         f'_gw{args.game_width}_h{args.hidden_size}_actor-lr{args.actor_lr}_critic-lr{args.critic_lr}' +\
         f'_ent-coef{args.ent_coef}_clip-coef{args.clip_coef}_visit-bonus{args.visitation_bonus}' +\
-        f'_ep-len{args.max_episode_length}'
+        f'_ep-len{args.max_episode_length}-ent_an{args.anneal_entropy}-gae{args.gae_lambda}'
     
     
     # Parameter specification for each problem
     args.number_actions = 5 if (args.env_id == "Unlock" or args.env_id == "MultiRoom") else 3
-    # args.num_steps = args.max_episode_length * 2
-    args.view_size = 5 if (args.env_id == "SimpleCrossing" or args.env_id == "FourRooms") else 3
+    args.num_steps = args.max_episode_length * 2
+    # args.view_size = 5 if (args.env_id == "SimpleCrossing" or args.env_id == "FourRooms") else 3
     lrs = args.learning_rate
     clip_coef = args.clip_coef
     ent_coef = args.ent_coef

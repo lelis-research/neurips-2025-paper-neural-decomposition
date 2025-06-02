@@ -14,8 +14,77 @@ from minigrid.envs.fourrooms import FourRoomsEnv
 from minigrid.envs.unlock import UnlockEnv
 from minigrid.wrappers import PositionBonus
 from environments.minigrid_multiroomunlock import MultiRoomUnlockEnv
+from environments.environments_combogrid_gym import ComboGym
 import copy
+import os
 
+
+def load_options(env_id, seed, hidden_size=64, game_width=3, folder=None):
+    """
+    Load the saved options (masks, models, and number of iterations) from the specified directory.
+
+    Parameters:
+        save_dir (str): The directory where the options, and trajectories are saved.
+
+    Returns:
+        options (List[GruAgent]): Loaded models.
+        loaded_trajectories (List[Trajectory]): Loaded trajectories.
+    """
+    from agents.recurrent_agent import GruAgent
+    # Load the models and iterations
+
+    if folder:
+        save_dir = f"binary/options/{folder}/width={game_width}/seed={seed}"
+    else:
+        save_dir = f"binary/options/selected_options/{env_id}/width={game_width}/seed={seed}"
+
+
+    model_files = sorted([f for f in os.listdir(save_dir) if f.startswith('ppo_model_option_') and f.endswith('.pt')])
+    
+    print(f"Found options: {model_files}")
+
+    n = len(model_files)
+    options = [None] * n
+
+
+    for model_file in model_files:
+        model_path = os.path.join(save_dir, model_file)
+        checkpoint = torch.load(model_path, weights_only=True)
+        
+        if env_id == "SimpleCrossing" or env_id == "FourRooms":
+            if 'environment_args' in checkpoint:
+                seed = int(checkpoint['environment_args']['seed'])
+                game_width = int(checkpoint['environment_args']['game_width'])
+            else:
+                seed = int(checkpoint['problem'][-1])
+                game_width = game_width
+            envs = get_simplecross_env(view_size=5, seed=seed)
+        elif env_id == "Unlock" or env_id == "MultiRoom":
+            if 'environment_args' in checkpoint:
+                seed = int(checkpoint['environment_args']['seed'])
+                game_width = int(checkpoint['environment_args']['game_width'])
+            else:
+                seed = int(checkpoint['problem'][-1])
+                game_width = game_width
+            envs = get_multiroom_env(view_size=5, seed=seed)
+        elif env_id == "ComboGrid":
+            game_width = int(checkpoint['environment_args']['game_width'])
+            problem = checkpoint['problem']
+            envs = ComboGym(rows=game_width, columns=game_width, problem=problem)
+        else:
+            raise NotImplementedError
+
+        model = GruAgent(envs=envs, h_size=hidden_size, env_id=env_id)  # Create a new GruAgent instance with default parameters
+        model.load_state_dict(checkpoint['model_state_dict'])
+        model.to_option(mask_f=checkpoint['feature_mask'], mask_a=checkpoint['actor_mask'], option_size=checkpoint['n_iterations'], problem_id=checkpoint['problem'])
+        model.extra_info = checkpoint['extra_info'] if 'extra_info' in checkpoint else {}
+        model.environment_args = checkpoint['environment_args'] if 'environment_args' in checkpoint else {}
+        model.eval()
+
+        i = checkpoint['id']
+        options[i] = model
+
+    return options
 
 
 def custom_reward(terminated, goal_reward=1, step_reward=-1):
@@ -72,6 +141,7 @@ class MiniGridWrap(gym.Env):
         self.is_over_bool = False
 
     def setup_options(self, options):
+        options = load_options(options['env_id'], options['seed'], game_width=options['game_width'], folder=options['option_folder'])
         self.action_space = gym.spaces.Discrete(self.action_space.n + len(options))
         self.env.action_space = gym.spaces.Discrete(self.env.action_space.n + len(options))
         self.goal_reward = 10
@@ -200,16 +270,16 @@ def get_simplecross_env(*args, **kwargs):
 
 def get_fourrooms_env(*args, **kwargs):
     env = MiniGridWrap(
-                env = FourRoomsEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], seed=kwargs['seed'], render_mode="rgb_array"),
+                env = FourRoomsEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], render_mode="rgb_array", see_through_walls=True),
                 seed=kwargs['seed'],
                 n_discrete_actions=3,
                 view_size=kwargs['view_size'],
                 show_direction=False if 'show_direction' not in kwargs else kwargs['show_direction'],
                 options=None if 'options' not in kwargs else kwargs['options'])
     env.reset(seed=kwargs['seed'])
-    if kwargs['visitation_bonus'] == 1:
+    if 'visitation_bonus' in kwargs and kwargs['visitation_bonus'] == 1:
         env = PositionBonus(env, scale=0.001)
-    env = gym.wrappers.RecordEpisodeStatistics(env)
+    # env = gym.wrappers.RecordEpisodeStatistics(env)
     return env
 
 def get_unlock_env(*args, **kwargs):
@@ -248,7 +318,7 @@ def make_env_simple_crossing(*args, **kwargs):
 def make_env_four_rooms(*args, **kwargs):
     def thunk():
         env = MiniGridWrap(
-                env = FourRoomsEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], seed=kwargs['seed'], render_mode="rgb_array"),
+                env = FourRoomsEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], render_mode="rgb_array", see_through_walls=True),
                 seed=kwargs['seed'],
                 n_discrete_actions=3,
                 view_size=kwargs['view_size'],
@@ -284,7 +354,7 @@ def make_env_unlock(*args, **kwargs):
 def make_env_multiroom(*args, **kwargs):
     def thunk():
         env = MiniGridWrap(
-                env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=3, minNumRooms=3, render_mode="rgb_array"),
+                env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=5, minNumRooms=3, render_mode="rgb_array", see_through_walls=True),
                 seed=kwargs['seed'],
                 n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
                 view_size=kwargs['view_size'],
@@ -303,7 +373,7 @@ def make_env_multiroom(*args, **kwargs):
 
 def get_multiroom_env(*args, **kwargs):
     env = MiniGridWrap(
-                env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=5, minNumRooms=3, render_mode="rgb_array"),
+                env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=5, minNumRooms=3, render_mode="rgb_array", see_through_walls=True),
                 seed=kwargs['seed'],
                 n_discrete_actions=5 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
                 view_size=kwargs['view_size'],

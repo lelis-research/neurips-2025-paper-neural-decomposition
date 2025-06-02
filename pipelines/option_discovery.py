@@ -66,7 +66,8 @@ class Args:
     #     'combogrid-BR-TL',
     #     'combogrid-BL-TR',
     # )
-
+    base_dir: str = "binary"
+    """Base directory that the mdoels and options are saved in"""
     # These attributes will be filled in the runtime
     exp_id: str = ""
     """The ID of the finished experiment; to be filled in run time"""
@@ -88,12 +89,17 @@ class Args:
     """"""
     view_size: int = 5
     """the size of the agent's view in the mini-grid environment"""
-    max_episode_length: int = 1000
+    max_episode_length: int = 500
     """the maximum length of an episode"""
     l1_lambda: float = 0
     """"""
     preprocess_cache: bool = True
     """"""
+    filter_options: bool = True
+    """"""
+    processed_options: int = 1
+    """"""
+    max_num_options: int = 5
 
     # hill climbing arguments
     number_restarts: int = 2000
@@ -115,7 +121,7 @@ class Args:
     selection_type: str = "local_search"
 
     # Script arguments
-    seed: int = 3
+    seed: int = 1
     """The seed used for reproducibilty of the script"""
     torch_deterministic: bool = True
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
@@ -183,17 +189,16 @@ def process_args() -> Args:
         args.env_seeds = [0, 1, 2, 3]
         args.problems = [COMBO_PROBLEM_NAMES[seed] for seed in args.env_seeds]
         args.model_paths = (
-        'combogrid-TL-BR',
-        'combogrid-TR-BL',
-        'combogrid-BR-TL',
-        'combogrid-BL-TR',
+        f'combogrid-TL-BR',
+        f'combogrid-TR-BL',
+        f'combogrid-BR-TL',
+        f'combogrid-BL-TR',
     )
     elif args.env_id == "SimpleCrossing":
-        args.env_seeds = [1, 3, 5, 15]
+        args.env_seeds = [1, 5, 15]
         args.problems = [args.env_id + f"_{seed}" for seed in args.env_seeds]
         args.model_paths = (
         'simplecrossing-1',
-        'simplecrossing-3',
         'simplecrossing-5',
         'simplecrossing-15',
         )
@@ -206,7 +211,8 @@ def process_args() -> Args:
         'unlock-374',
         'unlock-453',
         )
-        args.view_size = 3
+        args.view_size = 5
+
         
     return args
 
@@ -219,9 +225,9 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     """
     
     trajectories = {}
-    
+
     for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{args.env_id}/seed={args.seed}/{model_directory}-{args.seed}.pt'
+        model_path = f'{args.base_dir}/models/{args.env_id}/width={args.game_width}/seed={args.seed}/{model_directory}-{args.seed}.pt'
         env = get_single_environment(args, seed)
         # env = gym.vector.SyncVectorEnv(
         #     [make_env(problem=problem, rows=args.game_width, columns=args.game_width) for i in range(1)],
@@ -245,7 +251,7 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     return trajectories
 
 
-def save_options(options: List[GruAgent], trajectories: dict, args: Args, logger):
+def save_options(options: List[GruAgent], trajectories: dict, args: Args, logger, folder = None):
     """
     Save the options (masks, models, and number of iterations) to the specified directory.
 
@@ -254,7 +260,11 @@ def save_options(options: List[GruAgent], trajectories: dict, args: Args, logger
         trajectories (Dict[str, Trajectory]): The trajectories corresponding to the these options
         save_dir (str): The directory where the options will be saved.
     """
-    save_dir = f"binary/options/selected_options/{args.env_id}/seed={args.seed}"
+    if folder == None:
+        folder = "selected_options"
+    save_dir = f"{args.base_dir}/options/{folder}/{args.env_id}/width={args.game_width}/seed={args.seed}"
+
+
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     else:
@@ -302,10 +312,10 @@ def load_options(args, logger, folder=None):
     """
 
     # Load the models and iterations
-    if folder:
-        save_dir = f"binary/options/{folder}/seed={args.seed}"
-    else:
-        save_dir = f"binary/options/selected_options/{args.env_id}/seed={args.seed}"
+
+    if folder == None:
+        folder = "selected_options"
+    save_dir = f"{args.base_dir}/options/{folder}/{args.env_id}/width={args.game_width}/seed={args.seed}"
 
     logger.info(f"Option directory: {save_dir}")
 
@@ -336,10 +346,12 @@ def load_options(args, logger, folder=None):
             else:
                 seed = int(checkpoint['problem'][-1])
                 game_width = args.game_width
-            envs = get_multiroom_env(view_size=3, seed=seed)
+            envs = get_multiroom_env(view_size=5, seed=seed)
         elif args.env_id == "ComboGrid":
             game_width = int(checkpoint['environment_args']['game_width'])
             problem = checkpoint['problem']
+            if checkpoint['problem'] == "":
+                problem = COMBO_PROBLEM_NAMES[args.env_seed]
             envs = ComboGym(rows=game_width, columns=game_width, problem=problem)
         else:
             raise NotImplementedError
@@ -373,74 +385,139 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
     trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
     max_length = max([len(t.get_trajectory()) for t in trajectories.values()])
 
-    previous_loss = None
-    best_loss = None
 
-    loss = LevinLossActorCritic(logger)
+    loss = LevinLossActorCritic(logger, args.mask_type, args.mask_transform_type)
 
-    selected_masks = []
-    selected_option_sizes = []
-    selected_mask_models = []
 
-    # the greedy loop of selecting options (masks)
-    while previous_loss is None or best_loss < previous_loss:
-        previous_loss = best_loss
+    
+    option_candidates = []
+    option_id_to_agent = {}
+    option_cache = {}
+    cachce_loaded = False
+    id = 0
 
-        best_loss = None
-        best_mask_model = None
+    if os.path.exists(f"{args.base_dir}/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}/option_cache.pkl"):
+        with open(f"{args.base_dir}/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}/option_cache.pkl", "rb") as f:
+            option_cache = pickle.load(f)
+            cachce_loaded = True
 
-        for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-            model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
-            logger.info(f'Extracting from the agent trained on {problem}, seed={seed}')
-            env = get_single_environment(args, seed=seed)
 
-            agent = GruAgent(env, hidden_size=args.hidden_size, env_id=args.env_id)
-            agent.load_state_dict(torch.load(model_path, weights_only=True))
+    for primary_seed, primary_problem, primary_model_directory in zip(args.env_seeds, args.problems, args.model_paths):
+        model_path = f'{args.base_dir}/models/{args.env_id}/width={args.game_width}/seed={args.seed}/{primary_model_directory}-{args.seed}.pt'
+        primary_env = get_single_environment(args, seed=primary_seed)
+        primary_agent = GruAgent(primary_env, h_size=args.hidden_size, env_id=args.env_id)
+        primary_agent.load_state_dict(torch.load(model_path, weights_only=True))
 
-            for i in range(2, max_length + 1):
-                mask = torch.tensor([-1] * args.hidden_size).view(1,-1)
-                levin_loss = loss.compute_loss(selected_masks + [mask], selected_mask_models + [agent], problem, trajectories, number_actions, selected_option_sizes + [i])
-            
-                if best_loss is None or levin_loss < best_loss:
-                    best_loss = levin_loss
-                    best_mask_model = agent
-                    agent.to_option(mask, i, problem)
+        mask = torch.zeros((3, primary_agent.observation_space_size))
+        mask[2] = 1
 
-        logger.info(f'Summary of option #{len(selected_mask_models)}: \nBest Mask:{best_mask_model.mask}, best_loss={best_loss}, option_size={best_mask_model.option_size}, option problem={best_mask_model.problem_id}\nPrevious selected loss:{previous_loss}')
-        logger_flush(logger)
-        logger.debug("\n")
+        for i in range(2, max_length + 1):
+            gc.collect()
+            primary_agent.to_option(copy.deepcopy(mask), copy.deepcopy(mask), i, "")
+            primary_agent.extra_info['primary_problem'] = primary_problem
+            primary_agent.extra_info['primary_env_seed'] = primary_seed
+            primary_agent.extra_info['id'] = id
+            option_candidates.append(id)
+            option_id_to_agent[id] = copy.deepcopy(primary_agent)
+            if not cachce_loaded:
+                cache_per_problem = {}
+                for problem_name, t in trajectories.items():
+                    t = t.get_trajectory()
+                    temp_dict = {"length": int(primary_agent.option_size)}
+                    for j in range(len(t) + 1):
+                        if j < len(t):
+                            actions = loss._run(copy.deepcopy(t[j][0]), [primary_agent.feature_mask, primary_agent.actor_mask], primary_agent, primary_agent.option_size)
+                            is_applicable = loss.is_applicable(t, actions, j, primary_agent.option_size)
+                            #option cache update
+                            if j not in temp_dict:
+                                temp_dict[j] = (bool(is_applicable), list(actions)) 
+                    cache_per_problem[problem_name] = temp_dict
+                option_cache[id] = copy.deepcopy(cache_per_problem)
+            id += 1
+    try:
+        os.makedirs(f"{args.base_dir}/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}", exist_ok=True)
+        with open(f"{args.base_dir}/options/option_caches_dec-whole/{args.env_id}/width={args.game_width}/seed={args.seed}/option_cache.pkl", "wb") as f:
+            pickle.dump(option_cache, f)
+    except:
+        pass
+    logger.info(f"Number of dec-whole options: {len(option_cache)}")
+    module_extractor = LearnOptions(args, logger, 
+                                mask_type=args.mask_type, 
+                                mask_transform_type=args.mask_transform_type, 
+                                selection_type=args.selection_type)
+    loss.option_cache = option_cache
+    loss.option_id_to_agent = option_id_to_agent
+    module_extractor.levin_loss = loss
+    module_extractor.option_id_to_agent = option_id_to_agent
+    restarts = args.number_restarts
+    max_steps = 1000
+    max_num_options = args.max_num_options
+    best_selected_options = []
+    best_levin_loss_total = float('Inf')
+    completed = 0
+    with concurrent.futures.ProcessPoolExecutor(max_workers=args.cpus) as executor:
+        # Submit tasks to the executor with all required arguments
+        futures = set()
+        for i in range(restarts):
+            if len(futures) >= args.cpus * 2:
+                    done, futures = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
+                    for f in done:
+                        # try:
+                        best_cost, selected_options = future.result()
+                        if best_cost < best_levin_loss_total:
+                            best_levin_loss_total = best_cost
+                            best_selected_options = selected_options
+                        completed += 1
+                        logger.info(f"Restart {completed} of {restarts}. Restart Loss: {best_cost}, Best Loss: {best_levin_loss_total}")
+                        # except Exception as exc:
+                        #     self.logger.error(f'Exception: {exc}')
+            future = executor.submit(
+                module_extractor._search_options_subset, max_num_options, option_candidates, trajectories, max_steps, i)
+            futures.add(future)
+        
+        # Process the results as they complete
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                best_cost, selected_options = future.result()
+                if best_cost < best_levin_loss_total:
+                    best_levin_loss_total = best_cost
+                    best_selected_options = selected_options
+                completed += 1
+                logger.info(f"Restart {completed} of {restarts}. Restart Loss: {best_cost}, Best Loss: {best_levin_loss_total}")
+            except Exception as exc:
+                logger.error(f'Exception: {exc}')
 
-        # we recompute the Levin loss after the automaton is selected so that we can use 
-        # the loss on all trajectories as the stopping condition for selecting masks
-        selected_masks.append(best_mask_model.mask)
-        selected_mask_models.append(best_mask_model)
-        selected_option_sizes.append(best_mask_model.option_size)
-        best_loss = loss.compute_loss(selected_masks, selected_mask_models, "", trajectories, number_actions, selected_option_sizes)
+    try:
+        best_selected_options_processed = module_extractor.postprocess_option_set(copy.deepcopy(best_selected_options), trajectories)
+        best_selected_options_agents = []
+        for agent_id in list(best_selected_options_processed):
+            best_selected_options_agents.append(copy.deepcopy(option_id_to_agent[agent_id]))
+        save_options(best_selected_options_agents, trajectories, args, logger, folder="selected_options_dec-whole")
+    except Exception as exc:
+        logger.error(f'Exception in postprocessing option set: {exc}')
 
-        logger.info(f"Levin loss of the current set: {best_loss}")
-        logger_flush(logger)
 
-    # remove the last automaton added
-    num_options = len(selected_mask_models)
-    selected_mask_models = selected_mask_models[:num_options - 1]
+def neural_augmentation_option(args: Args, logger: logging.Logger):
+    options = []
+    trajectories = []
+    for primary_seed, primary_problem, primary_model_directory in zip(args.env_seeds, args.problems, args.model_paths):
+        model_path = f'{args.base_dir}/models/{args.env_id}/width={args.game_width}/seed={args.seed}/{primary_model_directory}-{args.seed}.pt'
+        primary_env = get_single_environment(args, seed=primary_seed)
+        primary_agent = GruAgent(primary_env, h_size=args.hidden_size, env_id=args.env_id)
+        primary_agent.load_state_dict(torch.load(model_path, weights_only=True))
 
-    # printing selected options
-    logger.info("Selected options:")
-    for i in range(len(selected_mask_models)):
-        logger.info(f"Option #{i}:\n" + 
-                    f"mask={selected_mask_models[i].mask}\n" +
-                    f"size={selected_mask_models[i].option_size}\n" +
-                    f"problem={selected_mask_models[i].problem_id}")
+        primary_agent.eval()
+        trajectory, _ = primary_agent.run(primary_env, verbose=True)
+        trajectories.append(trajectory)
 
-    save_options(options=selected_mask_models, 
-                 trajectories=trajectories,
-                 args=args, 
-                 logger=logger)
+        mask = torch.zeros((3, primary_agent.observation_space_size))
+        mask[2] = 1
 
-    logger_flush(logger)
+        primary_agent.to_option(copy.deepcopy(mask), copy.deepcopy(mask), len(trajectory.get_action_sequence()), primary_problem)
+        options.append(copy.deepcopy(primary_agent))
+    
+    save_options(options, trajectories, args, logger, folder="selected_options_augmented")
 
-    loss.print_output_subpolicy_trajectory(selected_mask_models, trajectories, logger=logger)
-    logger_flush(logger)
 
 
 class STESoftmax(torch.autograd.Function):
@@ -534,11 +611,11 @@ class LearnOptions:
             t_length = trajectories[target_problem].get_length()
 
             for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
-                model_path = f'binary/models/{self.args.env_id}/seed={self.args.seed}/{primary_model_directory}-{self.args.seed}.pt'
+                model_path = f'{self.args.base_dir}/models/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/{primary_model_directory}-{self.args.seed}.pt'
                 primary_env = get_single_environment(self.args, seed=primary_seed)
-                parimary_agent = GruAgent(primary_env, h_size=self.args.hidden_size, env_id=self.args.env_id)
-                parimary_agent.load_state_dict(torch.load(model_path, weights_only=True))
-                mimicing_agents[primary_problem] = (primary_seed, model_path, parimary_agent)
+                primary_agent = GruAgent(primary_env, h_size=self.args.hidden_size, env_id=self.args.env_id)
+                primary_agent.load_state_dict(torch.load(model_path, weights_only=True))
+                mimicing_agents[primary_problem] = (primary_seed, model_path, primary_agent)
 
             with concurrent.futures.ProcessPoolExecutor(max_workers=self.args.cpus) as executor:
                 # Submit tasks to the executor with all required arguments
@@ -550,9 +627,9 @@ class LearnOptions:
                         # actions = trajectories[target_problem].slice(s, n=length).get_action_sequence()
                         # if actions not in [[0,0,1], [2,1,0],[1,0,2], [0,1,2]]:
                         #     continue
-                        for primary_problem, (primary_seed, primary_model_path, parimary_agent) in mimicing_agents.items():
+                        for primary_problem, (primary_seed, primary_model_path, primary_agent) in mimicing_agents.items():
                             future = executor.submit(
-                                self._train_mask_iter, trajectories, target_problem, s, length, parimary_agent)
+                                self._train_mask_iter, trajectories, target_problem, s, length, primary_agent)
                             future.s = s,
                             future.length = length
                             future.primary_problem = primary_problem
@@ -564,24 +641,25 @@ class LearnOptions:
                 for future in concurrent.futures.as_completed(futures):
                     try:
                         feature_mask, actor_mask, init_loss, final_loss, applicable = future.result()
-                        if applicable:
-                            option_candidates.append((feature_mask,
-                                                actor_mask,
-                                                future.primary_problem, 
-                                                target_problem, 
-                                                future.primary_env_seed, 
-                                                target_seed, 
-                                                future.length, 
-                                                future.primary_model_path, 
-                                                future.s))
+                        
+                        option_candidates.append((feature_mask,
+                                            actor_mask,
+                                            future.primary_problem, 
+                                            target_problem, 
+                                            future.primary_env_seed, 
+                                            target_seed, 
+                                            future.length, 
+                                            future.primary_model_path, 
+                                            future.s,
+                                            applicable))
                         self.logger.info(f'Progress: segment:{future.s} of length {future.length}, primary_problem={future.primary_problem} done. init_loss={init_loss}, final_loss={final_loss}')
                     except Exception as exc:
                         self.logger.error(f'Segment:{future.s} of length {future.length} with primary_problem={future.primary_problem} generated an exception: {exc}')
             logger_flush(self.logger)
         self.logger.debug("\n")
 
-        os.makedirs(f"binary/options/all_options/{self.args.env_id}/seed={self.args.seed}", exist_ok=True)
-        with open(f"binary/options/all_options/{self.args.env_id}/seed={self.args.seed}/all_options.pkl", "wb") as f:
+        os.makedirs(f"{self.args.base_dir}/options/all_options/{self.args.env_id}/seed={self.args.seed}", exist_ok=True)
+        with open(f"{self.args.base_dir}/options/all_options/{self.args.env_id}/seed={self.args.seed}/all_options.pkl", "wb") as f:
             pickle.dump(option_candidates, f)
         
         if self.selection_type == "greedy":
@@ -694,7 +772,13 @@ class LearnOptions:
 
         selected_options = set(random_generator.choice(list(all_options), p=weights, size=subset_length, replace=False).tolist())
         not_selected_options = all_options - selected_options
-        target_problems_per_agent = {option_id: self.option_id_to_agent[option_id].extra_info['target_problem'] for option_id in selected_options}
+        target_problems_per_agent = {}
+        for option_id in selected_options:
+            if 'target_problem' in self.option_id_to_agent[option_id].extra_info:
+                target_problems_per_agent[option_id] = self.option_id_to_agent[option_id].extra_info['target_problem']
+            else:
+                target_problems_per_agent[option_id] = self.option_id_to_agent[option_id].extra_info['primary_problem']
+
 
         best_cost = 0
         for problem_name, trajectory in trajectories.items():
@@ -728,7 +812,12 @@ class LearnOptions:
                     neighbours.append(neighbour)
 
             for neighbour in neighbours:
-                target_problems_per_agent = {option_id: self.option_id_to_agent[option_id].extra_info['target_problem'] for option_id in neighbour}
+                target_problems_per_agent = {}
+                for option_id in neighbour:
+                    if 'target_problem' in self.option_id_to_agent[option_id].extra_info:
+                        target_problems_per_agent[option_id] = self.option_id_to_agent[option_id].extra_info['target_problem']
+                    else:
+                        target_problems_per_agent[option_id] = self.option_id_to_agent[option_id].extra_info['primary_problem']
                 cost = 0
                 remaining_sequences = {}
                 for problem_name, trajectory in trajectories.items():
@@ -790,18 +879,64 @@ class LearnOptions:
 
         return agent_id, cache_per_problem
     
+    def postprocess_option_set(self, options, trajectories):
+        temp_set = set()
+        best_set = set(i for i in options)
+        best_loss = 0
+        for problem_name, trajectory in trajectories.items():
+            best_loss += self.levin_loss.compute_loss_cached(list(best_set), 
+                                                    trajectory, 
+                                                    problem_name, 
+                                                    None, 
+                                                    self.number_actions, 
+                                                    [],
+                                                    self.logger)[0]
+        flag = False
+        while not flag:
+            flag = True
+            if len(best_set) == 1:
+                break
+            best_loss_so_far = best_loss
+            for i in range(len(options)):
+                options_cpy = copy.deepcopy(options)
+                options_cpy = options_cpy[:i] + options_cpy[i+1:]
+                temp_loss = 0
+                for problem_name, trajectory in trajectories.items():
+                    temp_loss += self.levin_loss.compute_loss_cached(list(options_cpy), 
+                                                            trajectory, 
+                                                            problem_name, 
+                                                            None, 
+                                                            self.number_actions, 
+                                                            [],
+                                                            self.logger)[0]
+                if temp_loss < best_loss_so_far:
+                    best_loss_so_far = temp_loss
+                    best_options_so_far = options_cpy
+                    redundant_idx = i
+                    flag = False
+            if not flag:
+                best_loss = best_loss_so_far
+                options = best_options_so_far
+                self.logger.info(f"Levin loss without option #{redundant_idx}: {best_loss}")
+            else:
+                break
+        return best_set
+    
     def select_by_local_search(self, option_candidates, trajectories):
         all_options = []
         futures = []
         option_data = []
         # option_candidates = option_candidates[:10]
         for id, option_specs in enumerate(option_candidates):
-            feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment = option_specs
+            feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment, applicable = option_specs
+            if self.args.filter_options:
+                if not applicable:
+                    continue
             option_data.append((id, feature_mask, actor_mask, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment))
 
 
-        if os.path.exists(f"binary/options/option_caches/{self.args.env_id}/seed={self.args.seed}/option_cache.pkl"):
-            with open(f"binary/options/option_caches/{self.args.env_id}/seed={self.args.seed}/option_cache.pkl", "rb") as f:
+        if os.path.exists(f"{self.args.base_dir}/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/option_cache.pkl"):
+            with open(f"{self.args.base_dir}/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/option_cache.pkl", "rb") as f:
                 self.option_cache = pickle.load(f)
         else:
             if self.args.preprocess_cache:
@@ -814,8 +949,8 @@ class LearnOptions:
                 del results
                 gc.collect()
                 try:
-                    os.makedirs(f"binary/options/option_caches/{self.args.env_id}/seed={self.args.seed}", exist_ok=True)
-                    with open(f"binary/options/option_caches/{self.args.env_id}/seed={self.args.seed}/option_cache.pkl", "wb") as f:
+                    os.makedirs(f"{self.args.base_dir}/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}", exist_ok=True)
+                    with open(f"{self.args.base_dir}/options/option_caches/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/option_cache.pkl", "wb") as f:
                         pickle.dump(self.option_cache, f)
                 except:
                     pass 
@@ -850,7 +985,7 @@ class LearnOptions:
         
         restarts = self.args.number_restarts
         max_steps = 1000
-        max_num_options = 10
+        max_num_options = self.args.max_num_options
         best_selected_options = []
         best_levin_loss_total = float('Inf')
         completed = 0
@@ -886,10 +1021,16 @@ class LearnOptions:
                 except Exception as exc:
                     self.logger.error(f'Exception: {exc}')
 
+        try:
+            best_selected_options_processed = self.postprocess_option_set(copy.deepcopy(best_selected_options), trajectories)
+            best_selected_options_agents = []
+            for agent_id in list(best_selected_options_processed):
+                best_selected_options_agents.append(copy.deepcopy(self.option_id_to_agent[agent_id]))
+            save_options(best_selected_options_agents, trajectories, self.args, self.logger)
+        except Exception as exc:
+            self.logger.error(f'Exception in postprocessing option set: {exc}')
+
         self.levin_loss.remove_cache()
-        best_selected_options_agents = []
-        for agent_id in list(best_selected_options):
-            best_selected_options_agents.append(copy.deepcopy(self.option_id_to_agent[agent_id]))
 
         self.levin_loss.print_output_subpolicy_trajectory(best_selected_options_agents, trajectories, self.logger)
 
@@ -899,7 +1040,7 @@ class LearnOptions:
     def _train_mask_iter(self, trajectories, problem, s, length, agent: GruAgent):
         sub_trajectory = {problem: trajectories[problem].slice(s, n=length)}
         feature_mask = torch.nn.Parameter(torch.randn(3, agent.observation_space_size), requires_grad=True)
-        actor_mask = torch.nn.Parameter(torch.randn(3, self.args.hidden_size + agent.observation_space_size), requires_grad=True)
+        actor_mask = torch.nn.Parameter(torch.randn(3, agent.observation_space_size), requires_grad=True)
         return self._train_mask_both(feature_mask, actor_mask, agent, sub_trajectory)
 
 
@@ -1034,9 +1175,9 @@ def evaluate_all_masks_levin_loss(args: Args, logger: logging.Logger):
 
         for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
             logger.info(f'Evaluating Problem: {problem}')
-            model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
+            model_path = f'{args.base_dir}/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
             env = get_single_environment(args, seed=seed)
-            agent = GruAgent(envs=env, hidden_size=args.hidden_size, env_id=args.env_id)
+            agent = GruAgent(envs=env, h_size=args.hidden_size, env_id=args.env_id)
             agent.load_state_dict(torch.load(model_path, weights_only=True))
 
 
@@ -1151,15 +1292,18 @@ def main():
                                     mask_type=args.mask_type, 
                                     mask_transform_type=args.mask_transform_type, 
                                     selection_type=args.selection_type)
-    # module_extractor.discover()
-    with open(f"binary/options/all_options/{args.env_id}/seed={args.seed}/all_options.pkl", 'rb') as f:
-        options = pickle.load(f)
-    trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
-    agents = module_extractor.select_by_local_search(options, trajectories)
-    save_options(agents, trajectories, args, logger)
+    module_extractor.discover()
+    # with open(f"binary/options/all_options/{args.env_id}/seed={args.seed}/all_options.pkl", 'rb') as f:
+    #     options = pickle.load(f)
+    neural_augmentation_option(args, logger)
+    # options, _ = load_options(args, logger)
+    # trajectories = regenerate_trajectories(args, verbose=True, logger=logger)
+    # agents = module_extractor.postprocess_option_set(options, trajectories)
+    # agents = module_extractor.select_by_local_search(options, trajectories)
+    # save_options(agents, trajectories, args, logger)
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()
-    # whole_dec_options_training_data_levin_loss()
+    whole_dec_options_training_data_levin_loss(args, logger)
     # hill_climbing_all_segments()
     # learn_options(args, logger)
 

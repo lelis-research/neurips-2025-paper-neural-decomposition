@@ -33,7 +33,9 @@ class Args:
     # exp_name: str = "extract_learnOptions_randomInit_discreteMasks"
     # exp_name: str = "extract_learnOptions_randomInit_pitisFunction"
     """the name of this experiment"""
-    env_seeds: Union[List, str, Tuple] = (0,1,2,3)
+    # env_seeds: Union[List, str, Tuple] = (0,1,2,3)
+    # env_seeds: Union[List, str, Tuple] = (1,5,15)
+    env_seeds: Union[List, str, Tuple] = (1,255,374)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
     # model_paths: List[str] = (
     #     'train_GruAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
@@ -50,11 +52,24 @@ class Args:
     #     'train_GruAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd1',
     #     'train_GruAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2',
     #     )
+    # model_paths: List[str] = (
+    #     'combogrid-TL-BR',
+    #     'combogrid-TR-BL',
+    #     'combogrid-BR-TL',
+    #     'combogrid-BL-TR',
+    # )
+
+    # model_paths: List[str] = (
+    # 'simplecrossing-1',
+    # 'simplecrossing-5',
+    # 'simplecrossing-15',
+    # )
+
     model_paths: List[str] = (
-        'combogrid-TL-BR',
-        'combogrid-TR-BL',
-        'combogrid-BR-TL',
-        'combogrid-BL-TR',
+    'unlock-1',
+    'unlock-255',
+    'unlock-374',
+    'unlock-453',
     )
 
     # These attributes will be filled in the runtime
@@ -64,21 +79,26 @@ class Args:
     """the name of the problems the agents were trained on; To be filled in runtime"""
 
     # Algorithm specific arguments
-    env_id: str = "ComboGrid"
+    env_id: str = "SimpleCrossing"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
-    cpus: int = 1
+    cpus: int = int(os.environ.get('SLURM_CPUS_PER_TASK', 1))
     """"The number of CPUTs used in this experiment."""
+    base_dir = "binary"
+    """Base directory that the mdoels and options are saved in"""
     
     # hyperparameters
-    game_width: int = 5
+    game_width: int = 9
     """the length of the combo/mini grid square"""
     hidden_size: int = 64
     """"""
     l1_lambda: float = 0
     """"""
     number_actions: int = 3
+    max_episode_length: int = 500
+    view_size: int = 5
+    max_num_options: int = 5
 
     # learning
     fine_tuning_steps: int = 3_000
@@ -93,7 +113,7 @@ class Args:
     # reg_coef: float = 110.03
 
     # Script arguments
-    seed: int = 1
+    seed: int = 23
     """The seed used for reproducibilty of the script"""
     torch_deterministic: bool = True
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
@@ -139,8 +159,32 @@ def process_args() -> Args:
         raise NotImplementedError
     
     if args.env_id == "ComboGrid":
+        args.env_seeds = (0, 1, 2, 3)
+        model_paths: List[str] = (
+        'combogrid-TL-BR',
+        'combogrid-TR-BL',
+        'combogrid-BR-TL',
+        'combogrid-BL-TR',
+    )
         args.problems = [COMBO_PROBLEM_NAMES[seed] for seed in args.env_seeds]
-    elif args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
+    elif args.env_id == "SimpleCrossing":
+        args.env_seeds = (1, 5, 15)
+        args.model_paths: List[str] = (
+        'simplecrossing-1',
+        'simplecrossing-5',
+        'simplecrossing-15',
+        )
+        args.problems = [args.env_id + f"_{seed}" for seed in args.env_seeds]
+    elif args.env_id == "Unlock":
+        args.view_size = 5
+        args.number_actions = 5
+        args.env_seeds = (1, 255, 374, 473)
+        args.model_paths: List[str] = (
+        'unlock-1',
+        'unlock-255',
+        'unlock-374',
+        'unlock-453',
+        )
         args.problems = [args.env_id + f"_{seed}" for seed in args.env_seeds]
         
     return args
@@ -153,9 +197,12 @@ class FineTuning:
         self.selection_type = args.selection_type
         self.number_actions = args.number_actions
 
+        option_cache_path = f"{self.args.base_dir}/options/option_cache_fine_tuning/"
+        self.option_cache_path =  os.path.join(option_cache_path, args.env_id, f"seed={args.seed}", f"width={args.game_width}", "data.pkl")
         if args.option_candidates_path == "":
-            args.option_candidates_path = "binary/options_candidates_fine_tuning/"
-            self.option_candidates_path = os.path.join(args.option_candidates_path, args.exp_id, f"seed={args.seed}", "data.pkl")
+            args.option_candidates_path = f"{self.args.base_dir}/options/all_options_fine_tuning/"
+            self.option_candidates_path = os.path.join(args.option_candidates_path, args.exp_id, f"seed={args.seed}", f"width={args.game_width}", "data.pkl")
+            
         else:
             self.option_candidates_path = os.path.join(args.option_candidates_path, f"seed={args.seed}", "data.pkl")
 
@@ -186,6 +233,12 @@ class FineTuning:
             envs = trajectory.get_state_sequence()
             actions = trajectory.get_action_sequence()
             agent.eval()
+
+            # Mapping: env_action_id -> index in logits
+            action_id_to_index = {0: 0, 1: 1, 2: 2, 3: 3, 5: 4}
+            mapped_actions =[action_id_to_index[a] for a in actions]
+            if self.args.env_id == "Unlock":
+                actions = mapped_actions
 
             new_trajectory = agent.run_fixed_prefix(envs, trajectory.get_length(), verbose=True)
             loss_fn = torch.nn.CrossEntropyLoss()
@@ -221,8 +274,8 @@ class FineTuning:
 
                 for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
                     if primary_problem == target_problem:
-                        continue
-                    model_path = f'binary/models/{self.args.env_id}/seed={self.args.seed}/{primary_model_directory}-{self.args.seed}.pt'
+                        pass
+                    model_path = f'{self.args.base_dir}/models/{self.args.env_id}/width={self.args.game_width}/seed={self.args.seed}/{primary_model_directory}-{self.args.seed}.pt'
                     primary_env = get_single_environment(self.args, seed=primary_seed)
                     primary_agent = GruAgent(primary_env, h_size=self.args.hidden_size, env_id=primary_problem)
                     primary_agent.load_state_dict(torch.load(model_path, weights_only=True))
@@ -262,9 +315,13 @@ class FineTuning:
                                 action, _, _, _, gru_state, _ = agent.get_action_and_value(o, gru_state, torch.zeros(1), deterministic=True)
                                 actions.append(action.item())
                             t_actions = trajectories[target_problem].get_action_sequence()[future.s[0]: future.s[0]+ future.length]
+                            action_id_to_index = {0: 0, 1: 1, 2: 2, 3: 3, 5: 4}
+                            mapped_actions =[action_id_to_index[a] for a in t_actions]
+                            if self.args.env_id == "Unlock":
+                                t_actions = mapped_actions
                             assert actions == t_actions, f"Agent {agent.extra_info} failed to mimic the action {t_actions} in state {t_env} with action {actions} at setgment {future.s} of length {future.length}"
                             option_candidates.append((agent.state_dict(),
-                                                      future.primary_problem, 
+                                                        future.primary_problem, 
                                                 target_problem, 
                                                 future.primary_env_seed, 
                                                 target_seed, 
@@ -278,7 +335,7 @@ class FineTuning:
                 utils.logger_flush(self.logger)
             self.logger.debug("\n")
             self.logger.info("Saving parameters ... ")
-            os.makedirs(os.path.dirname(self.option_candidates_path))
+            os.makedirs(os.path.dirname(self.option_candidates_path), exist_ok=True)
             with open(self.option_candidates_path, 'wb') as f:
                 pickle.dump({'option_candidates': option_candidates, 'trajectories': trajectories}, f, protocol=pickle.HIGHEST_PROTOCOL)
         else:
@@ -289,22 +346,22 @@ class FineTuning:
                 trajectories = data['trajectories']
         
         ## DEBUGGING
-        all_options = []
-        for state_dict, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment in option_candidates:
-            self.logger.info(f'Evaluating the option trained on the segment {({segment[0]},{segment[0]+option_size})} from problem={target_problem}, env_seed={target_env_seed}, primary_problem={primary_problem}')
-            env = get_single_environment(self.args, seed=primary_env_seed)
-            agent = GruAgent(env, hidden_size=self.args.hidden_size)
-            agent.load_state_dict(state_dict)
-            agent.to_option(None, option_size, target_problem)
-            agent.extra_info['primary_problem'] = primary_problem
-            agent.extra_info['primary_env_seed'] = primary_env_seed
-            agent.extra_info['target_problem'] = target_problem
-            agent.extra_info['target_env_seed'] = target_env_seed
-            agent.extra_info['segment'] = segment
-            all_options.append(agent)
+        # all_options = []
+        # for state_dict, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment in option_candidates:
+        #     self.logger.info(f'Evaluating the option trained on the segment {({segment[0]},{segment[0]+option_size})} from problem={target_problem}, env_seed={target_env_seed}, primary_problem={primary_problem}')
+        #     env = get_single_environment(self.args, seed=primary_env_seed)
+        #     agent = GruAgent(env, h_size=self.args.hidden_size)
+        #     agent.load_state_dict(state_dict)
+        #     agent.to_option(None, None, option_size, target_problem)
+        #     agent.extra_info['primary_problem'] = primary_problem
+        #     agent.extra_info['primary_env_seed'] = primary_env_seed
+        #     agent.extra_info['target_problem'] = target_problem
+        #     agent.extra_info['target_env_seed'] = target_env_seed
+        #     agent.extra_info['segment'] = segment
+        #     all_options.append(agent)
 
-        self.levin_loss.print_output_subpolicy_trajectory(all_options, trajectories, logger=self.logger)    
-        return 
+        # self.levin_loss.print_output_subpolicy_trajectory(all_options, trajectories, logger=self.logger)    
+        # return 
         ####
 
 
@@ -319,14 +376,14 @@ class FineTuning:
         self.logger.info("Selected options:")
         for i in range(len(selected_options)):
             self.logger.info(f"Option #{i}:\n" + 
-                        f"mask={selected_options[i].mask}\n" +
                         f"size={selected_options[i].option_size}\n" +
                         f"extra_info={selected_options[i].extra_info}\n" )
 
         save_options(options=selected_options, 
                     trajectories=trajectories,
                     args=self.args, 
-                    logger=self.logger)
+                    logger=self.logger,
+                    folder="selected_options_fine_tune")
 
         utils.logger_flush(self.logger)
 
@@ -372,7 +429,7 @@ class FineTuning:
             for primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment in option_candidates:
                 self.logger.info(f'Evaluating the option trained on the segment {({segment[0]},{segment[0]+option_size})} from problem={target_problem}, env_seed={target_env_seed}, primary_problem={primary_problem}')
                 env = get_single_environment(self.args, seed=primary_env_seed)
-                agent = GruAgent(env, hidden_size=self.args.hidden_size)
+                agent = GruAgent(env, h_size=self.args.hidden_size)
                 agent.load_state_dict(torch.load(model_path))
                 agent.to_option(None, option_size, target_problem)
                 agent.extra_info['primary_problem'] = primary_problem
@@ -403,57 +460,173 @@ class FineTuning:
         selected_options = selected_options[:num_options - 1]
         return selected_options
 
-    def _search_options_subset(self, max_num_options, all_options, chained_trajectory, joint_problem_name_list, max_steps):
-        max_num_options = min(max_num_options, len(all_options))
-        subset_length = random.choices(range(max_num_options + 1), weights=[1/(i+2) for i in range(max_num_options + 1)], k=1)[0]
-        initial_options_set = set(random.sample(all_options, k=subset_length))
-        selected_options = initial_options_set
-        best_cost = self.levin_loss.compute_loss_cached(list(selected_options), chained_trajectory, joint_problem_name_list, "", self.number_actions)
+    def _compute_sample_weight(self, option_refs, possible_sequences, all_options):
+            transitions = [0.1 for _ in range(len(option_refs))]
+            for i, o_idx in enumerate(option_refs):
+                option = all_options[o_idx]
+                option_id = option.get_option_id()
+                for problem_name, sub_cache in self.levin_loss.cache[option_id].items():
+                    for segment, (applicable, _) in sub_cache.items():
+                        if applicable == True and (segment, segment + option.option_size) in possible_sequences[problem_name]:
+                            transitions[i] += 1
+
+            weights = np.array(transitions)
+            weights /= weights.sum()
+            return weights
+
+    def _search_options_subset(self, max_num_options, all_options, all_possible_sequences, trajectories, max_steps, worker_id):
+        max_num_neighbours = 125
+        
+        random_generator = np.random.default_rng([worker_id, self.args.seed])
+        all_option_refs = set(range(len(all_options)))
+        
+        max_num_options = min(max_num_options, len(all_option_refs))
+        # length_weights = np.array([1/(i+2) for i in range(max_num_options + 1)])
+        length_weights = np.array([1/(i*3+2) for i in range(max_num_options + 1)])
+        length_weights /= np.sum(length_weights)
+        subset_length = random_generator.choice(range(max_num_options + 1), p=length_weights)
+        
+        weights = self._compute_sample_weight(all_option_refs, all_possible_sequences, all_options)
+        selected_options = set(random_generator.choice(list(all_option_refs), p=weights, size=subset_length, replace=False).tolist())
+        possible_sequences = copy.deepcopy(all_possible_sequences)
+        
         previous_cost = float('Inf')
+        total_loss_calculations = 1
         steps = 0
-        costs = []
+        best_cost = 0
+        for problem, trajectory in trajectories.items():
+            cost, used_sequences = self.levin_loss.compute_loss_cached([all_options[idx] for idx in selected_options], 
+                                                                                        trajectory, 
+                                                                                        problem_str=problem, 
+                                                                                        number_actions=self.number_actions)
+            possible_sequences[problem] = possible_sequences[problem] - used_sequences
+            best_cost += cost
+        
         while (best_cost < previous_cost or steps == 0) and steps < max_steps:
             previous_cost = best_cost
+            not_selected_options = all_option_refs - selected_options
+            weights = self._compute_sample_weight(not_selected_options, possible_sequences, all_options)
+            num_neighbours = min(max_num_neighbours, len(not_selected_options))
+            sample_options = random_generator.choice(list(not_selected_options), p=weights, size=num_neighbours, replace=False).tolist()
+            # assert len(sample_options) == (len(all_options) - len(selected_options)) == len(not_selected_options), f"Sampled options {len(sample_options)} should be equal to all options {len(all_options)} len of selected ones: {len(selected_options)}, len of not selected ones: {len(not_selected_options)}"
+
             neighbours = []
-            for option in all_options:
+            for option in sample_options:
+                assert option not in selected_options, f"Option {option.get_option_id()} should not be in selected options."
                 if option not in selected_options:
                     if len(selected_options) < max_num_options:
                         neighbour = selected_options | {option}
                         neighbours.append(neighbour)
                     for option2 in selected_options:
-                        neighbour2 = selected_options - {option2} | {option}
-                        neighbours.append(neighbour2)
-                else:
-                    neighbour = selected_options - {option}
-                    neighbours.append(neighbour)
+                        neighbour = selected_options - {option2} | {option}
+                        neighbours.append(neighbour)
+            for option in selected_options:
+                neighbour = selected_options - {option}
+                neighbours.append(neighbour)
+                
+
+            # self.logger.info(f"Number of neighbours: {len(neighbours)}")
+            i = 0
             for neighbour in neighbours:
-                cost = self.levin_loss.compute_loss_cached(list(neighbour), chained_trajectory, joint_problem_name_list, "", self.number_actions)
+                i += 1
+                cost = 0
+                remaining_sequences = copy.deepcopy(all_possible_sequences)
+                for problem, trajectory in trajectories.items():
+                    returned_cost, used_sequences = self.levin_loss.compute_loss_cached([all_options[idx] for idx in neighbour], 
+                                                                                        trajectory, 
+                                                                                        problem_str=problem, 
+                                                                                        number_actions=self.number_actions)
+                    remaining_sequences[problem] = remaining_sequences[problem] - used_sequences
+                    cost += returned_cost
+                    total_loss_calculations += 1
                 if cost < best_cost:
                     selected_options = neighbour
+                    possible_sequences = remaining_sequences
                     best_cost = cost
-            costs.append(best_cost)
             steps += 1
-        return best_cost, selected_options, self.levin_loss.cache, [option.get_option_id() for option in initial_options_set], steps, costs
+        
+        return best_cost, selected_options, {"total_loss_calculations": total_loss_calculations, "steps":steps}
+
+    def _compute_option_applicability(self, option, trajectories):
+        result = {problem: {} for problem in trajectories.keys()}
+        applicable_count = 0
+        for problem, trajectory in trajectories.items():
+            t_len = trajectory.get_length()
+            t = trajectory.get_trajectory()
+            for s in range(t_len):
+                actions = self.levin_loss._run(copy.deepcopy(t[s][0]), option, option.option_size)
+                is_applicable = (len(actions) == option.option_size) and self.levin_loss.is_applicable(t, actions, s)
+                if is_applicable:
+                    applicable_count += 1
+                result[problem][s] = (is_applicable, actions)
+        return result, applicable_count
 
     def select_by_local_search(self, option_candidates, trajectories):
+
         all_options = []
 
-        # print(option_candidates[0])
-
-        for state_dict, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment in option_candidates:
+        for oid, option_det in enumerate(option_candidates):
+            state_dict, primary_problem, target_problem, primary_env_seed, target_env_seed, option_size, model_path, segment = option_det
             self.logger.info(f'Evaluating the option trained on the segment {({segment[0]},{segment[0]+option_size})} from problem={target_problem}, env_seed={target_env_seed}, primary_problem={primary_problem}')
             env = get_single_environment(self.args, seed=primary_env_seed)
-            agent = GruAgent(env, hidden_size=self.args.hidden_size)
+            agent = GruAgent(env, h_size=self.args.hidden_size)
             agent.load_state_dict(state_dict)
-            agent.to_option(None, option_size, target_problem)
+            agent.to_option(None, None, option_size, target_problem)
             agent.extra_info['primary_problem'] = primary_problem
             agent.extra_info['primary_env_seed'] = primary_env_seed
             agent.extra_info['target_problem'] = target_problem
             agent.extra_info['target_env_seed'] = target_env_seed
             agent.extra_info['segment'] = segment
+            agent.extra_info['id'] = oid
+
             all_options.append(agent)
 
         self.logger.info(f"Number of option_candidates: {len(all_options)}")
+
+        if os.path.exists(self.option_cache_path):
+            self.logger.info(f"Loading option cache from {self.option_cache_path}")
+            with open(self.option_cache_path, 'rb') as f:
+                self.levin_loss.cache = pickle.load(f)
+        else:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=self.args.cpus) as executor:
+                # Submit tasks to the executor with all required arguments
+                futures = set()
+                for i, option in enumerate(all_options):
+                    future = executor.submit(
+                        self._compute_option_applicability, option, trajectories)
+                    future.option_id = option.get_option_id()
+                    futures.add(future)
+                self.logger.info(f"Logging Checkpoint 1.")
+
+                # Process the results as they complete
+                total_applicable_count = 0
+                progress = 0
+                for future in concurrent.futures.as_completed(futures):
+                    try:
+                        option_id = future.option_id
+                        self.levin_loss.cache[option_id], n_applicable = future.result()
+                        total_applicable_count += n_applicable
+                        progress += 1
+                        if progress % 100 == 0:
+                            self.logger.info(f"Cache size: {len(self.levin_loss.cache)}, applicable_count: {total_applicable_count}")
+                    except Exception as exc:
+                        self.logger.error(f'Exception: {exc}')
+                        traceback.print_exc()
+                        return
+            self.logger.info(f"Saving option cache to {self.option_cache_path}")
+            os.makedirs(self.option_cache_path[:self.option_cache_path.find("data.pkl")-1], exist_ok=True)
+            with open(self.option_cache_path, 'wb') as f:
+                pickle.dump(self.levin_loss.cache, f, protocol=pickle.HIGHEST_PROTOCOL)
+        self.logger.info(f"Cache created. size: {len(self.levin_loss.cache)}")
+
+        all_possible_sequences = {}
+        for problem_name, trajectory in trajectories.items():
+            trajectory = trajectory.get_trajectory()
+            all_possible_sequences[problem_name] = set()
+            t_length = len(trajectory)
+            for length in range(2, t_length + 1):
+                for s in range(0, t_length - length + 1):
+                    all_possible_sequences[problem_name].add((s, s+length))
 
         chained_trajectory = None
         joint_problem_name_list = []
@@ -468,50 +641,100 @@ class FineTuning:
 
         restarts = 200
         max_steps = 500
-        max_num_options = 10
+        max_num_options = self.args.max_num_options
         best_selected_options = []
         best_levin_loss_total = float('Inf')
         completed = 0
 
-        # for i in range(restarts):
-        #     best_cost, selected_options = self._search_options_subset(max_num_options, all_options, chained_trajectory, joint_problem_name_list, max_steps)
+        for problem, trajectory in trajectories.items():
+            cost, _ = self.levin_loss.compute_loss_cached([], 
+                                                            trajectory, 
+                                                            problem_str=problem, 
+                                                            number_actions=self.number_actions)
+            print(f"Cost of empty set: {cost} for problem {problem}")
+            
+
+        # for i in range(10):
+        #     best_cost, selected_options, info = self._search_options_subset(max_num_options, all_options, all_possible_sequences, trajectories, max_steps, i)
+        #     total_loss_calculations = info['total_loss_calculations']
+        #     steps = info['steps']
+        #     # self.levin_loss.cache.update(cache)
         #     if best_cost < best_levin_loss_total:
         #         best_levin_loss_total = best_cost
         #         best_selected_options = selected_options
-        #     self.logger.info(f"Restart {i+1} of {restarts}")
+        #     completed += 1
+        #     # self.logger.info(f"cache size: {len(self.levin_loss.cache)}")
+        #     self.logger.info(f"Restart {completed} of {restarts} complete. Selected Options: {selected_options}, total_loss_calculations={total_loss_calculations}, steps={steps}, Levin loss: {best_cost}, Best: {best_levin_loss_total}")
+        #     utils.logger_flush(self.logger)        
 
-        self.logger.info(f"Logging Checkpoint 1.")
 
         with concurrent.futures.ProcessPoolExecutor(max_workers=self.args.cpus) as executor:
             # Submit tasks to the executor with all required arguments
-            # self._search_options_subset(max_num_options, all_options, chained_trajectory, joint_problem_name_list, max_steps)
             futures = set()
             for i in range(restarts):
                 future = executor.submit(
-                    self._search_options_subset, max_num_options, all_options, chained_trajectory, joint_problem_name_list, max_steps)
+                    self._search_options_subset, max_num_options, all_options, all_possible_sequences, trajectories, max_steps, i)
                 self.logger.info(f"Restart {i} of {restarts} submitted.")
                 futures.add(future)
-            
             self.logger.info(f"Logging Checkpoint 2.")
 
             # Process the results as they complete
             for future in concurrent.futures.as_completed(futures):
                 try:
-                    best_cost, selected_options, cache, initial_options_set, steps, costs = future.result()
-                    self.levin_loss.cache.update(cache)
+                    best_cost, selected_options, info = future.result()
+                    total_loss_calculations = info['total_loss_calculations']
+                    steps = info['steps']
+                    # self.levin_loss.cache.update(cache)
                     if best_cost < best_levin_loss_total:
                         best_levin_loss_total = best_cost
                         best_selected_options = selected_options
                     completed += 1
-                    self.logger.info(f"Restart {completed} of {restarts} complete. Levin loss: {best_cost}, Best: {best_levin_loss_total}, selected_options: {[option.get_option_id() for option in selected_options]}, initial_options_set :{initial_options_set}, steps: {steps}, costs: {costs}")
+                    # self.logger.info(f"cache size: {len(self.levin_loss.cache)}")
+                    self.logger.info(f"Restart {completed} of {restarts} complete. Selected Options: {selected_options}, total_loss_calculations={total_loss_calculations}, steps={steps}, Levin loss: {best_cost}, Best: {best_levin_loss_total}")
                     utils.logger_flush(self.logger)
                 except Exception as exc:
                     self.logger.error(f'Exception: {exc}')
                     traceback.print_exc()
                     return
 
+        best_selected_options = [all_options[idx] for idx in best_selected_options]
         self.levin_loss.remove_cache()
-        return list(best_selected_options)
+        
+        # Removing redundant options
+        def get_levin_loss(options, trajectories):
+            cost = 0
+            for problem, trajectory in trajectories.items():
+                cost += self.levin_loss.compute_loss_cached(options, 
+                                                trajectory, 
+                                                problem_str=problem, 
+                                                number_actions=self.number_actions,
+                                                cache_enabled=False)[0]
+            return cost
+
+        best_levin_loss = get_levin_loss(best_selected_options, trajectories)
+        
+        self.logger.info(f"Levin loss: {best_levin_loss}")
+        options = copy.deepcopy(best_selected_options)
+        while True:
+            done = True
+            best_loss_so_far = best_levin_loss
+            for i in range(len(options)):
+                options_cpy = copy.deepcopy(options)
+                options_cpy = options_cpy[:i] + options_cpy[i+1:]
+                levin_loss = get_levin_loss(options_cpy, trajectories)
+                if levin_loss < best_loss_so_far:
+                    best_loss_so_far = levin_loss
+                    best_options_so_far = options_cpy
+                    redundant_idx = i
+                    done = False
+            if not done:
+                best_levin_loss = best_loss_so_far
+                options = best_options_so_far
+                self.logger.info(f"Levin loss without option #{redundant_idx}: {best_levin_loss}")
+            else:
+                break
+
+        return list(options)
 
 
 class LevinLossActorCritic:
@@ -556,13 +779,16 @@ class LevinLossActorCritic:
         for _, action in trajectory.get_trajectory():
             actions.append(action)
 
+        assert len(actions) > 0
+
         return actions
 
-    def compute_loss_cached(self, options, trajectory, joint_problem_name_list=None, problem_str=None, number_actions=3):
+    def compute_loss_cached(self, options, trajectory, joint_problem_name_list=None, problem_str=None, number_actions=3, cache_enabled=True):
         t = trajectory.get_trajectory()
         M = np.arange(len(t) + 1)
         trace = [(i-1, None) for i in range(len(t) + 1)]
         trace[0] = (0, None)
+        used_sequences = set()
 
         for j in range(len(t) + 1):
             if j > 0:
@@ -582,22 +808,28 @@ class LevinLossActorCritic:
                     #     continue
                     # if any([joint_problem_name_list[min(j+k, len(t) - 1)] == problem_str for k in range(1, option.option_size)]):
                     #     continue
-                    if (option.get_option_id(), problem_str, j) in self.cache:
-                        if self.cache[(option.get_option_id(), problem_str, j)][0] == True:
-                            actions = self.cache[(option.get_option_id(), problem_str, j)][1]
+                    option_id = option.get_option_id()
+                    if option_id in self.cache and problem_str in self.cache[option_id] and j in self.cache[option_id][problem_str]:
+                        if self.cache[option_id][problem_str][j][0] == True:
+                            actions = self.cache[option_id][problem_str][j][1]
                             if M[j + len(actions)] > M[j] + 1:
                                 trace[j + len(actions)] = (j, i)
                                 M[j + len(actions)] = M[j] + 1
+                            used_sequences.add((j, j+len(actions)))
                             # M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
                     else:
-                        actions = self._run(copy.deepcopy(t[j][0]), option, option.option_size)
-                        # self.cache[(option.get_option_id(), problem_str, j)] = (False, actions)
-                        if self.is_applicable(t, actions, j):
-                            if M[j + len(actions)] > M[j] + 1:
-                                trace[j + len(actions)] = (j, i)
-                                M[j + len(actions)] = M[j] + 1
-                            # M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
-                            # self.cache[(option.get_option_id(), problem_str, j)] = (True, actions)
+                        if cache_enabled:
+                            assert option_id in self.cache , f"{option_id} not found in cache"
+                            assert problem_str in self.cache[option_id], f"{problem_str} not found in cache of {option_id}"
+                            assert j in self.cache[option_id][problem_str], f"{j} not found in cache of {option_id} and {problem_str}"
+                            raise Exception(f"The cache is supposed to be precomputed, combination wasn't found: \n {(option_id, problem_str, j)}")
+                        else:
+                            actions = self._run(copy.deepcopy(t[j][0]), option, option.option_size)
+                            is_applicable = (len(actions) == option.option_size) and self.is_applicable(t, actions, j)
+                            if is_applicable:
+                                if M[j + len(actions)] > M[j] + 1:
+                                    trace[j + len(actions)] = (j, i)
+                                    M[j + len(actions)] = M[j] + 1
         uniform_probability = (1/(len(options) + number_actions)) 
         depth = len(t) + 1
         number_decisions = M[len(t)]
@@ -616,7 +848,7 @@ class LevinLossActorCritic:
         # self.logger.info(f"alpha potentially: {math.log(len(t)) - len(t) * math.log(1/number_actions) }")
         # self.logger.info(f"levin loss: {log_depth - number_decisions * log_uniform_probability}, reg: alpha* {np.sum(1/option_usage)}")
 
-        return log_depth - number_decisions * log_uniform_probability + reg
+        return log_depth - number_decisions * log_uniform_probability + reg, used_sequences
 
     def print_output_subpolicy_trajectory(self, options: List[GruAgent], trajectories, logger):
         """
@@ -648,7 +880,6 @@ class LevinLossActorCritic:
             # Evaluating the performance of options
             logger.info(f"\n {idx} Option: {agent.problem_id}, {agent.extra_info}")
 
-
         for problem, trajectory in trajectories.items():  
             logger.info(f"Option Occurrences in {problem}")
 
@@ -669,7 +900,7 @@ class LevinLossActorCritic:
 
                         actions = self._run(copy.deepcopy(t[j][0]), options[i], options[i].option_size)
 
-                        if self.is_applicable(t, actions, j):
+                        if len(actions) == options[i].option_size and self.is_applicable(t, actions, j):
                             M[j + len(actions)] = min(M[j + len(actions)], M[j] + 1)
 
                             usage = ['-' for _ in range(len(t))]
@@ -705,14 +936,13 @@ class LevinLossActorCritic:
                 buffer += "\n"
             logger.info(buffer)
 
+        env = get_single_environment(args, seed, problem=problem_test)
+        game_width = args.game_width
+
         if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
-            # env = get_training_tasks_simplecross(args.game_width, seed=seed)
             directions = ["R", "D", "L", "U"]
-            game_width = 7
         elif args.env_id == "ComboGrid":
-            env = ComboGym(args.game_width, args.game_width, problem_test)
             directions = ["NA"]
-            game_width = args.game_width
         else:
             raise NotImplementedError
         
@@ -746,13 +976,14 @@ class LevinLossActorCritic:
                         if env.is_over(loc=(i,j)):
                             continue
                         env.reset(init_loc=(i,j), init_dir=direction)
-                        trajectory = agent.run(env, length_cap=agent.option_size - 1)
+                        trajectory, _ = agent.run(env, length_cap=agent.option_size - 1)
                         actions = trajectory.get_action_sequence()
                         action_seq[(i,j)] = actions
 
                 logger.info("Original Agent's Outputs:")
                 _display_options(action_seq, game_width)
         logger.info("#### ### ###\n")
+    
     
 
 def main():

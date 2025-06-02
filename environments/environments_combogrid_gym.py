@@ -1,10 +1,66 @@
+import sys
+sys.path.append("C:\\Users\\Parnian\\Projects\\neurips-2025-paper-neural-decomposition")
+sys.path.append("/home/iprnb/scratch/neurips-2025-paper-neural-decomposition")
 import copy
+import os
 import gymnasium as gym
 import numpy as np
 import torch
 from environments.environments_combogrid import Game, basic_actions
 from typing import List, Any
 from gymnasium.envs.registration import register
+
+def load_options(env_id, seed, hidden_size=64, game_width=3, folder=None):
+    """
+    Load the saved options (masks, models, and number of iterations) from the specified directory.
+
+    Parameters:
+        save_dir (str): The directory where the options, and trajectories are saved.
+
+    Returns:
+        options (List[GruAgent]): Loaded models.
+        loaded_trajectories (List[Trajectory]): Loaded trajectories.
+    """
+
+    # Load the models and iterations
+    from agents.recurrent_agent import GruAgent
+
+    if folder:
+        save_dir = f"binary/options/{folder}/seed={seed}/processed"
+    else:
+        save_dir = f"binary/options/selected_options/{env_id}/seed={seed}"
+
+
+    model_files = sorted([f for f in os.listdir(save_dir) if f.startswith('ppo_model_option_') and f.endswith('.pt')])
+    
+    print(f"Found options: {model_files}")
+
+    n = len(model_files)
+    options = [None] * n
+
+    for model_file in model_files:
+        model_path = os.path.join(save_dir, model_file)
+        checkpoint = torch.load(model_path, weights_only=True)
+        
+        if env_id == "ComboGrid":
+            game_width = int(checkpoint['environment_args']['game_width'])
+            problem = checkpoint['problem']
+            envs = ComboGym(rows=game_width, columns=game_width, problem=problem)
+        else:
+            raise NotImplementedError
+        
+        model = GruAgent(envs=envs, h_size=hidden_size, env_id=env_id)  # Create a new GruAgent instance with default parameters
+        model.load_state_dict(checkpoint['model_state_dict'])
+        model.to_option(mask_f=checkpoint['feature_mask'], mask_a=checkpoint['actor_mask'], option_size=checkpoint['n_iterations'], problem_id=checkpoint['problem'])
+        model.extra_info = checkpoint['extra_info'] if 'extra_info' in checkpoint else {}
+        model.environment_args = checkpoint['environment_args'] if 'environment_args' in checkpoint else {}
+        model.eval()
+
+        i = checkpoint['id']
+
+        options[i] = model
+
+    return options
 
 class ComboGym(gym.Env):
     def __init__(self, rows=3, columns=3, problem="TL-BR", options=None, max_length=500, visitation_bonus=False):
@@ -31,6 +87,7 @@ class ComboGym(gym.Env):
         """
         Enables the corresponding agents to choose from both actions and options
         """
+        options = load_options(options['env_id'], options['seed'], game_width=options['game_width'], folder=options['option_folder'])
         self.action_space = gym.spaces.Discrete(self.action_space.n + len(options))
         self.options = copy.deepcopy(options)
     
