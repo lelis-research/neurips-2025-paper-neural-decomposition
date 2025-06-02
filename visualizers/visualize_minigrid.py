@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from minigrid.wrappers import RGBImgObsWrapper
 from utils.utils import get_logger
 from agents.trajectory import Trajectory
-from environments.environments_minigrid import MiniGridWrap, get_training_tasks_simplecross, get_test_tasks_fourrooms
+from environments.environments_minigrid import MiniGridWrap, get_simplecross_env
 from agents.policy_guided_agent import PPOAgent
 from pipelines.option_discovery import Args, process_args, regenerate_trajectories
 
@@ -121,7 +121,7 @@ def try_on_other_environments(args):
                 continue
             print(f"Try seed={seed} on other_seed={other_seed}")
             if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
-                env = get_training_tasks_simplecross(view_size=args.game_width, seed=other_seed)
+                env = get_simplecross_env(view_size=args.game_width, seed=other_seed)
             elif args.env_id == "MiniGrid-FourRooms-v0":
                 raise NotImplementedError("Environment creation not implemented!")
             import minigrid.core.constants
@@ -137,7 +137,7 @@ def visualize_envs(args):
     for seed in args.seeds:
         print(f"seed = {seed}")
         if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
-            env = get_training_tasks_simplecross(view_size=args.game_width, seed=seed)
+            env = get_simplecross_env(view_size=args.game_width, seed=seed)
         elif args.env_id == "MiniGrid-FourRooms-v0":
             env = get_test_tasks_fourrooms(view_size=args.game_width, seed=seed)
         visualize(env, verbose=True)
@@ -147,7 +147,7 @@ def main(args):
     # visualize_trained_agents(args)
     # args.seeds = (0, 1, 2)
     # args.seeds = range(1, 25)
-    args.seeds = [0]
+    args.seeds = list(range(100))
     # args.env_id = "MiniGrid-FourRooms-v0"
     args.env_id = "MiniGrid-SimpleCrossingS9N1-v0"
     # try_on_other_environments(args)
