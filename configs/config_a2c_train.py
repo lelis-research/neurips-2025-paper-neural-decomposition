@@ -5,7 +5,7 @@ import datetime
 import torch
 import os
 
-from Environments.MiniGrid.GetEnvironment import MINIGRID_ENV_LST
+from Environments.MiniGrid.GetEnvironment import MINIGRID_ENV_LST, layout_1
 from Environments.MuJoCu.GetEnvironment import MUJOCO_ENV_LST
 from Environments.Car.GetEnvironment import CAR_ENV_LST
 
@@ -32,41 +32,20 @@ def default_env_wrappers(env_name, **kwargs):
             {"func": lambda obs: np.clip(obs, -10, 10)},
         ]
         
-        
-        # env_wrappers= [
-        #     "SuccessBonus",
-            
-        #     "CombineGoals",
-        #     "ClipAction",
-        #     # "NormalizeObs",
-        #     "ClipObs",
-        #     "RecordReward",
-        #     "NormalizeReward",
-        #     "ClipReward", 
-            
-        #     "AntReward",
-        #     "StepReward",
-        #     ]
-    
-        # wrapping_params = [
-        #     {"bonus":100.0},
-                        
-        #     {},
-        #     {}, 
-        #     # {},
-        #     {"func": lambda obs: np.clip(obs, -10, 10)}, 
-        #     {}, 
-        #     {},
-        #     {"func": lambda reward: np.clip(reward, -10, 10)},
-            
-        #     {"ant_r_coef": 0.1},
-        #     {}
-        # ]
-        
 
     elif env_name in MINIGRID_ENV_LST:
-        env_wrappers= ["ViewSize", "FlattenOnehotObj", "FixedSeed", "FixedRandomDistractor"]
-        wrapping_params = [{"agent_view_size": 5}, {}, {"seed": kwargs["env_seed"]}, {}]
+        env_wrappers= ["ViewSize", 
+                       "FlattenOnehotObj", 
+                       "FixedSeed", 
+                    #    "FixedRandomDistractor",
+                    #    "SymbolicLayout",
+                       ]
+        wrapping_params = [{"agent_view_size": 9}, 
+                           {}, 
+                           {"seed": kwargs["env_seed"]}, 
+                        #    {},
+                        #    {"layout": layout_1},
+                           ]
 
     elif env_name in CAR_ENV_LST:
         env_wrappers= ["RecordReward", 
@@ -104,7 +83,7 @@ class arguments:
     nametag:                  str                = os.environ.get("NAMETAG", "") # +datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     num_workers:              int                = 1 # Number of parallel workers for training
 
-    training_env_name:        str                = "MiniGrid-FourRooms-v0" # Medium_Maze, Large_Maze, Hard_Maze
+    training_env_name:        str                = "MiniGrid-SimpleCrossingS9N1-v0" # Medium_Maze, Large_Maze, Hard_Maze
     training_env_params                          = {} 
     training_env_wrappers                        = default_env_wrappers(training_env_name, env_seed=env_seed)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name, env_seed=env_seed)[1]

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=minigrid
-#SBATCH --time=0-01:00:00
+#SBATCH --time=0-02:00:00
 #SBATCH --mem=16G
 #SBATCH --cpus-per-task=1
-#SBATCH --account=aip-lelis
+#SBATCH --account=rrg-lelis
 #SBATCH --array=1-300      
 #SBATCH --output=logs/exp_%A_%a.out
 #SBATCH --error=logs/exp_%A_%a.err
@@ -14,7 +14,7 @@ set -euo pipefail
 cd ~/scratch/neurips-2025-paper-neural-decomposition
 
 # Load modules & env
-module load StdEnv/2020 gcc flexiblas python/3.10 mujoco/2.3.6
+# module load StdEnv/2020 gcc flexiblas python/3.10 mujoco/2.3.6
 source /home/aghakasi/ENV/bin/activate
 
 # Pin BLAS/OpenMP
@@ -36,4 +36,4 @@ export NAMETAG="env_${ENV_SEED}"
 
 
 # Run your script (it should read both $SEED and $ENV_SEED from os.environ)
-python -u main.py --config_path configs/config_a2c.py
+python -u main.py --config_path configs/config_a2c_train.py

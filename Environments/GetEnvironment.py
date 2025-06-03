@@ -7,7 +7,7 @@ from functools import partial
 import gymnasium as gym
 
 # Combine supported environment lists from both MiniGrid and MiniHack.
-ENV_LST = MINIGRID_ENV_LST + MUJOCO_ENV_LST + CAR_ENV_LST
+ENV_LST = MINIGRID_ENV_LST + CAR_ENV_LST + MUJOCO_ENV_LST
 
 
 def get_env(env_name,

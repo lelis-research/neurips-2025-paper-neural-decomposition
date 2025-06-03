@@ -1,3 +1,5 @@
+MUJOCO_ENV_LST = []
+'''
 import gymnasium as gym
 import gymnasium_robotics
 import numpy as np
@@ -396,3 +398,5 @@ if __name__ == "__main__":
         if terminated or truncated:
             obs, info = env.reset()
     env.close()
+
+'''

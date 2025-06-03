@@ -4,8 +4,8 @@ from minigrid.wrappers import ViewSizeWrapper, ImgObsWrapper
 from gymnasium.core import ActionWrapper, ObservationWrapper, RewardWrapper
 from minigrid.core.constants import IDX_TO_OBJECT
 from minigrid.core.constants import COLOR_NAMES
-from minigrid.core.world_object import Ball, Box
-
+from minigrid.core.world_object import Ball, Box, Wall
+from minigrid.core.grid import Grid
 # RewardWrapper that adds a constant step reward to the environment's reward.
 class StepRewardWrapper(RewardWrapper):
     def __init__(self, env, step_reward=0):
@@ -112,6 +112,44 @@ class FixedRandomDistractorWrapper(gym.Wrapper):
             self._has_initialized = True
 
         return obs
+
+
+class SymbolicLayoutWrapper(gym.Wrapper):
+    def __init__(self, env, layout: list[list[str]]):
+        super().__init__(env)
+        self.layout = layout
+        self._has_modified = False
+
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+
+        if not self._has_modified:
+            env = self.env.unwrapped
+            width = env.width
+            height = env.height
+            grid = Grid(width, height)
+
+            for y, row in enumerate(self.layout):
+                for x, val in enumerate(row):
+                    val = val.upper()
+                    if val == "W":
+                        grid.set(x, y, Wall())
+                    elif val == "A":
+                        env.agent_pos = (x, y)
+                        env.agent_dir = 0
+                    elif val == "G":
+                        env.put_obj(env.goal, x, y)
+                    elif val == "E":
+                        continue  # Empty cell
+                    else:
+                        raise ValueError(f"Unknown layout symbol: {val}")
+
+            env.grid = grid
+            env.agent_pos = getattr(env, "agent_pos", (1, 1))
+            env.agent_dir = getattr(env, "agent_dir", 0)
+            self._has_modified = True
+
+        return obs, info
     
 # Dictionary mapping string keys to corresponding wrapper classes.
 WRAPPING_TO_WRAPPER = {
@@ -122,4 +160,5 @@ WRAPPING_TO_WRAPPER = {
     "FlattenOnehotObj": FlatOnehotObjectObsWrapper,
     "FixedSeed": FixedSeedWrapper,
     "FixedRandomDistractor": FixedRandomDistractorWrapper,
+    "SymbolicLayout": SymbolicLayoutWrapper,
 }

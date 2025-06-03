@@ -32,37 +32,6 @@ def default_env_wrappers(env_name, **kwargs):
             {"func": lambda obs: np.clip(obs, -10, 10)},
         ]
         
-        
-        # env_wrappers= [
-        #     "SuccessBonus",
-            
-        #     "CombineGoals",
-        #     "ClipAction",
-        #     # "NormalizeObs",
-        #     "ClipObs",
-        #     "RecordReward",
-        #     "NormalizeReward",
-        #     "ClipReward", 
-            
-        #     "AntReward",
-        #     "StepReward",
-        #     ]
-    
-        # wrapping_params = [
-        #     {"bonus":100.0},
-                        
-        #     {},
-        #     {}, 
-        #     # {},
-        #     {"func": lambda obs: np.clip(obs, -10, 10)}, 
-        #     {}, 
-        #     {},
-        #     {"func": lambda reward: np.clip(reward, -10, 10)},
-            
-        #     {"ant_r_coef": 0.1},
-        #     {}
-        # ]
-        
 
     elif env_name in MINIGRID_ENV_LST:
         env_wrappers= ["ViewSize", "FlattenOnehotObj", "FixedSeed"]

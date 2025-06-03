@@ -1,12 +1,18 @@
 import gymnasium as gym
-
+from minigrid import register_minigrid_envs
 from .Wrappers import WRAPPING_TO_WRAPPER
 
 MINIGRID_ENV_LST = [
     "MiniGrid-Empty-5x5-v0",
     "MiniGrid-SimpleCrossingS9N1-v0",
-    "MiniGrid-SimpleCrossingS9N2-v0",
     "MiniGrid-FourRooms-v0",
+]
+layout_1 = [
+    ["W", "W", "W", "W", "W", "W", "W", "W"],
+    ["W", "A", "E", "E", "E", "E", "E", "W"],
+    ["W", "W", "W", "W", "E", "W", "W", "W"],
+    ["W", "E", "E", "E", "E", "E", "G", "W"],
+    ["W", "W", "W", "W", "W", "W", "W", "W"],
 ]
 
 def get_single_env(env_name, max_steps=None, render_mode=None, env_params={}, wrapping_lst=None, wrapping_params=[]):
@@ -24,6 +30,7 @@ def get_single_env(env_name, max_steps=None, render_mode=None, env_params={}, wr
         gym.Env: A wrapped Gymnasium environment.
     """
     assert env_name in MINIGRID_ENV_LST, f"Environment {env_name} not supported."
+    register_minigrid_envs()
     env = gym.make(env_name, max_steps=max_steps, render_mode=render_mode, **env_params)
     
     # Apply each wrapper in the provided list with corresponding parameters in the same order.
