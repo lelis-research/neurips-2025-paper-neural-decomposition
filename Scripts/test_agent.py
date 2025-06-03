@@ -12,6 +12,7 @@ from Agents.DQNAgent import DQNAgent
 from Agents.NStepDQNAgent import NStepDQNAgent
 from Environments.GetEnvironment import get_env
 from Experiments.EnvAgentLoops import agent_environment_step_loop, agent_environment_episode_loop
+from Agents.A2CAgent import A2CAgent
 
 def test_agent(seed, args):
     np.random.seed(seed)
@@ -50,8 +51,15 @@ def test_agent(seed, args):
             agent = PPOAgentOption.load(agent_path)
         except Exception as e2:
             print(f"PPOAgentOption.load also failed with error: {e2}")
-            print("Loading Both Agents Failed")
-            exit(1)
+            try: 
+                print("Tryig A2CAgent Loading")
+                agent = A2CAgent.load(agent_path)
+            except Exception as e3:
+                print(f"A2CAgent.load also failed with error: {e3}")
+                print("Loading all agent calsses failed")
+                import traceback
+                traceback.print_exc()
+                exit(1)
     # agent = RandomAgent.load(agent_path)
 
     result, _ = agent_environment_episode_loop(env, agent, args.test_episodes, training=False,  

@@ -1,3 +1,4 @@
+from Environments.ComboGrid.GetEnvironment import COMBOGRID_ENV_LST
 from .MiniGrid.GetEnvironment import MINIGRID_ENV_LST
 from .MuJoCu.GetEnvironment import MUJOCO_ENV_LST
 from .Car.GetEnvironment import CAR_ENV_LST
@@ -7,7 +8,7 @@ from functools import partial
 import gymnasium as gym
 
 # Combine supported environment lists from both MiniGrid and MiniHack.
-ENV_LST = MINIGRID_ENV_LST + MUJOCO_ENV_LST + CAR_ENV_LST
+ENV_LST = MINIGRID_ENV_LST + MUJOCO_ENV_LST + CAR_ENV_LST + COMBOGRID_ENV_LST
 
 
 def get_env(env_name,
@@ -35,6 +36,11 @@ def get_env(env_name,
     if env_name in MINIGRID_ENV_LST:
         from .MiniGrid.GetEnvironment import get_single_env
         env = get_single_env(env_name, max_steps, render_mode, env_params, wrapping_lst, wrapping_params)
+    
+    elif env_name in COMBOGRID_ENV_LST:
+        from .ComboGrid.GetEnvironment import get_single_env
+        env = get_single_env(env_name, max_steps, render_mode, env_params, wrapping_lst, wrapping_params)
+    
 
     elif env_name in MUJOCO_ENV_LST:
         from .MuJoCu.GetEnvironment import get_single_env

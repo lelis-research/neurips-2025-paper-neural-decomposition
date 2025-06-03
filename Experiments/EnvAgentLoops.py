@@ -100,6 +100,7 @@ def agent_environment_episode_loop(env, agent, total_episodes, training=True, wr
     """
     # greedy = False if training else True
     timestep = 0
+    maximum_steps = 10_000
     results = []
     best_ep, best_agent = -np.inf, None
     if env.render_mode =="rgb_array" and save_frame_freq is None:
@@ -115,6 +116,7 @@ def agent_environment_episode_loop(env, agent, total_episodes, training=True, wr
         episode_return_wrapped = 0.0
         episode_length = 0
         frames = []
+        step_count = 0
 
         while True:
             action = agent.act(observation, greedy=greedy)
@@ -134,6 +136,9 @@ def agent_environment_episode_loop(env, agent, total_episodes, training=True, wr
                 break
 
             observation = next_observation
+            step_count += 1
+            if step_count == maximum_steps:
+                break
 
         # log to TensorBoard
         if writer is not None:

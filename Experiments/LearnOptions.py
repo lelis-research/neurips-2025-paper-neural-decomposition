@@ -49,6 +49,7 @@ def generate_subtrajectories(traj, min_len, max_len):
     """
     subs = []
     t = len(traj)
+    max_len = min(max_len, len(traj))
     for length in range(min_len, max_len + 1):
         for start in range(t - length + 1):
             subs.append(traj[start : start + length])
