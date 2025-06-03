@@ -127,7 +127,7 @@ class A2CAgent:
 
     @classmethod
     def load(cls, file_path):
-        checkpoint = torch.load(file_path, map_location='cpu')
+        checkpoint = torch.load(file_path, map_location='cpu', weights_only=False)
         init_kwargs = {
             'gamma': checkpoint['gamma'],
             'rollout_steps': checkpoint['rollout_steps'],

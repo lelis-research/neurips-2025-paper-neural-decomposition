@@ -176,6 +176,9 @@ def train_options(args):
 
         print("\n","*** Total num sub-trajectories: ", sum([len(d["sub_traj"]) for d in all_sub_trajectories]), " ***")
 
+        for traj in all_trajectories:
+            print("traj actions:", [pair[1] for pair in traj])
+        
         # Train the masks or fine-tuning for options
         if not os.path.exists(os.path.join(exp_dir, "all_options.pt")):        
             print("\n\n", "*"*20, "TRAINING OPTIONS", "*"*20)
