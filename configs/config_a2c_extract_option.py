@@ -33,40 +33,18 @@ def default_env_wrappers(env_name, **kwargs):
         ]
         
         
-        # env_wrappers= [
-        #     "SuccessBonus",
-            
-        #     "CombineGoals",
-        #     "ClipAction",
-        #     # "NormalizeObs",
-        #     "ClipObs",
-        #     "RecordReward",
-        #     "NormalizeReward",
-        #     "ClipReward", 
-            
-        #     "AntReward",
-        #     "StepReward",
-        #     ]
-    
-        # wrapping_params = [
-        #     {"bonus":100.0},
-                        
-        #     {},
-        #     {}, 
-        #     # {},
-        #     {"func": lambda obs: np.clip(obs, -10, 10)}, 
-        #     {}, 
-        #     {},
-        #     {"func": lambda reward: np.clip(reward, -10, 10)},
-            
-        #     {"ant_r_coef": 0.1},
-        #     {}
-        # ]
-        
 
     elif env_name in MINIGRID_ENV_LST:
-        env_wrappers= ["ViewSize", "FlattenOnehotObj", "FixedSeed", "FixedRandomDistractor"]
-        wrapping_params = [{"agent_view_size": 5}, {}, {"seed": kwargs["env_seed"]}, {}]
+        env_wrappers= ["ViewSize", 
+                       "FlattenOnehotObj", 
+                       "FixedSeed", 
+                    #    "FixedRandomDistractor"
+                       ]
+        wrapping_params = [{"agent_view_size": 9}, 
+                           {}, 
+                           {"seed": kwargs["env_seed"]}, 
+                        #    {}
+                           ]
 
     elif env_name in CAR_ENV_LST:
         env_wrappers= ["RecordReward", 
@@ -90,39 +68,12 @@ def default_env_wrappers(env_name, **kwargs):
 @dataclass
 class arguments:
     # ----- experiment settings -----
-    mode                                         = ["test_option"] # train, test, plot, tune, train_option, test_option
+    mode                                         = ["train_option"] # train, test, plot, tune, train_option, test_option
     res_dir:                  str                = "Results_MiniGrid_A2C_ReLU"
     device:                   str                = torch.device("cpu")
 
-    # ----- train experiment settings -----
-    agent_class:              str                = "A2CAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent, A2CAgent
-    seeds                                        = [int(os.environ.get("SEED", 1000))] 
-    exp_total_steps:          int                = 3_000_000 
-    exp_total_episodes:       int                = 0
-    save_results:             bool               = True
-    env_seed:                 int                = int(os.environ.get("ENV_SEED", 19000))
-    nametag:                  str                = os.environ.get("NAMETAG", "") # +datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    num_workers:              int                = 1 # Number of parallel workers for training
 
-    training_env_name:        str                = "MiniGrid-FourRooms-v0" # Medium_Maze, Large_Maze, Hard_Maze
-    training_env_params                          = {} 
-    training_env_wrappers                        = default_env_wrappers(training_env_name, env_seed=env_seed)[0]
-    training_wrapping_params                     = default_env_wrappers(training_env_name, env_seed=env_seed)[1]
-    training_env_max_steps:   int                = 500
-    training_render_mode:     str                = "rgb_array" #human, None, rgb_array_list, rgb_array
-    save_frame_freq:          int                = None
-    load_agent:               str                = None # "car-test_1000_1000000_Tanh64_20250503_222014"
 
-    # ----- test experiment settings -----
-    test_agent_path:          str                = ""
-    test_episodes:            int                = 10
-    test_seed:                int                = 0 
-    save_test:                bool               = False
-
-    test_env_name:            str                = "AntMaze_R"
-    test_env_params                              = {"continuing_task": False, "reward_type": "sparse"}
-    test_env_wrappers                            = default_env_wrappers(test_env_name)[0]
-    test_wrapping_params                         = default_env_wrappers(test_env_name)[1]
 
     # ----- A2C hyper‑parameters -----
     gamma:                    float              = 0.99
@@ -131,50 +82,13 @@ class arguments:
     step_size:                float              = float(os.environ.get("STEP_SIZE", 3e-4))
     
 
-    # ----- plot setting -----
-    pattern                                      = {
-                                                        # "No Options_1":  "MiniGrid-FourRooms-v0_*_1000000_stepsize_0.01",
-                                                        # "No Options_2":  "MiniGrid-FourRooms-v0_*_1000000_stepsize_0.001",
-                                                        # "No Options_3":  "MiniGrid-FourRooms-v0_*_1000000_stepsize_0.0001", #best
-                                                        
-                                                        "Transfer_1":       "Options_Transfer_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_stepsize_0.01", 
-                                                        "Transfer_2":       "Options_Transfer_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_stepsize_0.001",
-                                                        "Transfer_3":       "Options_Transfer_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_stepsize_0.0001", #best
-                                                        
-                                                        # "DecWhole5_1":       "Options_DecWhole_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.01",
-                                                        # "DecWhole5_2":       "Options_DecWhole_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.001", 
-                                                        "DecWhole5_3":       "Options_DecWhole_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.0001", #best
-                                                        
-                                                        # "DecWhole10_1":       "Options_DecWhole_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.01",
-                                                        "DecWhole10_2":       "Options_DecWhole_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.001", #best
-                                                        # "DecWhole10_3":       "Options_DecWhole_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.0001",
-                                                        
-                                                        # "FineTune5_1":      "Options_FineTune_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.01",
-                                                        # "FineTune5_2":      "Options_FineTune_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.001",
-                                                        "FineTune5_3":      "Options_FineTune_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.0001", #best
-                                                        
-                                                        # "FineTune10_1":      "Options_FineTune_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.01",
-                                                        "FineTune10_2":      "Options_FineTune_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.001", #best
-                                                        # "FineTune10_3":      "Options_FineTune_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.0001", 
-                                                        
-                                                        # "Mask5_1":      "Options_Mask_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.01",
-                                                        # "Mask5_2":      "Options_Mask_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.001",
-                                                        "Mask5_3":      "Options_Mask_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_5_stepsize_0.0001", #best
-                                                        
-                                                        # "Mask10_1":      "Options_Mask_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.01",
-                                                        # "Mask10_2":      "Options_Mask_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.001", #best
-                                                        "Mask10_3":      "Options_Mask_SimpleCrossing_Seed_*_MiniGrid-FourRooms-v0_selected_options_10_stepsize_0.0001", #best
-                                                                         
-                                                    }
-    
-    smoothing_window_size:    int                = 1000
-    interpolation_resolution: int                = 100_000
-    plot_name:                str                = "4Rooms"
+
 
     # ----- Option setting -----
     tmp_seed = int(os.environ.get("TMP_SEED", 1000))
-    tmp_opt= os.environ.get("TMP_OPT", "FineTune") # Mask, FineTune, DecWhole, Transfer
-    mask_type:                str                = None if tmp_opt != "Mask" else os.environ.get("MASK_TYPE", "network") # network, input, both
+    tmp_opt= os.environ.get("TMP_OPT", "Transfer") # Mask, FineTune, DecWhole, Transfer
+    mask_type:                str                = None if tmp_opt != "Mask" else os.environ.get("MASK_TYPE", "input") # network, input, both
+    mask_reg:                 str                = None if tmp_opt != "Mask" else bool(int(os.environ.get("MASK_REG", False))) # True, False
     
     env_agent_list                               = [
                                                     {"env_name": "MiniGrid-SimpleCrossingS9N1-v0", 
@@ -248,7 +162,7 @@ class arguments:
                                                      "env_max_steps":500},
                                                      
                                                     ]
-    option_exp_name:          str                = f"Options_{tmp_opt}_SimpleCrossing_Seed_{tmp_seed}_{mask_type}"
+    option_exp_name:          str                = f"Options_{tmp_opt}_SimpleCrossing_Seed_{tmp_seed}_{mask_type}_{mask_reg}" 
     max_num_options                              = None if tmp_opt == "Transfer" else int(os.environ.get("MAX_NUM_OPTIONS", 5))
     
     # ----- train option experiment settings -----
@@ -262,20 +176,5 @@ class arguments:
     action_dif_tolerance:     float              = 0.01 # tolerance for action difference
     baseline:                 str                = tmp_opt #Mask, FineTune, DecWhole, Transfer
 
-    num_worker:               int                = 32
+    num_worker:               int                = 16
     
-    # ----- test option experiment settings -----
-    option_save_results:      bool               = True
-    option_name_tag:          str                = f"distractors_50_stepsize_{step_size}"
-    test_option_env_name:     str                = os.environ.get("TEST_OPTION_ENV_NAME", "MiniGrid-FourRooms-v0") #Medium_Maze, Large_Maze, Hard_Maze
-    test_option_env_params                       = {}
-    test_option_env_wrappers                     = default_env_wrappers(test_option_env_name, env_seed=19000)[0]
-    test_option_wrapping_params                  = default_env_wrappers(test_option_env_name,  env_seed=19000)[1]
-    test_option_env_max_steps                    = 500
-
-    
-    test_option_render_mode:   str               = "rgb_array" #human, None, rgb_array_list, rgb_array
-    option_save_frame_freq:    int               = None
-
-    exp_options_total_steps:   int               = 3_000_000
-    exp_options_total_episodes:int               = 0

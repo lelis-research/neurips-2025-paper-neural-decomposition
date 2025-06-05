@@ -5,7 +5,7 @@ import argparse
 import importlib.util
 
 from Scripts.train_agent import train_parallel_seeds
-from Scripts.plot import load_results, plot_results, generate_video, plot_comparison
+from Scripts.plot import load_results, plot_results, generate_video, plot_comparison, plot_comparison_best
 from Scripts.test_agent import test_agent
 from Scripts.tune_params import tune_ppo
 from Scripts.learn_options import train_options, test_options
@@ -65,7 +65,7 @@ if __name__ == "__main__":
                 nametag=f"{args.pattern}",
             )
         elif isinstance(args.pattern, dict):
-            plot_comparison(
+            plot_comparison_best(
                 method_patterns=args.pattern,
                 res_dir=args.res_dir,
                 window_size=args.smoothing_window_size,

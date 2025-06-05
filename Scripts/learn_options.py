@@ -73,13 +73,13 @@ def train_one_option(args):
     Worker function to process one (i,j,sub_traj) task.
     Returns either an Option or None.
     """
-    i, j, sub_traj1_env, sub_traj2_env, agent, sub_traj, baseline, mask_epochs, tol, mask_type = args
+    i, j, sub_traj1_env, sub_traj2_env, agent, sub_traj, baseline, mask_epochs, tol, mask_type, mask_reg = args
     # create a local tqdm just for the epochs if you really need it,
     # otherwise you can omit per-task bars.
     if baseline == "Mask":
         mask = learn_mask(agent, sub_traj,
                           num_epochs=mask_epochs,
-                          tol=tol, mask_type=mask_type)
+                          tol=tol, mask_type=mask_type, input_reg=mask_reg)
         if mask is None:
             return None
         info = {
@@ -200,7 +200,8 @@ def train_options(args):
                             args.baseline,
                             args.mask_epochs,
                             args.action_dif_tolerance,
-                            args.mask_type if args.baseline == "Mask" else None
+                            args.mask_type if args.baseline == "Mask" else None,
+                            args.mask_reg if args.baseline == "Mask" else None
                         ))
 
             options_lst = []
@@ -305,7 +306,7 @@ def test_options(args):
         raise ValueError("Both steps and episodes are greater than 0")
     
 
-    if args.save_results:
+    if args.option_save_results:
         with open(os.path.join(test_option_dir, "res.pkl"), "wb") as f:
             pickle.dump(result, f)
         agent.save(os.path.join(test_option_dir, "final.pt"))

@@ -9,6 +9,7 @@ from tqdm import tqdm
 import numpy as np
 import copy
 from multiprocessing import Pool
+import torch.nn.functional as F
 
 from Networks.MaskedNetwork import NetworkMasker
 def extract_trajectory(agent, env):
@@ -55,7 +56,7 @@ def generate_subtrajectories(traj, min_len, max_len):
             subs.append(traj[start : start + length])
     return subs
 
-def learn_mask(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e-3, mask_type=None):
+def learn_mask(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e-3, mask_type=None, input_reg=False):
     """
     Learn a mask tensor that selectively overrides state features so that
     agent.actor_critic.get_action(masked_state) matches the actions in sub_traj.
@@ -87,6 +88,17 @@ def learn_mask(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e-3, ma
             # masked_state = torch.where(mask == 0, state, mask)
             pred_action = masked_actor(state).float()
             total_loss += loss_fn(pred_action, target_action)
+            
+        if "input" in masked_actor.mask_logits and input_reg:
+            mask_logits_input = masked_actor.mask_logits["input"]       # (3, C_input)
+            mask_probs_input  = F.softmax(mask_logits_input, dim=0)     # (3, C_input)
+            prog_probs        = mask_probs_input[2, :]                  # shape = (C_input,)
+
+            # Example penalty: squared‐sum of all P(program)
+            reg_term = torch.sum(prog_probs) ** 2
+
+            # Add scaled penalty to total_loss
+            total_loss += 0.01 * reg_term
             
         optimizer.zero_grad()
         total_loss.backward()
@@ -153,13 +165,7 @@ def fine_tune_policy(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e
             target = torch.from_numpy(action_np)
 
             pred = actor_critic_copy.actor(state).float()
-            try:
-                loss = loss_fn(pred, target)
-            except:
-                print(action_np)
-                print(pred.shape, target.shape)
-                print(pred, target)
-                print("**********")
+            loss = loss_fn(pred, target)
                 
             
 

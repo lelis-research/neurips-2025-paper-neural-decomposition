@@ -5,7 +5,8 @@ import pickle
 import imageio
 import os
 from concurrent.futures import ThreadPoolExecutor
-
+import re
+from collections import defaultdict
 
 def plot_results(runs_metrics, window_size=500, interpolation_resolution=100_000,
                  nametag="",
@@ -219,3 +220,137 @@ def plot_comparison(method_patterns,
     # save once
     fig.savefig(out_fname)
     return fig, ax
+
+def plot_comparison_best(method_patterns, 
+                    res_dir,
+                    window_size,
+                    interpolation_resolution,
+                    out_fname="method_comparison.png"):
+    """
+    Overlay the average return curves of multiple methods on a single plot,
+    but first select only the best step‐size (and best number of selected options
+    where applicable) per “method base,” based on the last 10% of episodes.
+    """
+    # 1. Pick the best hyperparameter pattern for each method base
+    best_patterns = select_best_patterns(method_patterns, res_dir)
+
+    # 2. Now plot only the winning patterns
+    fig, ax = plt.subplots(figsize=(10, 6))
+    plt.tight_layout(pad=3.0)
+
+    # automatic distinct colors
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+
+    for (method_base, pattern), color in zip(best_patterns.items(), colors):
+        print(f"Loading {method_base} (using pattern: {pattern})")
+        folders = glob.glob(os.path.join(res_dir, pattern))
+        print(f"{len(folders)} experiments found for {method_base}")
+        if not folders:
+            print(f"Warning: no folders match pattern {res_dir}/{pattern}")
+            continue
+
+        # load each run's res.pkl
+        runs = []
+        for folder in folders:
+            path = os.path.join(folder, "res.pkl")
+            with open(path, "rb") as f:
+                r = pickle.load(f)
+                runs.append(r)
+
+        # overlay the average return curve for this method_base
+        plot_results(
+            runs,
+            window_size=window_size,
+            interpolation_resolution=interpolation_resolution,
+            nametag=None,         # skip per‐method saving
+            fig=fig, ax=ax,
+            color=color,
+            avg_label=method_base,
+            individual_label=None,
+            plot_individual=False
+        )
+
+    # finalize styling
+    ax.set_title(out_fname)
+    ax.set_xlabel("Environment Steps")
+    ax.set_ylabel("Episode Return")
+    ax.grid(True)
+    ax.legend(loc="best")
+
+    # save once
+    fig.savefig(out_fname)
+    return fig, ax
+
+
+def evaluate_pattern(pattern: str, res_dir: str, last_frac: float = 0.10) -> float:
+    """
+    Load all folders matching `res_dir/pattern`, and for each run:
+      1. load `res.pkl` (a list of dicts with keys "episode_return", "episode_length", ...),
+      2. extract the returns of the last `last_frac` fraction of episodes,
+      3. take the mean over those returns.
+    Finally, return the mean of those means across all runs. If no runs are found, return -inf.
+    """
+    folders = glob.glob(os.path.join(res_dir, pattern))
+    if not folders:
+        return float("-inf")
+
+    run_scores = []
+    for folder in folders:
+        path = os.path.join(folder, "res.pkl")
+        if not os.path.isfile(path):
+            continue
+
+        with open(path, "rb") as f:
+            run = pickle.load(f)
+        # run is a list of dicts; each dict has "episode_return", etc.
+        returns = [ep["episode_return"] for ep in run]
+        if len(returns) == 0:
+            continue
+
+        n_eps = len(returns)
+        cutoff = int(np.ceil((1.0 - last_frac) * n_eps))  # index where last 10% begins
+        last_returns = returns[cutoff:] if cutoff < n_eps else returns[-1:]
+        run_scores.append(np.mean(last_returns))
+
+    if len(run_scores) == 0:
+        return float("-inf")
+    return float(np.mean(run_scores))
+
+
+def select_best_patterns(all_patterns: dict, res_dir: str) -> dict:
+    """
+    Given:
+      all_patterns: a dict mapping e.g. "DecWhole5_2" → "Options_DecWhole_..._stepsize_0.0001"
+      res_dir: the root directory where all folders live
+    1. Compute `score[name] = evaluate_pattern(pattern_string, res_dir)`
+    2. Group names by their “method base” (e.g. "DecWhole", "FineTune", "MaskInput", "MaskBoth", "MaskNetwork", "No Options", "Transfer").
+       We define the method base by taking:
+         full_key = name.rsplit("_", 1)[0]
+         m = re.match(r'^(.+?)(\d+)?$', full_key)
+         base = m.group(1)
+    3. In each base‐group, pick whichever `name` has the highest `score[name]`.
+    4. Return a new dict mapping base → pattern_string_of_best_name.
+    """
+    # 1. evaluate every pattern
+    scores = {}
+    for name, pat in all_patterns.items():
+        sc = evaluate_pattern(pat, res_dir, last_frac=0.10)
+        scores[name] = sc
+        print(f"Pattern {name!r} → score = {sc:.3f}")
+
+    # 2. group them by “method base”
+    groups = defaultdict(list)
+    for name in scores:
+        full_key = name.rsplit("_", 1)[0]  # e.g. "DecWhole5" or "No Options"
+        m = re.match(r'^(.+?)(\d+)?$', full_key)
+        base = m.group(1)  # e.g. "DecWhole" or "No Options"
+        groups[base].append(name)
+
+    # 3. select best name in each group
+    best_patterns = {}
+    for base, names in groups.items():
+        # find name with largest score
+        best_name = max(names, key=lambda nm: scores[nm])
+        best_patterns[base] = all_patterns[best_name]
+        print(f"→ Chosen for method base {base!r} is '{best_name}' (score={scores[best_name]:.3f})")
+    return best_patterns

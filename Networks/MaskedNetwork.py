@@ -70,7 +70,10 @@ class NetworkMasker(nn.Module):
         # Assuming inputs are binary ---- Mask the *input* first ----
         if "input" in self.mask_logits:
             logits = self.mask_logits["input"]     # (3, C_input)
-            probs = F.softmax(logits, dim=0)       # (3, C_input)
+            
+            # probs = F.softmax(logits, dim=0)       # (3, C_input)
+            probs = F.gumbel_softmax(logits, tau=1.0, dim=0, hard=True)    
+            
             p_act, p_deact, p_prog = probs.unbind(0)
 
             # broadcast shape = [1, C_input, 1, 1, ...] matching x
@@ -95,7 +98,8 @@ class NetworkMasker(nn.Module):
                 # 1) Grab the logits and convert to probabilities
                 #    mask_logits[name]: shape = (3, C)
                 logits = self.mask_logits[name]               # (3, C)
-                probs = F.softmax(logits, dim=0)              # (3, C)
+                # probs = F.softmax(logits, dim=0)              # (3, C)
+                probs = F.gumbel_softmax(logits, tau=1.0, dim=0, hard=True)    
                 p_act, p_deact, p_prog = probs.unbind(0)      # each is (C,)
 
                 # 2) Broadcast each prob vector to out’s full shape
