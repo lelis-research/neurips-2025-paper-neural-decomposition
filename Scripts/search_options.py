@@ -57,9 +57,10 @@ def search_options(args):
                 continue
 
             option_protos = []
-            for i in range(2, len(traj)):
+            # for i in range(2, len(traj)):
+            for i in [3,4]:
                 option_proto = Option(agent.actor_critic.actor, 
-                                      NetworkMasker(agent.actor_critic.actor, mask_type=args.mask_type),
+                                      NetworkMasker(agent.actor_critic.actor, mask_type=args.mask_type).mask_logits,
                                       i)
                 option_protos.append(option_proto)
             all_option_prototypes.append(option_protos)
@@ -87,7 +88,7 @@ def search_options(args):
             agent = ag_info['agent'] 
             for i in range(2, len(traj)):
                 option_proto = Option(agent.actor_critic.actor, 
-                                      NetworkMasker(agent.actor_critic.actor, mask_type=args.mask_type),
+                                      NetworkMasker(agent.actor_critic.actor, mask_type=args.mask_type).mask_logits,
                                       i)
                 option_protos.append(option_proto)
             all_option_prototypes.append(option_protos)
@@ -99,14 +100,30 @@ def search_options(args):
     file_name = f"selected_options_nolimit.pt" if args.max_num_options is None else f"selected_options_{args.max_num_options}.pt"
     if not os.path.exists(os.path.join(exp_dir, file_name)):
         print("\n\n", "*"*20, "SELECTING BEST OPTIONS", "*"*20)
+        print(list(all_option_prototypes[0][0].masked_actor.mask_logits.values()))
         all_combos = []
         for option_lst in all_option_prototypes:
             for option in option_lst:
                 mask_combos = {}
                 for name, param in option.masked_actor.mask_logits.items():
-                    mask_combos[name] = option, list(itertools.product([0,1,-1], repeat=param.numel()))
-                    print(f"number of combinations for {name}: {len(mask_combos[name])}")
-                all_combos.append(mask_combos)
+                    size = param.shape[1]
+                    values = [0,1,-1]
+                    combinations = list(itertools.product(values, repeat=size))  # shape: [num_combinations, size]
+                    onehot_map = {
+                        -1: [1, 0, 0],
+                        0: [0, 1, 0],
+                        1: [0, 0, 1]
+                    }
+                    onehot_encoded = [
+                        [onehot_map[v] for v in combo]  # flatten per row
+                        for combo in combinations
+                    ]
+
+                    # Step 5: Convert to tensor
+                    onehot_tensor = torch.tensor(onehot_encoded, dtype=torch.int).transpose(1,-1)
+                    mask_combos[name] = onehot_tensor # COMB * 3 * SIZE
+                    print(f"Combinations shape for {name}: {mask_combos[name].shape}")
+                all_combos.append((option, mask_combos))
 
         loss_fn = partial(
                 seq_loss_fn,
@@ -139,8 +156,8 @@ def search_options(args):
                                 best_options.append(option)
         elif args.selection_type == "local_search":
             options_lst = []
-            for option_proto, combos in all_combos:
-                for mask_combo_combo in itertools.product(list(combos.values())):
+            for option_proto, combos_dict in all_combos:
+                for mask_combo_combo in itertools.product(*list(combos_dict.values())):                    
                     option_cpy = copy.deepcopy(option_proto)
                     option_cpy.update_mask(mask_combo_combo)
                     options_lst.append(option_cpy)
