@@ -9,18 +9,18 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
     return layer
 
 class ActorCriticDiscrete(nn.Module):
-    def __init__(self, observation_space, action_space):
+    def __init__(self, observation_space, action_space, hidden_size=64):
         super(ActorCriticDiscrete, self).__init__()
         obs_dim = int(np.prod(observation_space.shape))
         n_actions = action_space.n  # assumes a gym.spaces.Discrete
 
         # policy: outputs logits over actions
         self.actor = nn.Sequential(
-            layer_init(nn.Linear(obs_dim, 64)),
+            layer_init(nn.Linear(obs_dim, hidden_size)),
+            # nn.ReLU(),
+            # layer_init(nn.Linear(hidden_size, hidden_size)),
             nn.ReLU(),
-            layer_init(nn.Linear(64, 64)),
-            nn.ReLU(),
-            layer_init(nn.Linear(64, n_actions), std=0.01),
+            layer_init(nn.Linear(hidden_size, n_actions), std=0.01),
         )
 
         # value function

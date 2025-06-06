@@ -55,7 +55,7 @@ def train_single_seed(seed, args):
                 "noise_phi", "ou_theta", "ou_sigma",
                 "epsilon_end", "decay_steps"]
     elif args.agent_class == "A2CAgent":
-        keys = ["gamma", "step_size", "rollout_steps", "lamda"]
+        keys = ["gamma", "step_size", "rollout_steps", "lamda", "hidden_size"]
     else:
         raise NotImplementedError("Agent class not known")
     

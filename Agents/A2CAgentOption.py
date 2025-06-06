@@ -24,7 +24,7 @@ class A2CAgentOption:
         self.action_space = gym.spaces.Discrete(self.num_primitives + self.num_options)
         self.device = kwargs.get("device", "cpu")
 
-        self.actor_critic = ActorCriticDiscrete(observation_space, self.action_space).to(self.device)
+        self.actor_critic = ActorCriticDiscrete(observation_space, self.action_space, hidden_size=kwargs.get("hidden_size", 64)).to(self.device)
        
         # Separate optimizers for actor and critic
         self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=self.step_size, eps=1e-5)

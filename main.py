@@ -7,8 +7,9 @@ import importlib.util
 from Scripts.train_agent import train_parallel_seeds
 from Scripts.plot import load_results, plot_results, generate_video, plot_comparison
 from Scripts.test_agent import test_agent
-from Scripts.tune_params import tune_ppo
+from Scripts.tune_params import tune_agent
 from Scripts.learn_options import train_options, test_options
+from Scripts.search_options import search_options
 
 def load_config_module(path: str):
     """
@@ -47,7 +48,7 @@ if __name__ == "__main__":
 
     # dispatch modes
     if "tune" in args.mode:
-        tune_ppo(args)
+        tune_agent(args)
 
     if "train" in args.mode:
         train_parallel_seeds(args.seeds, args)
@@ -72,6 +73,9 @@ if __name__ == "__main__":
                 interpolation_resolution=args.interpolation_resolution,
                 out_fname=f"{args.plot_name}.png",
             )
+
+    if "search_option" in args.mode:
+        search_options(args)
 
     if "train_option" in args.mode:
         train_options(args)

@@ -17,11 +17,12 @@ class A2CAgent:
         self.observation_space = observation_space
         self.action_space = action_space
         self.device = kwargs.get("device", "cpu")
+        self.hidden_size = kwargs.get("hidden_size", 64)
 
         # Build actor-critic model
         if isinstance(action_space, gym.spaces.Discrete):
             # Discrete actions
-            self.actor_critic = ActorCriticDiscrete(observation_space, action_space).to(self.device)
+            self.actor_critic = ActorCriticDiscrete(observation_space, action_space, hidden_size=kwargs.get("hidden_size", 64)).to(self.device)
         elif isinstance(action_space, gym.spaces.MultiDiscrete):
             # MultiDiscrete actions
             self.actor_critic = ActorCriticMultiDiscrete(observation_space, action_space).to(self.device)
@@ -121,18 +122,22 @@ class A2CAgent:
             
             'action_space': self.action_space,
             'observation_space': self.observation_space,
+            'hidden_size': self.hidden_size,
             'device': self.device
         }
         torch.save(checkpoint, file_path)
 
     @classmethod
     def load(cls, file_path):
+        import os
+        print("Current Path", os.path.curdir)
         checkpoint = torch.load(file_path, map_location='cpu', weights_only=False)
         init_kwargs = {
             'gamma': checkpoint['gamma'],
             'rollout_steps': checkpoint['rollout_steps'],
             'step_size': checkpoint['step_size'],
-            'device': checkpoint['device']
+            'device': checkpoint['device'],
+            'hidden_size': checkpoint['hidden_size'] if 'hidden_size' in checkpoint else 64
         }
         obs_space = checkpoint['observation_space']
         act_space = checkpoint['action_space']

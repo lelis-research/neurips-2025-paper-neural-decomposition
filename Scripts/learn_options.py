@@ -31,6 +31,12 @@ class Option():
         self.mask = mask
         if mask is not None:
             self.masked_actor = NetworkMasker(actor, mask)
+
+    def update_mask(self, mask_combo):
+        for i, (name, param) in enumerate(self.masked_actor.mask_logits.items()):
+            tensor = torch.tensor(mask_combo[i]).reshape(param.shape)
+            with torch.no_grad():  # avoid tracking in autograd
+                self.masked_actor.mask_logits[name].copy_(tensor)
     
     def act(self, observation):
         state = torch.from_numpy(observation).float().unsqueeze(0)
@@ -183,6 +189,7 @@ def train_options(args):
         if not os.path.exists(os.path.join(exp_dir, "all_options.pt")):        
             print("\n\n", "*"*20, "TRAINING OPTIONS", "*"*20)
             # get an option for each sub-trajectory
+            import copy
             
             tasks = []
             for i, sub_traj1 in enumerate(all_sub_trajectories):
@@ -196,7 +203,7 @@ def train_options(args):
                             sub_traj1["env_name"],
                             sub_traj2["env_name"],
                             sub_traj1["agent"],
-                            sub,
+                            copy.deepcopy(sub),
                             args.baseline,
                             args.mask_epochs,
                             args.action_dif_tolerance,

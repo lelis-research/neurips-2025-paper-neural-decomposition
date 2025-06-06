@@ -16,9 +16,34 @@ from Experiments.EnvAgentLoops import (
 from .train_agent import train_parallel_seeds
 from Agents.PPOAgentOption import PPOAgentOption
 from Agents.PPOAgent import PPOAgent
+from Agents.ElitePPOAgent import ElitePPOAgent
+from Agents.RandomAgent import RandomAgent
+from Agents.SACAgent import SACAgent
+from Agents.DDPGAgent import DDPGAgent
+from Agents.DQNAgent import DQNAgent
+from Agents.NStepDQNAgent import NStepDQNAgent
+from Agents.A2CAgent import A2CAgent
+from Agents.A2CAgentOption import A2CAgentOption
+
+import warnings
 
 
-def tune_ppo(args):
+class ProgressCallBack:
+    def __init__(self, warn_every_n: int = 1):
+        self.warn_every_n = warn_every_n
+
+    def __call__(self, study: optuna.study.Study, trial: optuna.trial.FrozenTrial) -> None:
+        if trial.state == optuna.trial.TrialState.COMPLETE:
+            completed_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
+            n_completed = len(completed_trials)
+
+            if n_completed % self.warn_every_n == 0:
+                warnings.warn(
+                    f"Progress: {n_completed} trials completed out of {len(study.trials)} total."
+                )
+
+
+def tune_agent(args):
     """
     Runs Optuna to tune PPO hyperparams either with:
       - exhaustive grid search (args.exhaustive_search=True), or
@@ -53,7 +78,8 @@ def tune_ppo(args):
     
     study_kwargs = dict(
         study_name=f"tuning_{args.tuning_env_name}_{args.tuning_nametag}",
-        storage=args.tuning_storage,
+        storage=args.tuning_storage
+        
         # load_if_exists=True,
         # direction="minimize"
     )
@@ -73,8 +99,11 @@ def tune_ppo(args):
                     pts = np.linspace(low, high, num_points)
                     grid_space[name] = [int(round(x)) for x in pts]
         sampler = GridSampler(grid_space)
-        # study = optuna.create_study(**study_kwargs, sampler=sampler)
-        study = optuna.load_study(**study_kwargs, sampler=sampler)
+        
+        try:
+            study = optuna.load_study(**study_kwargs, sampler=sampler)
+        except: 
+            study = optuna.create_study(**study_kwargs, sampler=sampler)
         # optimize_kwargs = {"n_jobs":args.num_tuning_workers}  # omit n_trials → exhausts the grid
         total_trials = int(np.prod([len(v) for v in grid_space.values()]))
     else:
@@ -91,7 +120,7 @@ def tune_ppo(args):
         else:
             n_trials = args.num_trials
     
-    optimize_kwargs = {"n_trials": n_trials, "n_jobs": 1}
+    optimize_kwargs = {"n_trials": n_trials, "n_jobs": 1, "callbacks":[ProgressCallBack()]}
 
     # 2) The objective always uses trial.suggest_*
     def objective(trial):
@@ -121,23 +150,55 @@ def tune_ppo(args):
             if not hasattr(trial_args, k):
                 raise ValueError(f"agent doesn't have '{k}' argument")
             setattr(trial_args, k, v)
+
+        if args.agent_class == "PPOAgent":
+            keys = ["gamma", "lamda",
+                        "epochs", "total_steps", "rollout_steps", "num_minibatches",
+                        "flag_anneal_step_size", "step_size",
+                        "entropy_coef", "critic_coef",  "clip_ratio", 
+                        "flag_clip_vloss", "flag_norm_adv", "max_grad_norm",
+                        "flag_anneal_var", "var_coef", "l1_lambda", # NOTE: l1_lambda wasn't part of this list
+                        ]
+        elif args.agent_class in ["DQNAgent", "NStepDQNAgent"]:
+            keys = ["gamma", "step_size",
+                        "batch_size", "target_update_freq",
+                        "epsilon", "replay_buffer_cap",
+                        "action_res"]
+        elif args.agent_class == "DDPGAgent":
+            keys = ["gamma", "tau", 
+                    "actor_lr", "critic_lr",
+                    "buf_size", "batch_size",
+                    "noise_phi", "ou_theta", "ou_sigma",
+                    "epsilon_end", "decay_steps"]
+        elif args.agent_class in ["A2CAgent", "A2CAgentOption"]:
+            keys = ["gamma", "step_size", "rollout_steps", "lamda", "hidden_size"]
+        else:
+            raise NotImplementedError("Agent class not known")
+                
+        agent_class = eval(args.agent_class)
         
-        ppo_keys = ["gamma", "lamda",
-                "epochs", "total_steps", "rollout_steps", "num_minibatches",
-                "flag_anneal_step_size", "step_size",
-                "entropy_coef", "critic_coef",  "clip_ratio", 
-                "flag_clip_vloss", "flag_norm_adv", "max_grad_norm",
-                "flag_anneal_var", "var_coef",
-                ]
-        agent_kwargs = {k: getattr(trial_args, k) for k in ppo_keys}
+        agent_kwargs = {k: getattr(trial_args, k) for k in keys}
         if len(options_lst) > 0:
             sum_return = 0
             for option in options_lst: 
-                agent = PPOAgentOption(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space, 
-                                    option,
-                                    device=args.device,
-                                    **agent_kwargs
-                                    )
+                if args.agent_class == "A2CAgentOption":
+                    agent = agent_class(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space, 
+                                env.single_action_space if hasattr(env, "single_action_space") else env.action_space, 
+                                option,
+                                device=args.device,
+                                **agent_kwargs
+                                )
+                else:
+                    agent = agent_class(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space, 
+                                        option,
+                                        device=args.device,
+                                        **agent_kwargs
+                                        )
+                    # agent = PPOAgentOption(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space, 
+                    #                     option,
+                    #                     device=args.device,
+                    #                     **agent_kwargs
+                    #                     )
                 result, _ = agent_environment_step_loop(env, agent, args.steps_per_trial, verbose=True)
                 sum_return += sum(r['episode_return'] for r in result)
             avg_return = sum_return / len(options_lst)
@@ -145,11 +206,16 @@ def tune_ppo(args):
         else:
             sum_return = 0
             for seed in args.tuning_seeds:
-                agent = PPOAgent(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space, 
-                                 env.single_action_space if hasattr(env, "single_action_space") else env.action_space,
-                                device=args.device,
-                                **agent_kwargs
-                                )
+                agent = agent_class(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space,
+                        env.single_action_space if hasattr(env, "single_action_space") else env.action_space,
+                        device=args.device,
+                        **agent_kwargs
+                        )
+                # agent = PPOAgent(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space, 
+                #                  env.single_action_space if hasattr(env, "single_action_space") else env.action_space,
+                #                 device=args.device,
+                #                 **agent_kwargs
+                #                 )
                 result, _ = agent_environment_step_loop(env, agent, args.steps_per_trial, verbose=True)
                 sum_return += sum(r['episode_return'] for r in result)
             avg_return = sum_return / len(args.tuning_seeds)

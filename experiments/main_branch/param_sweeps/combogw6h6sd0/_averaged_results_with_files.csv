@@ -1,0 +1,15 @@
+exp,learning_rate,clip_coef,entropy_coef,seed_0_step,seed_0_file,seed_1_step,seed_1_file,seed_2_step,seed_2_file,avg_step
+6,0.0005,0.1,0.3,inf,61917654-cdr695.out,inf,61917654-cdr695.out,inf,61917654-cdr695.out,inf
+8,0.0005,0.15,0.01,inf,61917790-cdr173.out,inf,61917790-cdr173.out,inf,61917790-cdr173.out,inf
+7,0.0005,0.1,0.35,inf,61917787-cdr448.out,inf,61917787-cdr448.out,inf,61917787-cdr448.out,inf
+12,0.0005,0.15,0.2,inf,61917802-cdr671.out,inf,61917802-cdr671.out,inf,61917802-cdr671.out,inf
+9,0.0005,0.15,0.05,inf,61917793-cdr182.out,inf,61917793-cdr182.out,inf,61917793-cdr182.out,inf
+1,0.0005,0.1,0.05,inf,61917639-cdr803.out,inf,61917639-cdr803.out,inf,61917639-cdr803.out,inf
+0,0.0005,0.1,0.01,inf,61917636-cdr448.out,inf,61917636-cdr448.out,inf,61917636-cdr448.out,inf
+10,0.0005,0.15,0.1,inf,61917796-cdr543.out,inf,61917796-cdr543.out,inf,61917796-cdr543.out,inf
+2,0.0005,0.1,0.1,inf,61917642-cdr829.out,inf,61917642-cdr829.out,inf,61917642-cdr829.out,inf
+4,0.0005,0.1,0.2,inf,61917648-cdr577.out,inf,61917648-cdr577.out,inf,61917648-cdr577.out,inf
+5,0.0005,0.1,0.25,inf,61917651-cdr577.out,inf,61917651-cdr577.out,inf,61917651-cdr577.out,inf
+11,0.0005,0.15,0.15,inf,61917799-cdr577.out,inf,61917799-cdr577.out,inf,61917799-cdr577.out,inf
+3,0.0005,0.1,0.15,inf,61917645-cdr173.out,inf,61917645-cdr173.out,inf,61917645-cdr173.out,inf
+13,0.0005,0.15,0.25,inf,61917805-cdr695.out,inf,61917805-cdr695.out,inf,61917805-cdr695.out,inf

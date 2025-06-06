@@ -148,6 +148,7 @@ def generate_video(folders, episode, fps=30):
         imageio.mimsave(gif_path, frames, fps=fps)
         print(f"Saved episode {episode} to {gif_path}")
 
+
 def load_results(args):
     # Create a file pattern based on environment name and max_steps.
     pattern = f"{args.res_dir}/{args.pattern}"
@@ -163,8 +164,7 @@ def load_results(args):
             runs_metrics.append(run_result)
         print(f"Loaded {dir}/res.pkl")
     return runs_metrics, folders
- 
- 
+
 
 def plot_comparison(method_patterns, 
                     res_dir,
@@ -192,9 +192,12 @@ def plot_comparison(method_patterns,
         # load each run's res.pkl
         runs = []
         for folder in folders:
-            with open(os.path.join(folder, "res.pkl"), "rb") as f:
-                r = pickle.load(f)
-                runs.append(r)
+            try:
+                with open(os.path.join(folder, "res.pkl"), "rb") as f:
+                    r = pickle.load(f)
+                    runs.append(r)
+            except:
+                print(f"Unable to open the file: {os.path.join(folder, 'res.pkl')}")
 
         # overlay the average return curve
         plot_results(
