@@ -81,6 +81,8 @@ older_logs/
 OldResults/
 Results_*/
 old_files_and_folders/
+experiments_automated/
+*.db
 
 *.pth
 *.pt

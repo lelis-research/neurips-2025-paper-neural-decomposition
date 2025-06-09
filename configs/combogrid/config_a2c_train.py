@@ -45,7 +45,7 @@ class arguments:
     num_workers:              int                = 1 # Number of parallel workers for training
 
     training_env_name:        str                = "ComboGrid" # Medium_Maze, Large_Maze, Hard_Maze
-    training_env_params                          = {"env_seed": env_seed, "step_reward": 0, "goal_reward": 10, "game_width": GAME_WIDTH} 
+    training_env_params                          = {"env_seed": env_seed, "step_reward": 0, "goal_reward": 1 if env_seed != 12 else 10, "game_width": GAME_WIDTH} 
     training_env_wrappers                        = default_env_wrappers(training_env_name, env_seed=env_seed)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name, env_seed=env_seed)[1]
     training_env_max_steps:   int                = 500
@@ -62,7 +62,7 @@ class arguments:
     test_env_name:            str                = "ComboGrid"
     # test_agent_path:          str                = ""
     test_agent_path:          str                = f"{test_env_name}_{SEED}_{exp_total_steps}_{nametag}"
-    test_env_params                              = {"env_seed": env_seed, "step_reward": 0, "goal_reward": 1, "game_width": GAME_WIDTH}
+    test_env_params                              = {"env_seed": env_seed, "step_reward": 0, "goal_reward": 10 if env_seed == 12 else 1, "game_width": GAME_WIDTH}
     test_env_wrappers                            = default_env_wrappers(test_env_name)[0]
     test_wrapping_params                         = default_env_wrappers(test_env_name)[1]
 
@@ -75,19 +75,31 @@ class arguments:
 
     # ----- plot setting -----
     pattern                                      = {
-                                                        "DecWhole_5": "Options_DecWhole_ComboGrid_Seed_*_None_ComboGrid_selected_options_5_distractors_50_stepsize_0.003",
                                                         "FineTune_5":"Options_FineTune_ComboGrid_Seed_*_None_ComboGrid_selected_options_5_distractors_50_stepsize_0.003",
                                                         "LearnMasks_both_5":"Options_Mask_ComboGrid_Seed_*_both_ComboGrid_selected_options_5_distractors_50_stepsize_0.003",
                                                         "LearnMasks_input_5":"Options_Mask_ComboGrid_Seed_*_input_ComboGrid_selected_options_5_distractors_50_stepsize_0.0003",
                                                         "LearnMasks_network_5":"Options_Mask_ComboGrid_Seed_*_network_ComboGrid_selected_options_5_distractors_50_stepsize_0.0003",
                                                         "Transfer":"Options_Transfer_ComboGrid_Seed_*_None_ComboGrid_selected_options_distractors_50_stepsize_0.003",
                                                         "NoOptions":"ComboGrid_*_500000_env_12",
+                                                        "DecWhole_5": "Options_DecWhole_ComboGrid_Seed_*_None_ComboGrid_selected_options_5_distractors_50_stepsize_0.003",
+                                                        # f"DecWhole_sd{i}": f"Options_DecWhole_ComboGrid_Seed_{i}_None_ComboGrid_selected_options_5_distractors_50_stepsize_0.003"
+                                                        # for i in range(15)
+                                                        # # f"FineTune_sd{i}": f"Options_FineTune_ComboGrid_Seed_{i}_None_ComboGrid_selected_options_5_distractors_50_stepsize_0.003"
+                                                        # for i in range(15)
+                                                        # f"LearnMasks_network_sd{i}": f"Options_Mask_ComboGrid_Seed_{i}_network_ComboGrid_selected_options_5_distractors_50_stepsize_0.0003"
+                                                        # for i in range(15)
+                                                        # f"LearnMasks_both_sd{i}": f"Options_Mask_ComboGrid_Seed_{i}_both_ComboGrid_selected_options_5_distractors_50_stepsize_0.003"
+                                                        # for i in range(8,15)
+                                                        # f"Transfer_sd{i}": f"Options_Transfer_ComboGrid_Seed_{i}_None_ComboGrid_selected_options_distractors_50_stepsize_0.003"
+                                                        # for i in range(15)
+
+                                                        
                                                                          
                                                     }
     
     smoothing_window_size:    int                = 1000
     interpolation_resolution: int                = 100_000
-    plot_name:                str                = "ComboGrid"
+    plot_name:                str                = "ComboGrid6*6"
 
     # ----- Option setting -----
     tmp_seed = SEED
