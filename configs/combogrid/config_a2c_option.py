@@ -16,7 +16,7 @@ class arguments(parent_arguments):
     agent_class: str = "A2CAgentOption"
 
     # ----- search option experiment settings -----
-    selection_type:           str              = "local_search" # local_search, greedy 
+    selection_type:           str              = "greedy" # local_search, greedy 
 
     # ----- tune experiment settings -----
 
