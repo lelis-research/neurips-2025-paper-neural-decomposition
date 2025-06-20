@@ -66,6 +66,26 @@ class arguments:
     test_env_wrappers                            = default_env_wrappers(test_env_name)[0]
     test_wrapping_params                         = default_env_wrappers(test_env_name)[1]
 
+    # ----- tune experiment settings -----
+
+    tuning_nametag:           str              = f"gw{GAME_WIDTH}-h{HIDDEN_SIZE}-vanilla"
+    num_trials:               int              = 10   
+    steps_per_trial:          int              = 100_000
+    param_ranges                               = {
+                                                        "step_size":         [3e-5, 3e-4, 3e-3],
+                                                    }
+    tuning_env_name:          str              = "ComboGrid"
+    tuning_env_params                          = {"env_seed": ENV_SEED, "step_reward": 0, "goal_reward": 10, "game_width": GAME_WIDTH}
+    tuning_env_wrappers                        = default_env_wrappers(tuning_env_name)[0]
+    tuning_wrapping_params                     = default_env_wrappers(tuning_env_name)[1]
+    tuning_env_max_steps:     int              = 500
+    tuning_seeds                               = [0]
+    exhaustive_search:        bool             = True
+    # num_grid_points:          int              = 5
+    option_path_tuning                         = []
+    tuning_storage:           str              = "sqlite:///optuna.db"
+    n_trials_per_job:         int              = 1
+
     # ----- A2C hyper‑parameters -----
     gamma:                    float              = 0.99
     lamda:                    float              = 0.95

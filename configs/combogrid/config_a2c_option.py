@@ -20,7 +20,7 @@ class arguments(parent_arguments):
 
     # ----- tune experiment settings -----
 
-    tuning_nametag:           str              = f"{TMP_OPT}_{MASK_TYPE}" # Mask_Network, Mask_Input, Mask_Both
+    tuning_nametag:           str              = f"gw{GAME_WIDTH}_h{HIDDEN_SIZE}_{TMP_OPT}_{MASK_TYPE}" # Mask_Network, Mask_Input, Mask_Both
     num_trials:               int              = 10   
     steps_per_trial:          int              = 100_000
     param_ranges                               = {
@@ -38,9 +38,9 @@ class arguments(parent_arguments):
                                                     # f"Options_Mask_ComboGrid_Seed_{seed}_network/selected_options_5.pt" for seed in range(3)
                                                     f"Options_{TMP_OPT}_ComboGrid_Seed_{seed}_{MASK_TYPE}/selected_options_5.pt" if TMP_OPT != "Transfer"
                                                     else f"Options_{TMP_OPT}_ComboGrid_Seed_{seed}_{MASK_TYPE}/selected_options.pt"
-                                                    for seed in [0,6,5]
+                                                    for seed in [0,1,4]
                                                 ]
-    tuning_storage:           str              = "sqlite:///optuna.db"
+    tuning_storage:           str              = f"sqlite:///optuna_{tuning_nametag}.db"
     n_trials_per_job:         int              = 1
 
     

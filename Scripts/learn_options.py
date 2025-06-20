@@ -213,12 +213,15 @@ def train_options(args):
             options_lst = []
             # 2) Spawn a pool and process with a progress bar
             with Pool(processes=args.num_worker) as pool:
-                for opt in tqdm(pool.imap_unordered(train_one_option, tasks),
-                                total=len(tasks),
-                                desc="Building Options"):
-                    if opt is not None:
-                        options_lst.append(opt)
-            
+                try:
+                    for opt in tqdm(pool.imap_unordered(train_one_option, tasks),
+                                    total=len(tasks),
+                                    desc="Building Options"):
+                        if opt is not None:
+                            options_lst.append(opt)
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
             torch.save(options_lst, os.path.join(exp_dir, "all_options.pt"))
         else:
             print("\n\n", "*"*20, "LOADING MASKS", "*"*20)
