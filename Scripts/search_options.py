@@ -86,7 +86,8 @@ def search_options(args):
         for traj, ag_info in zip(all_trajectories, agent_info):
             option_protos = []
             agent = ag_info['agent'] 
-            for i in range(2, len(traj)):
+            # for i in range(2, len(traj)):
+            for i in [3,4]:
                 option_proto = Option(agent.actor_critic.actor, 
                                       NetworkMasker(agent.actor_critic.actor, mask_type=args.mask_type).mask_logits,
                                       i)
@@ -135,14 +136,16 @@ def search_options(args):
             previous_loss = None
             best_loss = None
             best_options = []
-            while previous_loss is None or best_loss < previous_loss:
+            while (previous_loss is None or best_loss < previous_loss) and len(best_options) < 5:
                 previous_loss = best_loss
+                cur_best_loss = None
+                cur_best_option = None
                 # Trying each one of the combinations
-                for option_proto, combos in all_combos:
+                for option_proto, combos_dict in all_combos:
                     tasks = []
-                    for mask_combo_combo in itertools.product(list(combos.values())): # NOTE: it should be and ordered list of values
+                    for mask_combo_combo in itertools.product(*list(combos_dict.values())): # NOTE: it should be and ordered list of values
                         # mask_combo_combo: [mask_combo for all params]
-                        tasks.apppend((option_proto, mask_combo_combo, loss_fn, best_options))
+                        tasks.append((option_proto, mask_combo_combo, loss_fn, best_options))
                 
                     with Pool(processes=args.num_workers) as pool:
                         for option, loss in tqdm(
@@ -151,9 +154,15 @@ def search_options(args):
                             unit="run"
                         ):
                             # track global best
-                            if loss < best_loss:
-                                best_loss = loss
-                                best_options.append(option)
+                            if cur_best_loss is None or loss < cur_best_loss:
+                                cur_best_loss = loss
+                                cur_best_option = option
+                                
+                if best_loss is None or cur_best_loss < best_loss:
+                    best_loss = cur_best_loss
+                    best_options.append(cur_best_option)
+
+
         elif args.selection_type == "local_search":
             options_lst = []
             for option_proto, combos_dict in all_combos:
@@ -177,7 +186,8 @@ def search_options(args):
         print("\n\n", "*"*20, "LOADING SELECTED OPTIONS", "*"*20)
         best_options = torch.load(os.path.join(exp_dir, file_name), weights_only=False)
     
-def _one_combo(option_proto, mask_combo, loss_fn, option_lst):
+def _one_combo(args):
+    option_proto, mask_combo, loss_fn, option_lst = args
     option_proto.update_mask(mask_combo)
     option = option_proto
 

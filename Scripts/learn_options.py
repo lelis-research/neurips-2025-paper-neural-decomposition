@@ -154,7 +154,7 @@ def train_options(args):
                 agent_path = os.path.join(args.res_dir, env_agent["agent_path"], "final.pt")
                 agent = A2CAgent.load(agent_path) 
 
-                print("extracting trajectory for: ", env_agent["env_name"])
+                print("extracting trajectory for: ", env_agent["env_name"], agent_path)
                 traj = extract_trajectory(agent, env)
                 print("Len traj extracted: ", len(traj))
                 if len(traj) > 300:
