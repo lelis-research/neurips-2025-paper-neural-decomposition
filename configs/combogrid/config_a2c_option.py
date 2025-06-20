@@ -36,7 +36,9 @@ class arguments(parent_arguments):
     # num_grid_points:          int              = 5
     option_path_tuning                         = [
                                                     # f"Options_Mask_ComboGrid_Seed_{seed}_network/selected_options_5.pt" for seed in range(3)
-                                                    f"Options_{TMP_OPT}_ComboGrid_Seed_{seed}_{MASK_TYPE}/selected_options_5.pt" for seed in range(3)
+                                                    f"Options_{TMP_OPT}_ComboGrid_Seed_{seed}_{MASK_TYPE}/selected_options_5.pt" if TMP_OPT != "Transfer"
+                                                    else f"Options_{TMP_OPT}_ComboGrid_Seed_{seed}_{MASK_TYPE}/selected_options.pt"
+                                                    for seed in [0,6,5]
                                                 ]
     tuning_storage:           str              = "sqlite:///optuna.db"
     n_trials_per_job:         int              = 1

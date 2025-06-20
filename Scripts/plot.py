@@ -199,6 +199,8 @@ def plot_comparison(method_patterns,
             except:
                 print(f"Unable to open the file: {os.path.join(folder, 'res.pkl')}")
 
+        if len(runs) == 0:
+            continue
         # overlay the average return curve
         plot_results(
             runs,
@@ -219,6 +221,6 @@ def plot_comparison(method_patterns,
     ax.grid(True)
     ax.legend(loc="best")
 
-    # save once
-    fig.savefig(out_fname)
+    # save once:li
+    fig.savefig(out_fname, format="svg")
     return fig, ax
