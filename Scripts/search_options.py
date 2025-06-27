@@ -180,7 +180,7 @@ def search_options(args):
         else:
             raise NotImplementedError    
         
-        print("Best loss: ", best_loss)
+        print("Best loss: ", best_loss, "Number of options: ", len(best_options))
         torch.save(best_options, os.path.join(exp_dir, file_name))
     else:
         print("\n\n", "*"*20, "LOADING SELECTED OPTIONS", "*"*20)
