@@ -215,7 +215,7 @@ def plot_comparison(method_patterns,
         )
 
     # finalize styling
-    ax.set_title(out_fname)
+    ax.set_title(out_fname.split("/")[-1].split(".")[0])
     ax.set_xlabel("Environment Steps")
     ax.set_ylabel("Episode Return")
     ax.grid(True)

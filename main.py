@@ -42,6 +42,7 @@ if __name__ == "__main__":
 
     # instantiate the arguments dataclass
     args = config_mod.arguments()
+    print(args)
 
     # make sure result directory exists
     os.makedirs(args.res_dir, exist_ok=True)
@@ -71,7 +72,7 @@ if __name__ == "__main__":
                 res_dir=args.res_dir,
                 window_size=args.smoothing_window_size,
                 interpolation_resolution=args.interpolation_resolution,
-                out_fname=f"{args.plot_name}.png",
+                out_fname=f"{args.image_base_dir}/{args.plot_name}.svg",
             )
 
     if "search_option" in args.mode:
