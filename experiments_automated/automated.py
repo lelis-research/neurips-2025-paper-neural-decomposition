@@ -1,29 +1,29 @@
 configs = [
 
     {
-        "MODE": "test_option", "TMP_OPT": "Vanilla", "MASK_TYPE": "",
-        "GAME_WIDTH": 5, "HIDDEN_SIZE": 6, "TOTAL_STEPS": 300000,
-        "minutes": 120, "cpus": 4, "seeds": "0-29", "STEP_SIZE": 0.003,
+        "MODE": "analyze_option", "TMP_OPT": "Mask", "MASK_TYPE": "network",
+        "GAME_WIDTH": 5, "HIDDEN_SIZE": 64, "TOTAL_STEPS": 100000,
+        "minutes": 60, "cpus": 4, "seeds": "0", "STEP_SIZE": 0.003,
         "TUNING_OPTIONS": "True"
     },
-    {
-        "MODE": "test_option", "TMP_OPT": "Vanilla", "MASK_TYPE": "",
-        "GAME_WIDTH": 6, "HIDDEN_SIZE": 6, "TOTAL_STEPS": 300000,
-        "minutes": 120, "cpus": 4, "seeds": "0-29", "STEP_SIZE": 0.003,
-        "TUNING_OPTIONS": "True"
-    },
-    {
-        "MODE": "test_option", "TMP_OPT": "Vanilla", "MASK_TYPE": "",
-        "GAME_WIDTH": 6, "HIDDEN_SIZE": 64, "TOTAL_STEPS": 300000,
-        "minutes": 120, "cpus": 4, "seeds": "0-29", "STEP_SIZE": 0.003,
-        "TUNING_OPTIONS": "True"
-    },
-    {
-        "MODE": "test_option", "TMP_OPT": "Vanilla", "MASK_TYPE": "",
-        "GAME_WIDTH": 6, "HIDDEN_SIZE": 64, "TOTAL_STEPS": 300000,
-        "minutes": 120, "cpus": 4, "seeds": "0-29", "STEP_SIZE": 0.003,
-        "TUNING_OPTIONS": "True"
-    }
+    # {
+    #     "MODE": "test_option", "TMP_OPT": "Vanilla", "MASK_TYPE": "",
+    #     "GAME_WIDTH": 6, "HIDDEN_SIZE": 6, "TOTAL_STEPS": 300000,
+    #     "minutes": 120, "cpus": 4, "seeds": "0-29", "STEP_SIZE": 0.003,
+    #     "TUNING_OPTIONS": "True"
+    # },
+    # {
+    #     "MODE": "test_option", "TMP_OPT": "Vanilla", "MASK_TYPE": "",
+    #     "GAME_WIDTH": 6, "HIDDEN_SIZE": 64, "TOTAL_STEPS": 300000,
+    #     "minutes": 120, "cpus": 4, "seeds": "0-29", "STEP_SIZE": 0.003,
+    #     "TUNING_OPTIONS": "True"
+    # },
+    # {
+    #     "MODE": "test_option", "TMP_OPT": "Vanilla", "MASK_TYPE": "",
+    #     "GAME_WIDTH": 6, "HIDDEN_SIZE": 64, "TOTAL_STEPS": 300000,
+    #     "minutes": 120, "cpus": 4, "seeds": "0-29", "STEP_SIZE": 0.003,
+    #     "TUNING_OPTIONS": "True"
+    # }
     
 ]
 
@@ -201,6 +201,7 @@ export GAME_WIDTH={cfg['GAME_WIDTH']}
 export HIDDEN_SIZE={cfg['HIDDEN_SIZE']}
 export MASK_TYPE="{cfg['MASK_TYPE']}"
 export TMP_OPT="{cfg['TMP_OPT']}" # Mask, FineTune, DecWhole, Transfer, DecOption
+export OUTPUT_BASE_DIR="{os.path.join(original_cwd, final_dir)}"
 
 # Testing/Training option arguments
 export TOTAL_STEPS={cfg['TOTAL_STEPS']}

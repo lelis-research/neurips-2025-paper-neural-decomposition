@@ -4,6 +4,7 @@ import sys
 import argparse
 import importlib.util
 
+from Scripts.analyze_options import analyze_options
 from Scripts.train_agent import train_parallel_seeds
 from Scripts.plot import load_results, plot_results, generate_video, plot_comparison
 from Scripts.test_agent import test_agent
@@ -81,5 +82,8 @@ if __name__ == "__main__":
     if "train_option" in args.mode:
         train_options(args)
 
-    if "test_option" in args.mode:
+    if "analyze_option" in args.mode:
         test_options(args)
+
+    if "test_option" in args.mode:
+        analyze_options(args)

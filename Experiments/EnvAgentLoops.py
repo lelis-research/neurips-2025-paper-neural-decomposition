@@ -6,7 +6,7 @@ import copy
 from PIL import Image
 
 
-def agent_environment_step_loop(env, agent, total_steps, training=True, writer=None, save_frame_freq=1, greedy=False, verbose=True):
+def agent_environment_step_loop(env, agent, total_steps, training=True, writer=None, save_frame_freq=1, greedy=False, callbacks=None, verbose=True):
     """
     Runs the training loop for the agent in the given environment over a specified number of timesteps.
     Returns a list of dictionaries containing the episodic return and episode length.
@@ -15,6 +15,7 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
     timestep = 0
     episode_counter = 1
     results = []
+    callbacks = callbacks if callbacks is not None else []
     best_ep, best_agent = -np.inf, None
     
     if env.render_mode =="rgb_array" and save_frame_freq is None:
@@ -35,11 +36,14 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
             next_observation, reward, terminated, truncated, info = env.step(action)
             if training:
                 agent.update(next_observation, reward, terminated, truncated)
-
-            episode_return_org += info["actual_reward"] if "actual_reward" in info else reward
+            actual_reward = info.get("actual_reward", reward)
+            episode_return_org += actual_reward
             episode_return_wrapped += reward
             episode_length += 1
             timestep += 1
+
+            for callback in callbacks:
+                agent, env = callback(agent, observation, action, actual_reward, terminated, truncated, timestep)
 
             if timestep >= total_steps:
                 truncated = True
@@ -91,6 +95,8 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
         episode_counter += 1  
     if verbose:
         print("Best Episode Return Org: ", best_ep)
+    for callback in callbacks:
+        callback.finalize()
     return results, best_agent
 
 def agent_environment_episode_loop(env, agent, total_episodes, training=True, writer=None, save_frame_freq=1, greedy=False, verbose=True):

@@ -7,16 +7,20 @@ from configs.combogrid.config_a2c_train import GAME_WIDTH, HIDDEN_SIZE, TOTAL_ST
 MODE = os.environ.get("MODE", "train_option").split("-")
 TMP_OPT = os.environ.get("TMP_OPT", "Mask")
 MASK_TYPE = None if TMP_OPT != "Mask" else os.environ.get("MASK_TYPE", "network")
+OUTPUT_BASE_DIR = os.environ.get("OUTPUT_BASE_DIR", f"./")
 
 
 @dataclass
 class arguments(parent_arguments):
     
-    mode = MODE # train, test, plot, tune, train_option, test_option, search_option
+    mode = MODE # train, test, plot, tune, train_option, test_option, search_option, analyze_option
     agent_class: str = "A2CAgentOption"
 
     # ----- search option experiment settings -----
     selection_type:           str              = "greedy" # local_search, greedy 
+
+    # ----- analyze experiment settings -----
+    analyze_output_path: str              = OUTPUT_BASE_DIR
 
     # ----- tune experiment settings -----
 
