@@ -13,6 +13,7 @@ TOTAL_STEPS = int(os.environ.get("TOTAL_STEPS", 100_000))
 SEED = int(os.environ.get("SEED", 1))
 ENV_SEED = int(os.environ.get("ENV_SEED", 0))
 MODE = os.environ.get("MODE", "train_option").split("-")
+ENV_SEEDS = list(map(int, os.environ.get("ENV_SEEDS", "0 1 2 3").split(" ")))
 
  
 
@@ -29,7 +30,7 @@ def default_env_wrappers(env_name, **kwargs):
 class arguments:
     # ----- experiment settings -----
     mode                                         = MODE # train, test, plot, tune, train_option, test_option
-    res_dir:                  str                = f"Results_ComboGrid_gw{GAME_WIDTH}h{HIDDEN_SIZE}_A2C_ReLU"
+    res_dir:                  str                = f"Results_ComboGridBlock_gw{GAME_WIDTH}h{HIDDEN_SIZE}_A2C_ReLU"
     device:                   str                = torch.device("cpu")
     game_width:               int                = GAME_WIDTH
     hidden_size:              int                = HIDDEN_SIZE
@@ -128,34 +129,32 @@ class arguments:
     
     env_agent_list                               = [
                                                     {"env_name": "ComboGrid", 
-                                                     "env_params": {"env_seed": 0, "step_reward": 0, "goal_reward": 1, "game_width": GAME_WIDTH},
+                                                     "env_params": {"env_seed": ENV_SEEDS[0], "step_reward": 0, "goal_reward": 1, "game_width": GAME_WIDTH},
                                                      "env_wrappers": default_env_wrappers("ComboGrid")[0],
                                                      "env_wrapping_params": default_env_wrappers("ComboGrid")[1],
-                                                     "agent_path": f"ComboGrid_{tmp_seed}_{str(exp_total_steps)}_env_0",
+                                                     "agent_path": f"ComboGrid_{tmp_seed}_{str(exp_total_steps)}_env_{ENV_SEEDS[0]}",
                                                      "env_max_steps":500},
 
                                                     {"env_name": "ComboGrid", 
-                                                     "env_params": {"env_seed": 1, "step_reward": 0, "goal_reward": 1, "game_width": GAME_WIDTH},
+                                                     "env_params": {"env_seed": ENV_SEEDS[1], "step_reward": 0, "goal_reward": 1, "game_width": GAME_WIDTH},
                                                      "env_wrappers": default_env_wrappers("ComboGrid")[0],
                                                      "env_wrapping_params": default_env_wrappers("ComboGrid")[1],
-                                                     "agent_path": f"ComboGrid_{tmp_seed}_{str(exp_total_steps)}_env_1",
+                                                     "agent_path": f"ComboGrid_{tmp_seed}_{str(exp_total_steps)}_env_{ENV_SEEDS[1]}",
                                                      "env_max_steps":500},
 
                                                     {"env_name": "ComboGrid", 
-                                                     "env_params": {"env_seed": 2, "step_reward": 0, "goal_reward": 1, "game_width": GAME_WIDTH},
+                                                     "env_params": {"env_seed": ENV_SEEDS[2], "step_reward": 0, "goal_reward": 1, "game_width": GAME_WIDTH},
                                                      "env_wrappers": default_env_wrappers("ComboGrid")[0],
                                                      "env_wrapping_params": default_env_wrappers("ComboGrid")[1],
-                                                     "agent_path": f"ComboGrid_{tmp_seed}_{str(exp_total_steps)}_env_2",
+                                                     "agent_path": f"ComboGrid_{tmp_seed}_{str(exp_total_steps)}_env_{ENV_SEEDS[2]}",
                                                      "env_max_steps":500},
                                                      
                                                     {"env_name": "ComboGrid", 
-                                                     "env_params": {"env_seed": 3, "step_reward": 0, "goal_reward": 1, "game_width": GAME_WIDTH},
+                                                     "env_params": {"env_seed": ENV_SEEDS[3], "step_reward": 0, "goal_reward": 1, "game_width": GAME_WIDTH},
                                                      "env_wrappers": default_env_wrappers("ComboGrid")[0],
                                                      "env_wrapping_params": default_env_wrappers("ComboGrid")[1],
-                                                     "agent_path": f"ComboGrid_{tmp_seed}_{str(exp_total_steps)}_env_3",
+                                                     "agent_path": f"ComboGrid_{tmp_seed}_{str(exp_total_steps)}_env_{ENV_SEEDS[3]}",
                                                      "env_max_steps":500},
-                                                    
-                                                     
                                                     ]
     option_exp_name:          str                = f"Options_{tmp_opt}_ComboGrid_Seed_{tmp_seed}_{mask_type}"
     max_num_options                              = None if tmp_opt == "Transfer" else int(os.environ.get("MAX_NUM_OPTIONS", 5))
@@ -175,7 +174,7 @@ class arguments:
     
     # ----- test option experiment settings -----
     option_save_results:      bool               = True
-    option_name_tag:          str                = f"distractors_50_stepsize_{step_size}"
+    option_name_tag:          str                = f"block_distractors_50_stepsize_{step_size}"
     test_option_env_name:     str                = os.environ.get("TEST_OPTION_ENV_NAME", "ComboGrid") #Medium_Maze, Large_Maze, Hard_Maze
     test_option_env_params                       = {"env_seed": 12, "step_reward": 0, "goal_reward": 10, "game_width": GAME_WIDTH}
     test_option_env_wrappers                     = default_env_wrappers(test_option_env_name)[0]
@@ -186,7 +185,7 @@ class arguments:
     test_option_render_mode:   str               = "" #human, None, rgb_array_list, rgb_array
     option_save_frame_freq:    int               = None
 
-    exp_options_total_steps:   int               = 500_000
+    exp_options_total_steps:   int               = TOTAL_STEPS
     exp_options_total_episodes:int               = 0
 
 

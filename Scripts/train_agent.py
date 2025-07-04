@@ -104,6 +104,7 @@ def train_single_seed(seed, args):
         agent.save(os.path.join(exp_dir, "final.pt"))
         best_agent.save(os.path.join(exp_dir, "best.pt"))
         writer.close()      
+        print(f"Results saved to {exp_dir}")
     env.close()
     return result, best_agent
 

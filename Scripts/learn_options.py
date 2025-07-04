@@ -127,6 +127,8 @@ def train_options(args):
     exp_dir = os.path.join(args.res_dir, args.option_exp_name)
     if not os.path.exists(exp_dir):
         os.makedirs(exp_dir)
+
+    print("env_agent_list: ", args.env_agent_list)
     
     if args.baseline == "Transfer":
         # No training, just copy the base policies

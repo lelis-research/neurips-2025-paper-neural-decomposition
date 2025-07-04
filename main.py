@@ -83,7 +83,7 @@ if __name__ == "__main__":
         train_options(args)
 
     if "analyze_option" in args.mode:
-        test_options(args)
-
-    if "test_option" in args.mode:
         analyze_options(args)
+        
+    if "test_option" in args.mode:
+        test_options(args)

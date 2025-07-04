@@ -34,6 +34,10 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
         while True:
             action = agent.act(observation, greedy=greedy)
             next_observation, reward, terminated, truncated, info = env.step(action)
+            
+            for callback in callbacks:
+                callback(agent, observation, action, next_observation, reward, terminated, truncated, timestep)
+            
             if training:
                 agent.update(next_observation, reward, terminated, truncated)
             actual_reward = info.get("actual_reward", reward)
@@ -41,9 +45,6 @@ def agent_environment_step_loop(env, agent, total_steps, training=True, writer=N
             episode_return_wrapped += reward
             episode_length += 1
             timestep += 1
-
-            for callback in callbacks:
-                agent, env = callback(agent, observation, action, actual_reward, terminated, truncated, timestep)
 
             if timestep >= total_steps:
                 truncated = True

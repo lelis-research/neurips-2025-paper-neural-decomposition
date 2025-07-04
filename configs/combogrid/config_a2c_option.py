@@ -21,6 +21,8 @@ class arguments(parent_arguments):
 
     # ----- analyze experiment settings -----
     analyze_output_path: str              = OUTPUT_BASE_DIR
+    analyze_input_path: str              = os.path.dirname(OUTPUT_BASE_DIR)
+    # analyze_input_path: str              = OUTPUT_BASE_DIR
 
     # ----- tune experiment settings -----
 
