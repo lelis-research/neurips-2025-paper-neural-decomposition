@@ -2,12 +2,17 @@ import os
 from dataclasses import dataclass
 
 from configs.combogrid.config_a2c_train import arguments as parent_arguments, default_env_wrappers
-from configs.combogrid.config_a2c_train import GAME_WIDTH, HIDDEN_SIZE, TOTAL_STEPS, SEED, ENV_SEED
 
+
+GAME_WIDTH = int(os.environ.get("GAME_WIDTH", 5))
+HIDDEN_SIZE = int(os.environ.get("HIDDEN_SIZE", 64))
+ENV_SEED = int(os.environ.get("ENV_SEED", 0))
 MODE = os.environ.get("MODE", "train_option").split("-")
+ENV_SEEDS = list(map(int, os.environ.get("ENV_SEEDS", "0 1 2 3").split(" ")))
 TMP_OPT = os.environ.get("TMP_OPT", "Mask")
 MASK_TYPE = None if TMP_OPT != "Mask" else os.environ.get("MASK_TYPE", "network")
 OUTPUT_BASE_DIR = os.environ.get("OUTPUT_BASE_DIR", f"./")
+ENV_NAME = os.environ.get("ENV_NAME", "ComboGrid")
 
 
 @dataclass
@@ -32,7 +37,7 @@ class arguments(parent_arguments):
     param_ranges                               = {
                                                         "step_size":         [3e-5, 3e-4, 3e-3],
                                                     }
-    tuning_env_name:          str              = "ComboGrid"
+    tuning_env_name:          str              = ENV_NAME
     tuning_env_params                          = {"env_seed": ENV_SEED, "step_reward": 0, "goal_reward": 10, "game_width": GAME_WIDTH}
     tuning_env_wrappers                        = default_env_wrappers(tuning_env_name)[0]
     tuning_wrapping_params                     = default_env_wrappers(tuning_env_name)[1]
@@ -41,9 +46,8 @@ class arguments(parent_arguments):
     exhaustive_search:        bool             = True
     # num_grid_points:          int              = 5
     option_path_tuning                         = [
-                                                    # f"Options_Mask_ComboGrid_Seed_{seed}_network/selected_options_5.pt" for seed in range(3)
-                                                    f"Options_{TMP_OPT}_ComboGrid_Seed_{seed}_{MASK_TYPE}/selected_options_5.pt" if TMP_OPT != "Transfer"
-                                                    else f"Options_{TMP_OPT}_ComboGrid_Seed_{seed}_{MASK_TYPE}/selected_options.pt"
+                                                    f"Options_{TMP_OPT}_{ENV_NAME}_Seed_{seed}_{MASK_TYPE}/selected_options_5.pt" if TMP_OPT != "Transfer"
+                                                    else f"Options_{TMP_OPT}_{ENV_NAME}_Seed_{seed}_{MASK_TYPE}/selected_options.pt"
                                                     for seed in [0,1,4]
                                                 ]
     tuning_storage:           str              = f"sqlite:///optuna_{tuning_nametag}.db"

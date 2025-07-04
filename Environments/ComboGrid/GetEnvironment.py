@@ -6,6 +6,7 @@ from .Wrappers import WRAPPING_TO_WRAPPER
 
 COMBOGRID_ENV_LST = [
     "ComboGrid",
+    "ComboGrid4",
 ]
 
 def get_single_env(env_name, max_steps=None, render_mode=None, env_params={}, wrapping_lst=None, wrapping_params=[]):
@@ -24,6 +25,10 @@ def get_single_env(env_name, max_steps=None, render_mode=None, env_params={}, wr
     """
     assert env_name in COMBOGRID_ENV_LST, f"Environment {env_name} not supported."
 
+    action_pattern_length = 3
+    if env_name == "ComboGrid4":
+        action_pattern_length = 4
+
     problem = PROBLEM_NAMES[env_params['env_seed']]
     reward_per_step = env_params['step_reward']
     reward_goal = env_params['goal_reward']
@@ -33,7 +38,8 @@ def get_single_env(env_name, max_steps=None, render_mode=None, env_params={}, wr
                     problem=problem, 
                     reward_per_step=reward_per_step, 
                     reward_goal=reward_goal,
-                    max_steps=max_steps)
+                    max_steps=max_steps,
+                    action_pattern_length=action_pattern_length)
         
     # Apply each wrapper in the provided list with corresponding parameters in the same order.
     # for i, wrapper_name in enumerate(wrapping_lst):

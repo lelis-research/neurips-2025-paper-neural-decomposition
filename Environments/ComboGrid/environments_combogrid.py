@@ -138,7 +138,7 @@ class Game:
     The (0, 0) in the matrices show top and left and it goes to the bottom and right as 
     the indices increases.
     """
-    def __init__(self, rows, columns, problem_str, init_x=None, init_y=None):
+    def __init__(self, rows, columns, problem_str, action_pattern_length=3, init_x=None, init_y=None):
         self._rows = rows
         self._columns = columns
 
@@ -153,20 +153,35 @@ class Game:
             self.reset()
 
         # state of current action sequence
-        """
-        Mapping used: 
-        0, 0, 1 -> up (0)
-        0, 1, 2 -> down (1)
-        2, 1, 0 -> left (2)
-        1, 0, 2 -> right (3)
-        """
-        self._pattern_length = 3
+        self._pattern_length = action_pattern_length
 
         self._action_pattern = {}
-        self._action_pattern[(0, 0, 1)] = 0
-        self._action_pattern[(0, 1, 2)] = 1
-        self._action_pattern[(2, 1, 0)] = 2
-        self._action_pattern[(1, 0, 2)] = 3
+
+        if action_pattern_length == 3:
+            """
+                Mapping used: 
+                0, 0, 1 -> up (0)
+                0, 1, 2 -> down (1)
+                2, 1, 0 -> left (2)
+                1, 0, 2 -> right (3)
+            """
+            self._action_pattern[(0, 0, 1)] = 0
+            self._action_pattern[(0, 1, 2)] = 1
+            self._action_pattern[(2, 1, 0)] = 2
+            self._action_pattern[(1, 0, 2)] = 3
+        elif action_pattern_length == 4:
+            """
+                Mapping used: 
+                0, 2, 2, 1 -> up (0)
+                0, 0, 1, 1 -> down (1)
+                1, 2, 1, 0 -> left (2)
+                1, 0, 2, 2 -> right (3)
+            """
+            self._action_pattern[(0, 2, 2, 1)] = 0
+            self._action_pattern[(0, 0, 1, 1)] = 1
+            self._action_pattern[(1, 2, 1, 0)] = 2
+            self._action_pattern[(1, 0, 2, 2)] = 3
+
 
     def reset(self, init_loc=None):
         self._matrix_unit = np.zeros((self._rows, self._columns))

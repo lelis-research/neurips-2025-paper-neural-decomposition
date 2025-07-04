@@ -15,7 +15,7 @@ BASELINES = os.environ.get("BASELINES", "").split()
 
 BASELINES = {BASELINES[i]: BASELINES[i+1] for i in range(0, len(BASELINES), 2)} if len(BASELINES) > 0 else {}
 IMAGE_BASE_DIR = os.environ.get("IMAGE_BASE_DIR", f"./")
-
+ENV_NAME = os.environ.get("ENV_NAME", "ComboGrid")
  
 
 def default_env_wrappers(env_name, **kwargs):
@@ -31,7 +31,7 @@ def default_env_wrappers(env_name, **kwargs):
 class arguments:
     # ----- experiment settings -----
     mode                                         = "plot" 
-    res_dir:                  str                = f"Results_ComboGrid_gw{GAME_WIDTH}h{HIDDEN_SIZE}_A2C_ReLU"
+    res_dir:                  str                = f"Results_{ENV_NAME}_gw{GAME_WIDTH}h{HIDDEN_SIZE}_A2C_ReLU"
     device:                   str                = torch.device("cpu")
     game_width:               int                = GAME_WIDTH
     hidden_size:              int                = HIDDEN_SIZE

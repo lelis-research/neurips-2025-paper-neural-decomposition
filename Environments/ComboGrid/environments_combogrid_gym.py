@@ -7,8 +7,8 @@ from typing import List, Any
 from gymnasium.envs.registration import register
 
 class ComboGym(gym.Env):
-    def __init__(self, rows=3, columns=3, problem="TL-BR", options=None, reward_per_step=-1, reward_goal=1, max_steps=500):
-        self._game = Game(rows, columns, problem)
+    def __init__(self, rows=3, columns=3, problem="TL-BR", options=None, reward_per_step=-1, reward_goal=1, max_steps=500, action_pattern_length=3):
+        self._game = Game(rows, columns, problem, action_pattern_length=action_pattern_length)
         self._rows = rows
         self._columns = columns
         self._problem = problem

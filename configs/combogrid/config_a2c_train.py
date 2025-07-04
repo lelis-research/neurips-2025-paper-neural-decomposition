@@ -14,7 +14,7 @@ SEED = int(os.environ.get("SEED", 1))
 ENV_SEED = int(os.environ.get("ENV_SEED", 0))
 MODE = os.environ.get("MODE", "train_option").split("-")
 ENV_SEEDS = list(map(int, os.environ.get("ENV_SEEDS", "0 1 2 3").split(" ")))
-
+ENV_NAME = os.environ.get("ENV_NAME", "ComboGrid")
  
 
 def default_env_wrappers(env_name, **kwargs):
@@ -30,7 +30,7 @@ def default_env_wrappers(env_name, **kwargs):
 class arguments:
     # ----- experiment settings -----
     mode                                         = MODE # train, test, plot, tune, train_option, test_option
-    res_dir:                  str                = f"Results_ComboGridBlock_gw{GAME_WIDTH}h{HIDDEN_SIZE}_A2C_ReLU"
+    res_dir:                  str                = f"Results_{ENV_NAME}Block_gw{GAME_WIDTH}h{HIDDEN_SIZE}_A2C_ReLU"
     device:                   str                = torch.device("cpu")
     game_width:               int                = GAME_WIDTH
     hidden_size:              int                = HIDDEN_SIZE
@@ -45,7 +45,7 @@ class arguments:
     nametag:                  str                = f'env_{ENV_SEED}' # +datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     num_workers:              int                = 1 # Number of parallel workers for training
 
-    training_env_name:        str                = "ComboGrid" # Medium_Maze, Large_Maze, Hard_Maze
+    training_env_name:        str                = ENV_NAME # Medium_Maze, Large_Maze, Hard_Maze
     training_env_params                          = {"env_seed": env_seed, "step_reward": 0, "goal_reward": 1 if env_seed != 12 else 10, "game_width": GAME_WIDTH} 
     training_env_wrappers                        = default_env_wrappers(training_env_name, env_seed=env_seed)[0]
     training_wrapping_params                     = default_env_wrappers(training_env_name, env_seed=env_seed)[1]
@@ -60,7 +60,7 @@ class arguments:
     test_seed:                int                = 0 
     save_test:                bool               = False
 
-    test_env_name:            str                = "ComboGrid"
+    test_env_name:            str                = ENV_NAME
     # test_agent_path:          str                = ""
     test_agent_path:          str                = f"{test_env_name}_{SEED}_{exp_total_steps}_{nametag}"
     test_env_params                              = {"env_seed": env_seed, "step_reward": 0, "goal_reward": 10 if env_seed == 12 else 1, "game_width": GAME_WIDTH}
@@ -75,7 +75,7 @@ class arguments:
     param_ranges                               = {
                                                         "step_size":         [3e-5, 3e-4, 3e-3],
                                                     }
-    tuning_env_name:          str              = "ComboGrid"
+    tuning_env_name:          str              = ENV_NAME
     tuning_env_params                          = {"env_seed": ENV_SEED, "step_reward": 0, "goal_reward": 10, "game_width": GAME_WIDTH}
     tuning_env_wrappers                        = default_env_wrappers(tuning_env_name)[0]
     tuning_wrapping_params                     = default_env_wrappers(tuning_env_name)[1]
@@ -128,35 +128,35 @@ class arguments:
     mask_type:                str                = None if tmp_opt not in ["Mask", "DecOption"] else os.environ.get("MASK_TYPE", "network") # network, input, both
     
     env_agent_list                               = [
-                                                    {"env_name": "ComboGrid", 
+                                                    {"env_name": ENV_NAME, 
                                                      "env_params": {"env_seed": ENV_SEEDS[0], "step_reward": 0, "goal_reward": 1, "game_width": GAME_WIDTH},
-                                                     "env_wrappers": default_env_wrappers("ComboGrid")[0],
-                                                     "env_wrapping_params": default_env_wrappers("ComboGrid")[1],
-                                                     "agent_path": f"ComboGrid_{tmp_seed}_{str(exp_total_steps)}_env_{ENV_SEEDS[0]}",
+                                                     "env_wrappers": default_env_wrappers(ENV_NAME)[0],
+                                                     "env_wrapping_params": default_env_wrappers(ENV_NAME)[1],
+                                                     "agent_path": f"{ENV_NAME}_{tmp_seed}_{str(exp_total_steps)}_env_{ENV_SEEDS[0]}",
                                                      "env_max_steps":500},
 
-                                                    {"env_name": "ComboGrid", 
+                                                    {"env_name": ENV_NAME, 
                                                      "env_params": {"env_seed": ENV_SEEDS[1], "step_reward": 0, "goal_reward": 1, "game_width": GAME_WIDTH},
-                                                     "env_wrappers": default_env_wrappers("ComboGrid")[0],
-                                                     "env_wrapping_params": default_env_wrappers("ComboGrid")[1],
-                                                     "agent_path": f"ComboGrid_{tmp_seed}_{str(exp_total_steps)}_env_{ENV_SEEDS[1]}",
+                                                     "env_wrappers": default_env_wrappers(ENV_NAME)[0],
+                                                     "env_wrapping_params": default_env_wrappers(ENV_NAME)[1],
+                                                     "agent_path": f"{ENV_NAME}_{tmp_seed}_{str(exp_total_steps)}_env_{ENV_SEEDS[1]}",
                                                      "env_max_steps":500},
 
-                                                    {"env_name": "ComboGrid", 
+                                                    {"env_name": ENV_NAME, 
                                                      "env_params": {"env_seed": ENV_SEEDS[2], "step_reward": 0, "goal_reward": 1, "game_width": GAME_WIDTH},
-                                                     "env_wrappers": default_env_wrappers("ComboGrid")[0],
-                                                     "env_wrapping_params": default_env_wrappers("ComboGrid")[1],
-                                                     "agent_path": f"ComboGrid_{tmp_seed}_{str(exp_total_steps)}_env_{ENV_SEEDS[2]}",
+                                                     "env_wrappers": default_env_wrappers(ENV_NAME)[0],
+                                                     "env_wrapping_params": default_env_wrappers(ENV_NAME)[1],
+                                                     "agent_path": f"{ENV_NAME}_{tmp_seed}_{str(exp_total_steps)}_env_{ENV_SEEDS[2]}",
                                                      "env_max_steps":500},
                                                      
-                                                    {"env_name": "ComboGrid", 
+                                                    {"env_name": ENV_NAME, 
                                                      "env_params": {"env_seed": ENV_SEEDS[3], "step_reward": 0, "goal_reward": 1, "game_width": GAME_WIDTH},
-                                                     "env_wrappers": default_env_wrappers("ComboGrid")[0],
-                                                     "env_wrapping_params": default_env_wrappers("ComboGrid")[1],
-                                                     "agent_path": f"ComboGrid_{tmp_seed}_{str(exp_total_steps)}_env_{ENV_SEEDS[3]}",
+                                                     "env_wrappers": default_env_wrappers(ENV_NAME)[0],
+                                                     "env_wrapping_params": default_env_wrappers(ENV_NAME)[1],
+                                                     "agent_path": f"{ENV_NAME}_{tmp_seed}_{str(exp_total_steps)}_env_{ENV_SEEDS[3]}",
                                                      "env_max_steps":500},
                                                     ]
-    option_exp_name:          str                = f"Options_{tmp_opt}_ComboGrid_Seed_{tmp_seed}_{mask_type}"
+    option_exp_name:          str                = f"Options_{tmp_opt}_{ENV_NAME}_Seed_{tmp_seed}_{mask_type}"
     max_num_options                              = None if tmp_opt == "Transfer" else int(os.environ.get("MAX_NUM_OPTIONS", 5))
     
     # ----- train option experiment settings -----
@@ -175,7 +175,7 @@ class arguments:
     # ----- test option experiment settings -----
     option_save_results:      bool               = True
     option_name_tag:          str                = f"block_distractors_50_stepsize_{step_size}"
-    test_option_env_name:     str                = os.environ.get("TEST_OPTION_ENV_NAME", "ComboGrid") #Medium_Maze, Large_Maze, Hard_Maze
+    test_option_env_name:     str                = os.environ.get("TEST_OPTION_ENV_NAME", ENV_NAME) #Medium_Maze, Large_Maze, Hard_Maze
     test_option_env_params                       = {"env_seed": 12, "step_reward": 0, "goal_reward": 10, "game_width": GAME_WIDTH}
     test_option_env_wrappers                     = default_env_wrappers(test_option_env_name)[0]
     test_option_wrapping_params                  = default_env_wrappers(test_option_env_name)[1]
