@@ -299,29 +299,47 @@ if __name__ == "__main__":
     # Parameter specification for each problem
     if args.sweep_run == 1:
         ent_coefs = {
-            "didec": (0.02, 0.03),
-            "didec-reg": (0.02, 0.03),
-            "vanilla": (0.01, 0.01), # MultiRoom Vanilla
-            "fine-tune": (0.03, 0.03), # MultiRoom Fine-tune
-            "neural-augmented": (0.02, 0.01), # MultiRoom Neural Augmented
-            "dec-whole": (0.03, 0.01) # MultiRoom Dec-whole
+            "MiniGrid-MultiRoom-v0": {
+                "didec": (0.02, 0.03),
+                "didec-reg": (0.02, 0.03),
+                "vanilla": (0.01, 0.01), # MultiRoom Vanilla
+                "fine-tune": (0.03, 0.03), # MultiRoom Fine-tune
+                "neural-augmented": (0.02, 0.01), # MultiRoom Neural Augmented
+                "dec-whole": (0.03, 0.01) # MultiRoom Dec-whole
+            },
+            "MiniGrid-Unlock-v0": {
+                "vanilla": (0.05, 0.05, 0.2)
+
+            }
         }
 
         learning_rates = {
-            "didec": (0.005, 0.005),
-            "didec-reg": (0.01, 0.005),
-            "vanilla": (0.001, 0.001), # MultiRoom Vanilla
-            "fine-tune": (0.01, 0.01), # MultiRoom Fine-tune
-            "neural-augmented": (0.005, 0.0005), # MultiRoom Neural Augmented
-            "dec-whole": (0.0005, 0.0005) # MultiRoom Dec-whole
+            "MiniGrid-MultiRoom-v0": {
+                "didec": (0.005, 0.005),
+                "didec-reg": (0.01, 0.005),
+                "vanilla": (0.001, 0.001), # MultiRoom Vanilla
+                "fine-tune": (0.01, 0.01), # MultiRoom Fine-tune
+                "neural-augmented": (0.005, 0.0005), # MultiRoom Neural Augmented
+                "dec-whole": (0.0005, 0.0005) # MultiRoom Dec-whole
+            },
+            "MiniGrid-Unlock-v0": {
+                "vanilla": (0.005, 0.005, 0.005)
+
+            }
         }
         clip_coefs = {
-            "didec": (0.3, 0.3),
-            "didec-reg": (0.3, 0.2),
-            "vanilla": (0.3, 0.3), # MultiRoom Vanilla
-            "fine-tune": (0.3, 0.3), # MultiRoom Fine-tune
-            "neural-augmented": (0.15, 0.15), # MultiRoom Neural Augmented
-            "dec-whole": (0.1, 0.2) # MultiRoom Dec-whole
+            "MiniGrid-MultiRoom-v0": {
+                "didec": (0.3, 0.3),
+                "didec-reg": (0.3, 0.2),
+                "vanilla": (0.3, 0.3), # MultiRoom Vanilla
+                "fine-tune": (0.3, 0.3), # MultiRoom Fine-tune
+                "neural-augmented": (0.15, 0.15), # MultiRoom Neural Augmented
+                "dec-whole": (0.1, 0.2) # MultiRoom Dec-whole
+            },
+            "MiniGrid-Unlock-v0": {
+                "vanilla": (0.3, 0.2, 0.2)
+
+            }
         }
     
         lrs = learning_rates[args.option_mode]

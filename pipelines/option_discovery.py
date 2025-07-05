@@ -1039,15 +1039,15 @@ class LearnOptions:
         self.levin_loss.print_output_subpolicy_trajectory(selected_options, trajectories, logger=self.logger)
         utils.logger_flush(self.logger)
 
-        self.logger.info("Testing on each grid cell")
-        for seed, problem in zip(self.args.env_seeds, self.args.problems):
-            self.logger.info(f"Testing on each cell..., {problem}")
-            self.levin_loss.evaluate_on_each_cell(options=selected_options, 
-                                    trajectories=trajectories,
-                                    problem_test=problem, 
-                                    args=self.args, 
-                                    seed=seed, 
-                                    logger=self.logger)
+        # self.logger.info("Testing on each grid cell")
+        # for seed, problem in zip(self.args.env_seeds, self.args.problems):
+        #     self.logger.info(f"Testing on each cell..., {problem}")
+        #     self.levin_loss.evaluate_on_each_cell(options=selected_options, 
+        #                             trajectories=trajectories,
+        #                             problem_test=problem, 
+        #                             args=self.args, 
+        #                             seed=seed, 
+        #                             logger=self.logger)
 
         utils.logger_flush(self.logger)
 
@@ -1659,15 +1659,15 @@ class WholeDecOption:
         self.levin_loss.print_output_subpolicy_trajectory(selected_options, trajectories, logger=self.logger)
         utils.logger_flush(self.logger)
 
-        self.logger.info("Testing on each grid cell")
-        for seed, problem in zip(self.args.env_seeds, self.args.problems):
-            self.logger.info(f"Testing on each cell..., {problem}")
-            self.levin_loss.evaluate_on_each_cell(options=selected_options, 
-                                    trajectories=trajectories,
-                                    problem_test=problem, 
-                                    args=self.args, 
-                                    seed=seed, 
-                                    logger=self.logger)
+        # self.logger.info("Testing on each grid cell")
+        # for seed, problem in zip(self.args.env_seeds, self.args.problems):
+        #     self.logger.info(f"Testing on each cell..., {problem}")
+        #     self.levin_loss.evaluate_on_each_cell(options=selected_options, 
+        #                             trajectories=trajectories,
+        #                             problem_test=problem, 
+        #                             args=self.args, 
+        #                             seed=seed, 
+        #                             logger=self.logger)
 
         utils.logger_flush(self.logger)
 
@@ -2212,8 +2212,8 @@ def main():
 
     logger.info(f'mask_type="{args.mask_type}", mask_transform_type="{args.mask_transform_type}, selection_type="{args.selection_type}"')
 
-    # module_extractor = LearnOptions(args, logger)
-    # module_extractor.discover()
+    module_extractor = LearnOptions(args, logger)
+    module_extractor.discover()
 
     module_extractor = WholeDecOption(args, logger)
     module_extractor.discover()
