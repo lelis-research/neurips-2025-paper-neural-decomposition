@@ -88,7 +88,7 @@ class MiniGridWrap(gym.Env):
         obs = self.env.unwrapped.gen_obs()
         self.agent_pos = self.env.unwrapped.agent_pos
         image = self.one_hot_encode(self.env.observation(obs)['image'][:,:,0].flatten())
-        if isinstance(self.env.unwrapped, RoomGrid):
+        if isinstance(self.env.unwrapped, RoomGrid) or isinstance(self.env.unwrapped, MultiRoomUnlockEnv):
             image = np.concatenate((image, [1 if self.env.unwrapped.carrying is not None else 0]))
         if self.show_direction:
             return np.concatenate((
@@ -301,7 +301,7 @@ def make_env_unlock(*args, **kwargs):
 def make_env_multiroom(*args, **kwargs):
     def thunk():
         env = MiniGridWrap(
-                env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=5, minNumRooms=3, render_mode="rgb_array", see_through_walls=True),
+                env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=3, minNumRooms=3, render_mode="rgb_array", see_through_walls=True),
                 seed=kwargs['seed'],
                 n_discrete_actions=6 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
                 view_size=kwargs['view_size'] if 'view_size' in kwargs else 9,
@@ -320,7 +320,7 @@ def make_env_multiroom(*args, **kwargs):
 
 def get_multiroom_env(*args, **kwargs):
     env = MiniGridWrap(
-                env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=5, minNumRooms=3, render_mode="rgb_array", see_through_walls=True),
+                env = MultiRoomUnlockEnv(max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], maxNumRooms=3, minNumRooms=3, render_mode="rgb_array", see_through_walls=True),
                 seed=kwargs['seed'],
                 n_discrete_actions=6 if 'n_discrete_actions' not in kwargs else kwargs['n_discrete_actions'],
                 view_size=kwargs['view_size'] if 'view_size' in kwargs else 9,

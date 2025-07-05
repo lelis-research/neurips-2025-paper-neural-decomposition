@@ -23,20 +23,21 @@ class Args:
     """The ID of the finished experiment; to be filled in run time"""
     exp_name: str = "train_ppoAgent"
     """the name of this experiment"""
-    env_id: str = "MiniGrid-Unlock-v0"
+    env_id: str = "MiniGrid-MultiRoom-v0"
     """the id of the environment corresponding to the trained agent
-    choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0, MiniGrid-FourRooms-v0, MiniGrid-Unlock-v0]
+    choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0, MiniGrid-FourRooms-v0, MiniGrid-Unlock-v0, MiniGrid-MultiRoom-v0]
     """
-    method: str = "no_options"
-    option_mode: str = "fine-tune"
+    method: str = "options"
+    option_mode: str = "didec"
     # env_seeds: Union[List[int], str] = (0,1,2) # SimpleCrossing
     # env_seeds: Union[List, str, Tuple] = (0,1,2,3) # ComboGrid
     # env_seeds: Union[List[int], str] = (8,41,51) # FourRooms
-    env_seeds: Union[List[int], str] = (1,3,17) # Unlock
+    # env_seeds: Union[List[int], str] = (1,3,17) # Unlock
+    env_seeds: Union[List[int], str] = (230, 431) # MultiRoom Unlock
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'.
     This determines the exact environments that will be separately used for training.
     """
-    cuda: bool = True
+    cuda: bool = False
     """if toggled, cuda will be enabled by default"""
     torch_deterministic: bool = True
     """if toggled, `torch.backends.cudnn.deterministic=False`"""
@@ -70,13 +71,25 @@ class Args:
     """total timesteps for testinging"""
     # learning_rate: Union[Tuple[float, ...], float] = (2.5e-4, 2.5e-4, 2.5e-4, 2.5e-4) # ComboGrid
     # learning_rate: Union[List[float], float] = (0.005, 0.0005, 0.001) # Vanilla RL FourRooms
+    # learning_rate: Union[List[float], float] = (0.005, 0.0005, 0.005) # Vanilla RL FourRooms View 5
     # learning_rate: Union[List[float], float] = (0.005, 0.005, 0.001) # Didec RL FourRooms no reg
+    # learning_rate: Union[List[float], float] = (0.005, 0.001, 0.005) # Didec RL FourRooms View 5
     # learning_rate: Union[List[float], float] = (0.001, 0.005, 0.001) # Didec-reg RL FourRooms
+    # learning_rate: Union[List[float], float] = (0.005, 0.001, 0.005) # Didec-reg RL FourRooms View 5
     # learning_rate: Union[List[float], float] = (0.0005, 0.005, 0.005) #dec-whole FourRooms
+    # learning_rate: Union[List[float], float] = (0.005, 0.005, 0.005) #dec-whole FourRooms View 5
     # learning_rate: Union[List[float], float] = (0.005, 0.005, 0.001) #fine-tune FourRooms
+    # learning_rate: Union[List[float], float] = (0.005, 0.005, 0.005) #fine-tune FourRooms View 5
     # learning_rate: Union[List[float], float] = (0.001, 0.005, 0.0005) #neural-augmented FourRooms
+    # learning_rate: Union[List[float], float] = (0.005, 0.005, 0.0005) #neural-augmented FourRooms View 5
     # learning_rate: Union[List[float], float] = (2.5e-4, 2.5e-4, 1e-4) # SimpleCrossing
-    learning_rate: Union[List[float], float] = (0.0005, 0.0005, 0.0005) # Unlock
+    # learning_rate: Union[List[float], float] = (0.005, 0.005, 0.005) # Unlock
+    learning_rate: Union[List[float], float] = (0.005, 0.0005) # MultiRoom Didec
+    # learning_rate: Union[List[float], float] = (0.005, 0.01) # MultiRoom Didec-reg
+    # learning_rate: Union[List[float], float] = (0.001, 0.005) # MultiRoom Dec-whole
+    # learning_rate: Union[List[float], float] = (0.005, 0.005) # MultiRoom fine tune
+    # learning_rate: Union[List[float], float] = (0.005, 0.001) # MultiRoom vanilla
+    # learning_rate: Union[List[float], float] = (0.001, 0.001) # MultiRoom neural augmented
     """the learning rate of the optimize for testinging"""
     num_envs: int = 4
     """the number of parallel game environments for testinging"""
@@ -96,25 +109,49 @@ class Args:
     """Toggles advantages normalization for testinging"""
     # clip_coef: Union[Tuple[float, ...], float] = (0.2, 0.2, 0.2, 0.2) # ComboGrid
     # clip_coef: Union[List[float], float] = (0.1, 0.15, 0.15) # Vanilla RL FourRooms
+    # clip_coef: Union[List[float], float] = (0.2, 0.15, 0.3) # Vanilla RL FourRooms View 5
     # clip_coef: Union[List[float], float] = (0.3, 0.3, 0.3) # Didec RL FourRooms no reg
+    # clip_coef: Union[List[float], float] = (0.3, 0.3, 0.3) # Didec RL FourRooms no reg View 5
     # clip_coef: Union[List[float], float] = (0.2, 0.3, 0.3) # Didec-reg RL FourRooms
+    # clip_coef: Union[List[float], float] = (0.2, 0.3, 0.3) # Didec-reg RL FourRooms View 5
     # clip_coef: Union[List[float], float] = (0.3, 0.3, 0.3) # dec-whole FourRooms
+    # clip_coef: Union[List[float], float] = (0.2, 0.3, 0.2) # dec-whole FourRooms View 5
     # clip_coef: Union[List[float], float] = (0.3, 0.3, 0.3) # fine-tune FourRooms
+    # clip_coef: Union[List[float], float] = (0.3, 0.3, 0.2) # fine-tune FourRooms View 5
     # clip_coef: Union[List[float], float] = (0.2, 0.3, 0.2) # neural-augmented FourRooms
+    # clip_coef: Union[List[float], float] = (0.3, 0.15, 0.3) # neural-augmented FourRooms View 5
     # clip_coef: Union[List[float], float] = (0.25, 0.2, 0.2) # SimpleCrossing
-    clip_coef: Union[List[float], float] = (0.3, 0.2, 0.15) # Unlock
+    # clip_coef: Union[List[float], float] = (0.3, 0.2, 0.2) # Unlock
+    clip_coef: Union[List[float], float] = (0.3, 0.3) # MultiRoom Didec
+    # clip_coef: Union[List[float], float] = (0.3, 0.2) # MultiRoom Didec-reg
+    # clip_coef: Union[List[float], float] = (0.2, 0.15) # MultiRoom Vanilla
+    # clip_coef: Union[List[float], float] = (0.3, 0.3) # MultiRoom Fine-tune
+    # clip_coef: Union[List[float], float] = (0.15, 0.05) # MultiRoom Dec-whole
+    # clip_coef: Union[List[float], float] = (0.3, 0.2) # MultiRoom Neural Augmented
     """the surrogate clipping coefficient"""
     clip_vloss: bool = False
     """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
     # ent_coef:Union[Tuple[float, ...], float] = (0.01, 0.01, 0.01, .01) # ComboGrid
     # ent_coef: Union[List[float], float] = (0.01, 0.01, 0.2) # Vanilla RL FourRooms
+    # ent_coef: Union[List[float], float] = (0.03, 0.02, 0.05) # Vanilla RL FourRooms View 5
     # ent_coef: Union[List[float], float] = (0.01, 0.03, 0.05) # Didec RL FourRooms no reg
+    # ent_coef: Union[List[float], float] = (0.01, 0.05, 0.02) # Didec RL FourRooms View 5
     # ent_coef: Union[List[float], float] = (0.02, 0.05, 0.03) # Didec-reg FourRooms
+    # ent_coef: Union[List[float], float] = (0.1, 0.05, 0.01) # Didec-reg FourRooms View 5
     # ent_coef: Union[List[float], float] = (0.03, 0.03, 0.01) # dec-whole FourRooms
+    # ent_coef: Union[List[float], float] = (0.05, 0.1, 0.02) # dec-whole FourRooms View 5
     # ent_coef: Union[List[float], float] = (0.01, 0.01, 0.05) # fine-tune FourRooms
+    # ent_coef: Union[List[float], float] = (0.01, 0.02, 0.01) # fine-tune FourRooms View 5
     # ent_coef: Union[List[float], float] = (0.02, 0.02, 0.01) # neural-augmented FourRooms
+    # ent_coef: Union[List[float], float] = (0.01, 0.02, 0.03) # neural-augmented FourRooms View 5
     # ent_coef: Union[List[float], float] = (0.02, 0.02, 0.015) # SimpleCrossing
-    ent_coef: Union[List[float], float] = (0.05, 0.05, 0.05) # Unlock
+    # ent_coef: Union[List[float], float] = (0.05, 0.05, 0.2) # Unlock
+    ent_coef: Union[List[float], float] = (0.02, 0.03) # MultiRoom Didec
+    # ent_coef: Union[List[float], float] = (0.01, 0.1) # MultiRoom Didec-reg
+    # ent_coef: Union[List[float], float] = (0.2, 0.03) # MultiRoom Vanilla
+    # ent_coef: Union[List[float], float] = (0.02, 0.01) # MultiRoom Fine-tune
+    # ent_coef: Union[List[float], float] = (0.01, 0.01) # MultiRoom Neural Augmented
+    # ent_coef: Union[List[float], float] = (0.03, 0.01) # MultiRoom Dec-whole
     """coefficient of the entropy"""
     vf_coef: float = 0.5
     """coefficient of the value function"""
@@ -122,6 +159,7 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float = None
     """the target KL divergence threshold"""
+    sweep_run: int = 0
 
     # to be filled in runtime
     batch_size: int = 0
@@ -132,7 +170,7 @@ class Args:
     """the number of iterations (computed in runtime)"""
     env_seed: int = -1
     """the seed of the environment (set in runtime)"""
-    seed: int = 2
+    seed: int = 12
     """experiment randomness seed (set in runtime)"""
     problem: str = ""
     """"""
@@ -209,8 +247,13 @@ def main(args: Args):
                                     autoreset_mode=gym.vector.AutoresetMode.SAME_STEP)
     
     # model_path = f'{args.models_path_prefix}/{args.exp_id}/seed={args.seed}/ppo_first_MODEL.pt'
-    # model_path = f'{args.models_path_prefix}/{args.env_id}_width={args.game_width}_{args.option_mode}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}.pt'
-    model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}_{args.option_mode}/seed={args.seed}/{args.exp_id}.pt'
+    if args.sweep_run == 1:
+        model_path = f'{args.models_path_prefix}/{args.env_id}_width={args.game_width}_{args.option_mode}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-3.pt'
+    else:
+        model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}_{args.option_mode}/seed={args.seed}/{args.exp_id}.pt'
+        if os.path.isfile(model_path):
+            logger.info(f"Model already exists. Stopping training...")
+            exit()
 
     train_ppo(envs=envs, 
               seed=args.env_seed, 
@@ -254,9 +297,40 @@ if __name__ == "__main__":
         raise NotImplementedError
     
     # Parameter specification for each problem
-    lrs = args.learning_rate
-    clip_coef = args.clip_coef
-    ent_coef = args.ent_coef
+    if args.sweep_run == 1:
+        ent_coefs = {
+            "didec": (0.02, 0.03),
+            "didec-reg": (0.02, 0.03),
+            "vanilla": (0.01, 0.01), # MultiRoom Vanilla
+            "fine-tune": (0.03, 0.03), # MultiRoom Fine-tune
+            "neural-augmented": (0.02, 0.01), # MultiRoom Neural Augmented
+            "dec-whole": (0.03, 0.01) # MultiRoom Dec-whole
+        }
+
+        learning_rates = {
+            "didec": (0.005, 0.005),
+            "didec-reg": (0.01, 0.005),
+            "vanilla": (0.001, 0.001), # MultiRoom Vanilla
+            "fine-tune": (0.01, 0.01), # MultiRoom Fine-tune
+            "neural-augmented": (0.005, 0.0005), # MultiRoom Neural Augmented
+            "dec-whole": (0.0005, 0.0005) # MultiRoom Dec-whole
+        }
+        clip_coefs = {
+            "didec": (0.3, 0.3),
+            "didec-reg": (0.3, 0.2),
+            "vanilla": (0.3, 0.3), # MultiRoom Vanilla
+            "fine-tune": (0.3, 0.3), # MultiRoom Fine-tune
+            "neural-augmented": (0.15, 0.15), # MultiRoom Neural Augmented
+            "dec-whole": (0.1, 0.2) # MultiRoom Dec-whole
+        }
+    
+        lrs = learning_rates[args.option_mode]
+        clip_coef = clip_coefs[args.option_mode]
+        ent_coef = ent_coefs[args.option_mode]
+    else:
+        lrs = args.learning_rate
+        clip_coef = args.clip_coef
+        ent_coef = args.ent_coef
     exp_id = args.exp_id
     if isinstance(lrs, float) or len(lrs) == 1:
         lrs = tuple(lrs) * len(args.env_seeds)

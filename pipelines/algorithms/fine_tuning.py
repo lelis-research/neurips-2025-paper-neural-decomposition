@@ -34,7 +34,8 @@ class Args:
     # exp_name: str = "extract_learnOptions_randomInit_pitisFunction"
     """the name of this experiment"""
     # env_seeds: Union[List, str, Tuple] = (0,1,2,3)
-    env_seeds: Union[List, str, Tuple] = (0,1,2)
+    # env_seeds: Union[List, str, Tuple] = (0,1,2)
+    env_seeds: Union[List, str, Tuple] = (1,3,17)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
     # model_paths: List[str] = (
     #     'train_ppoAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
@@ -51,12 +52,17 @@ class Args:
     #     'train_ppoAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd1',
     #     'train_ppoAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2',
     #     )
-    model_paths: List[str] = (
-        'minigrid-simplecrossings9n1-v0-0',
-        'minigrid-simplecrossings9n1-v0-1',
-        'minigrid-simplecrossings9n1-v0-2'
-    )
+    # model_paths: List[str] = (
+    #     'minigrid-simplecrossings9n1-v0-0',
+    #     'minigrid-simplecrossings9n1-v0-1',
+    #     'minigrid-simplecrossings9n1-v0-2'
+    # )
 
+    model_paths: List[str] = (
+            'minigrid-unlock-v0-1',
+            'minigrid-unlock-v0-3',
+            'minigrid-unlock-v0-17'
+        )
     # These attributes will be filled in the runtime
     exp_id: str = ""
     """The ID of the finished experiment; to be filled in run time"""
@@ -64,7 +70,7 @@ class Args:
     """the name of the problems the agents were trained on; To be filled in runtime"""
 
     # Algorithm specific arguments
-    env_id: str = "MiniGrid-SimpleCrossingS9N1-v0"
+    env_id: str = "MiniGrid-Unlock-v0"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
@@ -145,7 +151,7 @@ def process_args() -> Args:
     
     if args.env_id == "ComboGrid":
         args.problems = [COMBO_PROBLEM_NAMES[seed] for seed in args.env_seeds]
-    elif args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
+    elif args.env_id == "MiniGrid-SimpleCrossingS9N1-v0" or "MiniGrid-Unlock-v0":
         args.problems = [args.env_id + f"_{seed}" for seed in args.env_seeds]
         
     return args

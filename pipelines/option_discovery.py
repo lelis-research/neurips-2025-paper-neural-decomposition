@@ -37,12 +37,18 @@ class Args:
     # exp_name: str = "extract_learnOptions_randomInit_pitisFunction"
     """the name of this experiment"""
     # env_seeds: Union[List, str, Tuple] = (0,1,2,3)
-    env_seeds: Union[List, str, Tuple] = (0,1,2)
+    # env_seeds: Union[List, str, Tuple] = (0,1,2)
+    env_seeds: Union[List, str, Tuple] = (1,3,17)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
+    # model_paths: List[str] = (
+    #     'minigrid-simplecrossings9n1-v0-0',
+    #     'minigrid-simplecrossings9n1-v0-1',
+    #     'minigrid-simplecrossings9n1-v0-2'
+    # )
     model_paths: List[str] = (
-        'minigrid-simplecrossings9n1-v0-0',
-        'minigrid-simplecrossings9n1-v0-1',
-        'minigrid-simplecrossings9n1-v0-2'
+        'minigrid-unlock-v0-1',
+        'minigrid-unlock-v0-3',
+        'minigrid-unlock-v0-17'
     )
     # model_paths: List[str] = (
     #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.0005_clip0.25_ent0.1_envsd0',
@@ -69,7 +75,7 @@ class Args:
     """the name of the problems the agents were trained on; To be filled in runtime"""
 
     # Algorithm specific arguments
-    env_id: str = "MiniGrid-SimpleCrossingS9N1-v0"
+    env_id: str = "MiniGrid-Unlock-v0"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
@@ -89,9 +95,9 @@ class Args:
     """number of hill climbing restarts for finding one option"""
 
     # mask learning
-    mask_learning_rate: float = 0.001
+    mask_learning_rate: float = 0.0005
     """"""
-    mask_learning_steps: int = 2_000
+    mask_learning_steps: int = 3_000
     """"""
     max_grad_norm: float = 1.0
     """"""
@@ -139,6 +145,8 @@ def process_args() -> Args:
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     # setting the experiment id
     if args.exp_id == "":
@@ -168,7 +176,7 @@ def process_args() -> Args:
     
     if args.env_id == "ComboGrid":
         args.problems = [COMBO_PROBLEM_NAMES[seed] for seed in args.env_seeds]
-    elif args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
+    elif args.env_id == "MiniGrid-SimpleCrossingS9N1-v0" or "MiniGrid-Unlock-v0":
         args.problems = [args.env_id + f"_{seed}" for seed in args.env_seeds]
         
     return args
@@ -187,15 +195,17 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
         model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}.pt'
         env = get_single_environment(args, seed=seed)
+        print(env, seed)
         
         if verbose:
             logger.info(f"Loading Trajectories from {model_path} ...")
         
         agent = PPOAgent(env, hidden_size=args.hidden_size)
         
-        agent.load_state_dict(torch.load(model_path))
+        agent.load_state_dict(torch.load(model_path, weights_only=True))
+        agent.eval()
 
-        trajectory, _ = agent.run(env, verbose=verbose)
+        trajectory, _ = agent.run(env, verbose=verbose, length_cap=21)
         trajectories[problem] = trajectory
 
         if verbose:
@@ -267,6 +277,8 @@ def load_options(args, logger):
     args = copy.deepcopy(args)
     if args.env_id == "MiniGrid-FourRooms-v0":
         args.env_id = "MiniGrid-SimpleCrossingS9N1-v0"
+    elif args.env_id == "MiniGrid-MultiRoom-v0":
+        args.env_id = "MiniGrid-Unlock-v0"
     save_dir = f"binary/options/{args.env_id}_width={args.game_width}_{args.option_mode}/seed={args.seed}"
 
     logger.info(f"Option directory: {save_dir}")
@@ -283,10 +295,10 @@ def load_options(args, logger):
 
     for model_file in model_files:
         model_path = os.path.join(save_dir, model_file)
-        checkpoint = torch.load(model_path)
+        checkpoint = torch.load(model_path, weights_only=False)
         assert int(checkpoint['environment_args']['game_width']) == int(args.game_width)
         
-        if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
+        if args.env_id == "MiniGrid-SimpleCrossingS9N1-v0" or args.env_id == "MiniGrid-Unlock-v0":
             if 'environment_args' in checkpoint:
                 seed = int(checkpoint['environment_args']['seed'])
             else:
@@ -1737,9 +1749,9 @@ class WholeDecOption:
         
         max_num_options = min(max_num_options, len(all_option_refs))
         # length_weights = np.array([1/(i+2) for i in range(max_num_options + 1)])
-        length_weights = np.array([1/(i*3+2) for i in range(max_num_options + 1)])
+        length_weights = np.array([1/(i*3+2) for i in range(max_num_options)])
         length_weights /= np.sum(length_weights)
-        subset_length = random_generator.choice(range(max_num_options + 1), p=length_weights)
+        subset_length = random_generator.choice(range(1, max_num_options + 1), p=length_weights)
         
         weights = self._compute_sample_weight(all_option_refs, all_possible_sequences, all_options)
         selected_options = set(random_generator.choice(list(all_option_refs), p=weights, size=subset_length, replace=False).tolist())
@@ -1773,11 +1785,12 @@ class WholeDecOption:
                         neighbour = selected_options | {option}
                         neighbours.append(neighbour)
                     for option2 in selected_options:
-                        neighbour = selected_options - {option2} | {option}
+                        neighbour = (selected_options - {option2}) | {option}
                         neighbours.append(neighbour)
-            for option in selected_options:
-                neighbour = selected_options - {option}
-                neighbours.append(neighbour)
+            if len(selected_options) > 1:
+                for option in selected_options:
+                    neighbour = selected_options - {option}
+                    neighbours.append(neighbour)
                 
             # self.logger.info(f"Number of neighbours: {len(neighbours)}")
             i = 0
@@ -1984,7 +1997,7 @@ class WholeDecOption:
         
         self.logger.info(f"Levin loss: {best_levin_loss}")
         options = copy.deepcopy(best_selected_options)
-        while True:
+        while True and len(options) > 1:
             done = True
             best_loss_so_far = best_levin_loss
             for i in range(len(options)):
@@ -2199,11 +2212,11 @@ def main():
 
     logger.info(f'mask_type="{args.mask_type}", mask_transform_type="{args.mask_transform_type}, selection_type="{args.selection_type}"')
 
-    module_extractor = LearnOptions(args, logger)
-    module_extractor.discover()
-
-    # module_extractor = WholeDecOption(args, logger)
+    # module_extractor = LearnOptions(args, logger)
     # module_extractor.discover()
+
+    module_extractor = WholeDecOption(args, logger)
+    module_extractor.discover()
 
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()

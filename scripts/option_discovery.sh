@@ -1,13 +1,12 @@
 #!/bin/bash
-#SBATCH --cpus-per-task=30   # maximum CPU cores per GPU request: 6 on Cedar, 16 on Graham.
+#SBATCH --cpus-per-task=30
 #SBATCH --mem-per-cpu=1G
-#SBATCH --time=01:00:00      # time (DD-HH:MM)
-#SBATCH --output=option_learning/%A-%a.out  # %N for node name, %j for jobID
-#SBATCH --account=aip-lelis
-#SBATCH --array=0-29
+#SBATCH --time=02:00:00
+#SBATCH --output=selecting_options/%A-%a.out
+#SBATCH --account=rrg-lelis
+#SBATCH --array=0-29 #1080
 
-
-source /home/iprnb/venvs/neural-decomposition/bin/activate
+source /home/iprnb/venvs/neural-policy-decomposition/bin/activate
 
 export FLEXIBLAS=imkl
 export OMP_NUM_THREADS=1
