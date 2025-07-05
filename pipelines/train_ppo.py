@@ -342,9 +342,9 @@ if __name__ == "__main__":
             }
         }
     
-        lrs = learning_rates[args.option_mode]
-        clip_coef = clip_coefs[args.option_mode]
-        ent_coef = ent_coefs[args.option_mode]
+        lrs = learning_rates[args.problem][args.option_mode]
+        clip_coef = clip_coefs[args.problem][args.option_mode]
+        ent_coef = ent_coefs[args.problem][args.option_mode]
     else:
         lrs = args.learning_rate
         clip_coef = args.clip_coef
