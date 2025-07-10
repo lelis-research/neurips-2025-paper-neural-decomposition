@@ -15,6 +15,7 @@ ENV_SEED = int(os.environ.get("ENV_SEED", 0))
 MODE = os.environ.get("MODE", "train_option").split("-")
 ENV_SEEDS = list(map(int, os.environ.get("ENV_SEEDS", "0 1 2 3").split(" ")))
 ENV_NAME = os.environ.get("ENV_NAME", "ComboGrid")
+RES_DIR = os.environ.get("RES_DIR", f"Results_{ENV_NAME}_gw{GAME_WIDTH}h{HIDDEN_SIZE}_A2C_ReLU")
  
 
 def default_env_wrappers(env_name, **kwargs):
@@ -30,7 +31,7 @@ def default_env_wrappers(env_name, **kwargs):
 class arguments:
     # ----- experiment settings -----
     mode                                         = MODE # train, test, plot, tune, train_option, test_option
-    res_dir:                  str                = f"Results_{ENV_NAME}Block_gw{GAME_WIDTH}h{HIDDEN_SIZE}_A2C_ReLU"
+    res_dir:                  str                = RES_DIR
     device:                   str                = torch.device("cpu")
     game_width:               int                = GAME_WIDTH
     hidden_size:              int                = HIDDEN_SIZE
@@ -73,7 +74,18 @@ class arguments:
     num_trials:               int              = 10   
     steps_per_trial:          int              = 100_000
     param_ranges                               = {
-                                                        "step_size":         [3e-5, 3e-4, 3e-3],
+                                                        "step_size":[
+                                                                        1e-6,
+                                                                        3e-6,
+                                                                        1e-5,
+                                                                        3e-5,
+                                                                        5e-5,
+                                                                        1e-4,
+                                                                        2e-4,
+                                                                        3e-4,
+                                                                        1e-3,
+                                                                        3e-3
+                                                                    ],
                                                     }
     tuning_env_name:          str              = ENV_NAME
     tuning_env_params                          = {"env_seed": ENV_SEED, "step_reward": 0, "goal_reward": 10, "game_width": GAME_WIDTH}

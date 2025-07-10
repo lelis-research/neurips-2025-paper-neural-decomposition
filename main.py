@@ -69,6 +69,7 @@ if __name__ == "__main__":
             )
         elif isinstance(args.pattern, dict):
             plot_comparison(
+                args,
                 method_patterns=args.pattern,
                 res_dir=args.res_dir,
                 window_size=args.smoothing_window_size,

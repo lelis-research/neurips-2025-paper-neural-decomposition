@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 def plot_results(runs_metrics, window_size=500, interpolation_resolution=100_000,
-                 nametag="",
+                 nametag="", linestyle='-', 
                  fig=None, ax=None, color="blue",
                  avg_label=None, individual_label="", plot_individual=True):
     """
@@ -42,6 +42,8 @@ def plot_results(runs_metrics, window_size=500, interpolation_resolution=100_000
     
     # Determine the minimum number of steps among runs.
     num_steps = min([sum(lengths) for lengths in episode_length_lst])
+    steps_cap = 300_000
+    num_steps = min(num_steps, steps_cap)
     x = np.linspace(0, num_steps, interpolation_resolution)
     returns_lst = []
 
@@ -103,7 +105,7 @@ def plot_results(runs_metrics, window_size=500, interpolation_resolution=100_000
         avg_label = f"Avg Return Over {len(returns_lst)} Runs"
     
     # Plot the average return.
-    ax.plot(x, avg_returns, linestyle="-", label=avg_label, color=color)
+    ax.plot(x, avg_returns, linestyle, label=avg_label, color=color, markevery=50)
     
     # Set plot properties.
     ax.set_title(f"Result of {nametag}")
@@ -166,7 +168,7 @@ def load_results(args):
     return runs_metrics, folders
 
 
-def plot_comparison(method_patterns, 
+def plot_comparison(args, method_patterns, 
                     res_dir,
                     window_size,
                     interpolation_resolution,
@@ -176,12 +178,15 @@ def plot_comparison(method_patterns,
     """
     # create shared figure/axes
     fig, ax = plt.subplots(figsize=(10, 6))
+    plt.rcParams.update({'font.size': 16})
     plt.tight_layout(pad=3.0)
 
     # automatic distinct colors
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
-    for (method_name, pattern), color in zip(method_patterns.items(), colors):
+    for (method_name, pattern), _ in zip(method_patterns.items(), colors):
+
+        color, linestyle, label = args.baselines_spec.get(method_name, (colors[0], '-', method_name))
         print(f"Loading {method_name}")
         folders = glob.glob(f"{res_dir}/{pattern}")
         print(f"{len(folders)} experiments found")
@@ -209,15 +214,17 @@ def plot_comparison(method_patterns,
             nametag=None,         # skip per‐method saving
             fig=fig, ax=ax,
             color=color,
-            avg_label=method_name,
+            linestyle=linestyle,
+            # label=label,
+            avg_label=label,
             individual_label=None,
             plot_individual=False
         )
 
     # finalize styling
-    ax.set_title(out_fname.split("/")[-1].split(".")[0])
+    ax.set_title(args.plot_name)
     ax.set_xlabel("Environment Steps")
-    ax.set_ylabel("Episode Return")
+    ax.set_ylabel("Return")
     ax.grid(True)
     ax.legend(loc="best")
 

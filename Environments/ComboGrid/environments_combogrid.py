@@ -104,8 +104,8 @@ class Problem:
                     if i != math.floor(self.rows / 2) and j != math.floor(self.columns / 2):
                         self.walls.append((i, j))
         elif walls_str == "block":
-            for i in range(2, self.rows - 2):
-                for j in range(2, self.columns - 2):
+            for i in range(1, self.rows - 1):
+                for j in range(1, self.columns - 1):
                     self.walls.append((i, j))
 
     def remove_goal(self, loc) -> bool:
