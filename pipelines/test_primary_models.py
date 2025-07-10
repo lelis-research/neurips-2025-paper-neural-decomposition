@@ -16,7 +16,7 @@ def regenerate_trajectories(args, verbose=False, logger=None):
     trajectories = {}
     
     for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
+        model_path = f'/home/rezaabdz/scratch/binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
         env = get_single_environment(args, seed=seed)
         
         if verbose:
@@ -45,12 +45,26 @@ args = process_args()
 #         'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd2_BR-TL',
 #         'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd3_BL-TR'
 #         )
+# args.model_paths = (
+#         'train_ppoAgent_ComboGrid_gw6_h64_lr0.00025_clip0.2_ent0.01_envsd0_TL-BR',
+#         'train_ppoAgent_ComboGrid_gw6_h64_lr0.00025_clip0.2_ent0.01_envsd1_TR-BL',
+#         'train_ppoAgent_ComboGrid_gw6_h64_lr0.00025_clip0.2_ent0.01_envsd2_BR-TL',
+#         'train_ppoAgent_ComboGrid_gw6_h64_lr0.00025_clip0.2_ent0.01_envsd3_BL-TR'
+        # )
 args.model_paths = (
-        'train_ppoAgent_ComboGrid_gw6_h64_lr0.00025_clip0.2_ent0.01_envsd0_TL-BR',
-        'train_ppoAgent_ComboGrid_gw6_h64_lr0.00025_clip0.2_ent0.01_envsd1_TR-BL',
-        'train_ppoAgent_ComboGrid_gw6_h64_lr0.00025_clip0.2_ent0.01_envsd2_BR-TL',
-        'train_ppoAgent_ComboGrid_gw6_h64_lr0.00025_clip0.2_ent0.01_envsd3_BL-TR'
+        'train_ppoAgent_ComboGrid_gw6_h64_lr0.0005_clip0.4_ent0.15_envsd0_TL-BR',
+        'train_ppoAgent_ComboGrid_gw6_h64_lr0.0005_clip0.4_ent0.15_envsd1_BR-TL',
+        'train_ppoAgent_ComboGrid_gw6_h64_lr0.0005_clip0.4_ent0.15_envsd2_BR-TL',
+        'train_ppoAgent_ComboGrid_gw6_h64_lr0.0005_clip0.4_ent0.15_envsd3_BL-TR',
+        
         )
+# args.model_paths = (
+#         'train_ppoAgent_ComboGrid_gw6_h6_lr0.00025_clip0.2_ent0.01_envsd0_TL-BR',
+#         'train_ppoAgent_ComboGrid_gw6_h6_lr0.00025_clip0.2_ent0.01_envsd1_TR-BL',
+#         'train_ppoAgent_ComboGrid_gw6_h6_lr0.00025_clip0.2_ent0.01_envsd2_BR-TL',
+#         'train_ppoAgent_ComboGrid_gw6_h6_lr0.00025_clip0.2_ent0.01_envsd3_BL-TR',
+        
+#         )
 # args.model_paths = (
 #     "train_ppoAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0",
 #     "train_ppoAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd1",

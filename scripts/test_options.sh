@@ -12,7 +12,7 @@ cd /home/rezaabdz/projects/aip-lelis/rezaabdz/neurips-2025-paper-neural-decompos
 module load flexiblas
 export FLEXIBLAS=blis2
 
-source envs/venv/bin/activate # Assuming we have all our environments in  `../envs/`
+source /home/rezaabdz/scratch/envs/venv/bin/activate # Assuming we have all our environments in  `../envs/`
 
 OMP_NUM_THREADS=1 python -m pipelines.test_options --seed=$SLURM_ARRAY_TASK_ID \
     --test_env_seeds=14 \

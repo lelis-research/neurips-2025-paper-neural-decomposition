@@ -55,12 +55,19 @@ class Args:
     #     'train_ppoAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2',
     #     )
     
+    # model_paths: List[str] = (
+    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd0_TL-BR',
+    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd1_TR-BL',
+    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd2_BR-TL',
+    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd3_BL-TR',
+    # )
     model_paths: List[str] = (
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd0_TL-BR',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd1_TR-BL',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd2_BR-TL',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd3_BL-TR',
-    )
+        'train_ppoAgent_ComboGrid_gw6_h64_lr0.0005_clip0.4_ent0.15_envsd0_TL-BR',
+        'train_ppoAgent_ComboGrid_gw6_h64_lr0.0005_clip0.4_ent0.15_envsd1_BR-TL',
+        'train_ppoAgent_ComboGrid_gw6_h64_lr0.0005_clip0.4_ent0.15_envsd2_BR-TL',
+        'train_ppoAgent_ComboGrid_gw6_h64_lr0.0005_clip0.4_ent0.15_envsd3_BL-TR',
+        
+        )
 
     # These attributes will be filled in the runtime
     exp_id: str = ""
@@ -103,8 +110,9 @@ class Args:
     """It's either `softmax` or `quantize`"""
     selection_type: str = "local_search"
     """It's either `local_search` or `greedy`"""
-    cache_path: str = ""
+    binary_base_path: str = ""
     """Path to the directory where the options are saved. If empty, it will be replaced based on the current `exp_id`"""
+    
     # reg_coef: float = 0.0
     # reg_coef: float = 110.03 # Combogrid 4 environments
     reg_coef: float = 0
@@ -182,7 +190,7 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     trajectories = {}
     
     for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
+        model_path = os.path.join(args.binary_base_path, f'models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt')
         env = get_single_environment(args, seed=seed)
         
         if verbose:
@@ -850,13 +858,15 @@ class LearnOptions:
         self.number_actions = 3
 
         self.selection_type = args.selection_type
-        if args.cache_path == "":
-            args.cache_path = "binary/cache/"
-            self.option_candidates_path = os.path.join(args.cache_path, args.exp_id, f"seed={args.seed}", "data.pkl")
-            self.option_cache_path = os.path.join(args.cache_path, args.exp_id, f"seed={args.seed}", "option_cache.pkl")
+        if args.binary_base_path == "":
+            args.binary_base_path = "binary/"
+            caceh_base_path = os.path.join(args.binary_base_path, "cache")
+            self.option_candidates_path = os.path.join(caceh_base_path, args.exp_id, f"seed={args.seed}", "data.pkl")
+            self.option_cache_path = os.path.join(caceh_base_path, args.exp_id, f"seed={args.seed}", "option_cache.pkl")
         else:
-            self.option_candidates_path = os.path.join(args.cache_path, f"seed={args.seed}", "data.pkl")
-            self.option_cache_path = os.path.join(args.cache_path, f"seed={args.seed}", "option_cache.pkl")
+            caceh_base_path = os.path.join(args.binary_base_path, "cache")
+            self.option_candidates_path = os.path.join(caceh_base_path, f"seed={args.seed}", "data.pkl")
+            self.option_cache_path = os.path.join(caceh_base_path, f"seed={args.seed}", "option_cache.pkl")
 
     def _get_transform_func(self):
         if self.mask_transform_type == "softmax":
@@ -898,7 +908,7 @@ class LearnOptions:
                 for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
                     if primary_problem == target_problem:
                         continue
-                    model_path = f'binary/models/{primary_model_directory}/seed={self.args.seed}/ppo_first_MODEL.pt'
+                    model_path = os.path.join(args.binary_base_path, f'/models/{primary_model_directory}/seed={self.args.seed}/ppo_first_MODEL.pt')
                     primary_env = get_single_environment(self.args, seed=primary_seed)
                     primary_agent = PPOAgent(primary_env, hidden_size=self.args.hidden_size)
                     primary_agent.load_state_dict(torch.load(model_path))

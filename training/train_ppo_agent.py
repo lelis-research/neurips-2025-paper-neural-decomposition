@@ -62,7 +62,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             optimizer.param_groups[0]["lr"] = lrnow
 
         for step in range(0, args.num_steps):
-            global_step += args.num_envs
+            # global_step += args.num_envs
             obs[step] = next_obs
             dones[step] = next_done
 
@@ -78,21 +78,13 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
-            if "final_info" not in infos and args.method != "no_options":
-                global_step += (infos['action_size'] - 1).sum()
+
+            if "action_size" in infos:
+                global_step += infos['action_size'].sum()
                 
-
-            # if "final_info" in infos:
-            #     for info in infos["final_info"]:
-            #         if info and "episode" in info:
-            #             logger.info(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-            #             # writer.add_scalar("Charts/episodic_return", info["episode"]["r"], global_step)
-            #             # writer.add_scalar("Charts/episodic_length", info["episode"]["l"], global_step)
-            #             wandb.log({"Charts/episodic_return": info["episode"]["r"], 
-            #                        "Charts/episodic_length": info["episode"]["l"]}, step=global_step)
-
             bootstrap_next_obs = next_obs.clone()
             if "final_info" in infos:
+                global_step += infos['final_info']['action_size'].sum()
                 returns = []
                 lengths = []
                 for i, info in enumerate(infos["final_info"]["_episode"]):
@@ -101,9 +93,6 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                         # lengths.append(info["episode"]["l"])  # Collect episodic lengths
                         lengths.append(infos["final_info"]["steps"][i])  # Collect episodic lengths
                         bootstrap_next_obs[i] = torch.Tensor(infos["final_obs"][i]).to(device)
-                        # if infos["final_info"]["steps"][i] == 1000:
-                        #     print(infos["final_obs"][i])
-
 
 
                 # Log the average episodic return and length, if any episodes ended
@@ -310,9 +299,11 @@ def train_ppo_async(envs: gym.vector.AsyncVectorEnv, seed, args, model_file_name
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
             next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
+
             if 'action_size' in infos:
                 global_step += (infos['action_size']).sum()
 
+            bootstrap_next_obs = next_obs.clone()
             if "final_info" in infos:
                 global_step += (infos['final_info']['action_size']).sum()
                 returns = []
@@ -323,6 +314,7 @@ def train_ppo_async(envs: gym.vector.AsyncVectorEnv, seed, args, model_file_name
                     returns.append(r)  # Collect episodic returns
                     # lengths.append(info["episode"]["l"])  # Collect episodic lengths
                     lengths.append(l)  # Collect episodic lengths
+                    bootstrap_next_obs[idx] = torch.Tensor(infos["final_obs"][idx]).to(device)
 
                 # Log the average episodic return and length, if any episodes ended
                 if returns:
@@ -350,7 +342,7 @@ def train_ppo_async(envs: gym.vector.AsyncVectorEnv, seed, args, model_file_name
         
         # bootstrap value if not done
         with torch.no_grad():
-            next_value = agent.get_value(next_obs).reshape(1, -1)
+            next_value = agent.get_value(bootstrap_next_obs).reshape(1, -1)
             advantages = torch.zeros_like(rewards).to(device)
             lastgaelam = 0
             for t in reversed(range(args.num_steps)):

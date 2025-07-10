@@ -22,13 +22,13 @@ class Args:
     """The ID of the finished experiment; to be filled in run time"""
     exp_name: str = "train_ppoAgent"
     """the name of this experiment"""
-    env_id: str = "MiniGrid-SimpleCrossingS9N1-v0"
+    env_id: str = "ComboGrid"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0, MiniGrid-FourRooms-v0, MiniGrid-Unlock-v0]
     """
     method: str = "no_options"
-    env_seeds: Union[List[int], str] = (0,1,2) # SimpleCrossing
-    # env_seeds: Union[List, str, Tuple] = (0,1,2,3) # ComboGrid
+    # env_seeds: Union[Tuple[int, ...], str] = (0,1,2) # SimpleCrossing
+    env_seeds: Union[List, str, Tuple] = (0,1,2,3) # ComboGrid
     # env_seeds: Union[List[int], str] = (41,51,8) # FourRooms
     # env_seeds: Union[List[int], str] = (8,) # FourRooms
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'.
@@ -55,7 +55,7 @@ class Args:
     game_width: int = 5
     """the length of the combo/mini-grid square"""
     # hidden_size: int = 64
-    hidden_size: int = 6
+    hidden_size: int = 64
     """"""
     l1_lambda: float = 0
     """"""
@@ -106,6 +106,7 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float = None
     """the target KL divergence threshold"""
+    param_sweep: bool = False
 
     # to be filled in runtime
     batch_size: int = 0
@@ -186,12 +187,12 @@ def main(args: Args):
     problem = None
     if "ComboGrid" in args.env_id:
         problem = args.problem
-    # envs = gym.vector.SyncVectorEnv([get_single_environment_builder(args, args.env_seed, problem, is_test=False,) for _ in range(args.num_envs)],
-    #                                 autoreset_mode=gym.vector.AutoresetMode.SAME_STEP)
-    envs = gym.vector.AsyncVectorEnv([get_single_environment_builder(args, args.env_seed, problem, is_test=False,) for _ in range(args.num_envs)],
+    envs = gym.vector.SyncVectorEnv([get_single_environment_builder(args, args.env_seed, problem, is_test=False,) for _ in range(args.num_envs)],
                                     autoreset_mode=gym.vector.AutoresetMode.SAME_STEP)
+    # envs = gym.vector.AsyncVectorEnv([get_single_environment_builder(args, args.env_seed, problem, is_test=False,) for _ in range(args.num_envs)],
+    #                                 autoreset_mode=gym.vector.AutoresetMode.SAME_STEP)
     
-    model_path = f'{args.models_path_prefix}/{args.exp_id}/seed={args.seed}/ppo_first_MODEL.pt'
+    model_path = os.path.join(args.models_path_prefix, f'/{args.exp_id}/seed={args.seed}/ppo_first_MODEL.pt')
 
     if isinstance(envs, gym.vector.SyncVectorEnv):
         train_ppo(envs=envs, 
@@ -200,7 +201,8 @@ def main(args: Args):
                 model_file_name=model_path, 
                 device=device, 
                 logger=logger, 
-                writer=writer)
+                writer=writer,
+                parameter_sweeps=args.param_sweep)
     elif isinstance(envs, gym.vector.AsyncVectorEnv):
         train_ppo_async(envs=envs, 
                 seed=args.env_seed, 
@@ -208,7 +210,8 @@ def main(args: Args):
                 model_file_name=model_path, 
                 device=device, 
                 logger=logger, 
-                writer=writer)
+                writer=writer,
+                parameter_sweeps=args.param_sweep)
     if args.track:
         wandb.finish()
     # wandb.finish()
