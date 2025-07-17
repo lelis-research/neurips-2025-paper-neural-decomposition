@@ -46,9 +46,9 @@ class Args:
     #     'minigrid-simplecrossings9n1-v0-2'
     # )
     model_paths: List[str] = (
-        'minigrid-unlock-v0-1-3',
-        'minigrid-unlock-v0-3-3',
-        'minigrid-unlock-v0-17-3'
+        'minigrid-unlock-v0-1',
+        'minigrid-unlock-v0-3',
+        'minigrid-unlock-v0-17'
     )
     # model_paths: List[str] = (
     #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.0005_clip0.25_ent0.1_envsd0',
@@ -103,7 +103,7 @@ class Args:
     """"""
     input_update_frequency: int = 1
     """"""
-    mask_type: str = "both"
+    mask_type: str = "internal"
     """It's one of these: [internal, input, both]"""
     mask_transform_type: str = "softmax"
     """It's either `softmax` or `quantize`"""
@@ -193,7 +193,10 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     print(args.env_seeds, args.problems, args.model_paths)
     
     for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}.pt'
+        if args.seed > 29:
+             model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}-3.pt'
+        else:
+            model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}.pt'
         env = get_single_environment(args, seed=seed)
         print(env, seed)
         
@@ -774,7 +777,10 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
         best_mask_model = None
 
         for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-            model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}.pt'
+            if args.seed > 29:
+             model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}-3.pt'
+            else:
+                model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}.pt'
             logger.info(f'Extracting from the agent trained on {problem}, seed={seed}')
             env = get_single_environment(args, seed=seed)
 
@@ -922,7 +928,10 @@ class LearnOptions:
                 for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
                     if primary_problem == target_problem:
                         continue
-                    model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}.pt'
+                    if args.seed > 29:
+                        model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}-3.pt'
+                    else:
+                        model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}.pt'
                     primary_env = get_single_environment(self.args, seed=primary_seed)
                     primary_agent = PPOAgent(primary_env, hidden_size=self.args.hidden_size)
                     primary_agent.load_state_dict(torch.load(model_path))
@@ -1615,7 +1624,10 @@ class WholeDecOption:
         option_candidates = []
         for primary_env_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
             t_length = trajectories[primary_problem].get_length()
-            model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}.pt'
+            if args.seed > 29:
+                model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}-3.pt'
+            else:
+                model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}.pt'
             if self.mask_transform_type == "quantize":
                 mask = torch.zeros(self.args.hidden_size) - 1
             elif self.mask_transform_type == "softmax":
