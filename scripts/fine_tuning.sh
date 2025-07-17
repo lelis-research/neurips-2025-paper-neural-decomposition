@@ -4,7 +4,7 @@
 #SBATCH --time=00:40:00
 #SBATCH --output=unlock-sweep/%A-%a.out
 #SBATCH --account=rrg-lelis
-#SBATCH --array=0-29 #1080
+#SBATCH --array=40-69 #1080
 
 source /home/iprnb/venvs/neural-policy-decomposition/bin/activate
 

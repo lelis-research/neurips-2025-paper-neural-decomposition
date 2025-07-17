@@ -46,9 +46,9 @@ class Args:
     #     'minigrid-simplecrossings9n1-v0-2'
     # )
     model_paths: List[str] = (
-        'minigrid-unlock-v0-1',
-        'minigrid-unlock-v0-3',
-        'minigrid-unlock-v0-17'
+        'minigrid-unlock-v0-1-3',
+        'minigrid-unlock-v0-3-3',
+        'minigrid-unlock-v0-17-3'
     )
     # model_paths: List[str] = (
     #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.0005_clip0.25_ent0.1_envsd0',

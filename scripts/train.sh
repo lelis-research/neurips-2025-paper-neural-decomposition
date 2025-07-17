@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=1G
-#SBATCH --time=00:40:00
+#SBATCH --time=01:40:00
 #SBATCH --output=MultiRoom/%A-%a.out
 #SBATCH --account=rrg-lelis
-#SBATCH --array=90-119
+#SBATCH --array=80-139
 
 source /home/iprnb/venvs/neural-policy-decomposition/bin/activate
 
@@ -16,11 +16,11 @@ export PYTHONPATH=":$PYTHONPATH"
 
 python3.11 ~/scratch/neurips-2025-paper-neural-decomposition/pipelines/train_ppo.py \
     --seed $SLURM_ARRAY_TASK_ID\
-    --env_id "MiniGrid-Unlock-v0"\
+    --env_id "MiniGrid-MultiRoom-v0"\
     --num_steps 2000\
     --game_width 9\
     --total_timesteps 1000000\
-    --save_run_info 0\
+    --save_run_info 1\
     --method "no_options"\
     --option_mode "vanilla"\
     --sweep_run 1

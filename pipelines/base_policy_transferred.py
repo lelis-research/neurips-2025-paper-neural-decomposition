@@ -48,9 +48,9 @@ class Args:
     #     'minigrid-simplecrossings9n1-v0-2'
     # )
     model_paths: List[str] = (
-            'minigrid-unlock-v0-1',
-            'minigrid-unlock-v0-3',
-            'minigrid-unlock-v0-17'
+            'minigrid-unlock-v0-1-3',
+            'minigrid-unlock-v0-3-3',
+            'minigrid-unlock-v0-17-3'
         )
 
     # These attributes will be filled in the runtime
