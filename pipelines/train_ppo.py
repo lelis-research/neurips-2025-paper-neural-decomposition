@@ -54,6 +54,10 @@ class Args:
     cpus: int = 0
     """"Not used in this experiment"""
     save_run_info: int = 0
+    """"""
+    reg_coef: float = 0.0
+    """"""
+    mask_type: str = "internal"
     
     # hyperparameter arguments
     game_width: int = 9
