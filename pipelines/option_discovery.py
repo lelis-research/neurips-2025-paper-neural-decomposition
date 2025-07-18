@@ -103,7 +103,7 @@ class Args:
     """"""
     input_update_frequency: int = 1
     """"""
-    mask_type: str = "internal"
+    mask_type: str = "both"
     """It's one of these: [internal, input, both]"""
     mask_transform_type: str = "softmax"
     """It's either `softmax` or `quantize`"""
@@ -230,7 +230,7 @@ def save_options(options: List[PPOAgent], trajectories: dict, args: Args, logger
         trajectories (Dict[str, Trajectory]): The trajectories corresponding to the these options
         save_dir (str): The directory where the options will be saved.
     """
-    save_dir = f"binary/options/{args.env_id}_width={args.game_width}_{args.option_mode}/seed={args.seed}"
+    save_dir = f"binary/options/{args.env_id}_width={args.game_width}_reg={args.reg_coef}_{args.option_mode}_{args.mask_type}/seed={args.seed}"
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     else:
@@ -282,7 +282,7 @@ def load_options(args, logger):
         args.env_id = "MiniGrid-SimpleCrossingS9N1-v0"
     elif args.env_id == "MiniGrid-MultiRoom-v0":
         args.env_id = "MiniGrid-Unlock-v0"
-    save_dir = f"binary/options/{args.env_id}_width={args.game_width}_{args.option_mode}/seed={args.seed}"
+    save_dir = f"binary/options/{args.env_id}_width={args.game_width}_reg={args.reg_coef}_{args.mask_type}/seed={args.seed}"
 
     logger.info(f"Option directory: {save_dir}")
 
@@ -876,17 +876,17 @@ class LearnOptions:
         self.mask_transform_type = args.mask_transform_type
         self._mask_transform_func = self._get_transform_func()
         self.mask_type = args.mask_type
-        self.levin_loss = LevinLossActorCritic(self.logger, alpha=args.reg_coef, mask_type=self.mask_type, mask_transform_type=self.mask_transform_type)
+        self.levin_loss = LevinLossActorCritic(self.logger, alpha=0, mask_type=self.mask_type, mask_transform_type=self.mask_transform_type)
         self.number_actions = 3
 
         self.selection_type = args.selection_type
         if args.cache_path == "":
             args.cache_path = "binary/cache/"
-            self.option_candidates_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_{args.option_mode}", f"seed={args.seed}", "data.pkl")
-            self.option_cache_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_{args.option_mode}", f"seed={args.seed}", "option_cache.pkl")
+            self.option_candidates_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_reg={args.reg_coef}_{args.option_mode}", f"seed={args.seed}", f"data_{args.mask_type}.pkl")
+            self.option_cache_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_reg={args.reg_coef}_{args.option_mode}", f"seed={args.seed}", f"option_cache_{args.mask_type}.pkl")
         else:
-            self.option_candidates_path = os.path.join(args.cache_path, f"seed={args.seed}", "data.pkl")
-            self.option_cache_path = os.path.join(args.cache_path, f"seed={args.seed}", "option_cache.pkl")
+            self.option_candidates_path = os.path.join(args.cache_path, f"seed={args.seed}", f"data_{args.mask_type}.pkl")
+            self.option_cache_path = os.path.join(args.cache_path, f"seed={args.seed}", f"option_cache_{args.mask_type}.pkl")
 
     def _get_transform_func(self):
         if self.mask_transform_type == "softmax":
@@ -928,7 +928,7 @@ class LearnOptions:
                 for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
                     if primary_problem == target_problem:
                         continue
-                    if args.seed > 29:
+                    if self.args.seed > 29:
                         model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}-3.pt'
                     else:
                         model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}.pt'
@@ -1583,7 +1583,7 @@ class WholeDecOption:
         self.mask_transform_type = args.mask_transform_type
         self._mask_transform_func = self._get_transform_func()
         self.mask_type = args.mask_type
-        self.levin_loss = LevinLossActorCritic(self.logger, alpha=args.reg_coef, mask_type=self.mask_type, mask_transform_type=self.mask_transform_type)
+        self.levin_loss = LevinLossActorCritic(self.logger, alpha=0, mask_type=self.mask_type, mask_transform_type=self.mask_transform_type)
         self.number_actions = 3
 
         self.selection_type = args.selection_type
@@ -1624,7 +1624,7 @@ class WholeDecOption:
         option_candidates = []
         for primary_env_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
             t_length = trajectories[primary_problem].get_length()
-            if args.seed > 29:
+            if self.args.seed > 29:
                 model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}-3.pt'
             else:
                 model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}.pt'
