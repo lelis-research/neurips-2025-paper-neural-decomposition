@@ -55,7 +55,7 @@ class Args:
     """"Not used in this experiment"""
     save_run_info: int = 0
     """"""
-    reg_coef: float = 0.0
+    reg_coef: float = 0.1
     """"""
     mask_type: str = "internal"
     
@@ -163,7 +163,7 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float = None
     """the target KL divergence threshold"""
-    sweep_run: int = 0
+    sweep_run: int = 1
 
     # to be filled in runtime
     batch_size: int = 0
@@ -302,57 +302,79 @@ if __name__ == "__main__":
     
     # Parameter specification for each problem
     if args.sweep_run == 1:
-        ent_coefs = {
-            "MiniGrid-MultiRoom-v0": {
-                "didec": (0.02, 0.03),
-                "didec-reg": (0.02, 0.03),
-                "vanilla": (0.01, 0.01), # MultiRoom Vanilla
-                "fine-tune": (0.03, 0.03), # MultiRoom Fine-tune
-                "neural-augmented": (0.02, 0.01), # MultiRoom Neural Augmented
-                "dec-whole": (0.03, 0.01) # MultiRoom Dec-whole
-            },
-            "MiniGrid-Unlock-v0": {
-                "vanilla": (0.05, 0.05, 0.2)
-
+        if args.option_mode == "didec":
+            best_hyperparams = {
+                'internal': {
+                    'reg_coef': (0.25, 0.1),
+                    'learning_rate': (0.005, 0.01),
+                    'clipping_coef': (0.3, 0.3),
+                    'entropy_coef': (0.02, 0.05)
+                },
+                'both': {
+                    'reg_coef': (0.01, 0.0),
+                    'learning_rate': (0.005, 0.001),
+                    'clipping_coef': (0.3, 0.2),
+                    'entropy_coef': (0.01, 0.05)
+                },
+                'input': {
+                    'reg_coef': (0.25, 0.05),
+                    'learning_rate': (0.001, 0.005),
+                    'clipping_coef': (0.3, 0.3),
+                    'entropy_coef': (0.01, 0.05)
+                }
             }
-        }
+            lrs = best_hyperparams[args.mask_type]['learning_rate']
+            clip_coef = best_hyperparams[args.mask_type]['clipping_coef']
+            ent_coef = best_hyperparams[args.mask_type]['entropy_coef']
+            reg_coef = best_hyperparams[args.mask_type]['reg_coef']
 
-        learning_rates = {
-            "MiniGrid-MultiRoom-v0": {
-                "didec": (0.005, 0.005),
-                "didec-reg": (0.01, 0.005),
-                "vanilla": (0.001, 0.001), # MultiRoom Vanilla
-                "fine-tune": (0.01, 0.01), # MultiRoom Fine-tune
-                "neural-augmented": (0.005, 0.0005), # MultiRoom Neural Augmented
-                "dec-whole": (0.0005, 0.0005) # MultiRoom Dec-whole
-            },
-            "MiniGrid-Unlock-v0": {
-                "vanilla": (0.005, 0.005, 0.005)
+        else:
+            ent_coefs = {
+                "MiniGrid-MultiRoom-v0": {
+                    "vanilla": (0.01, 0.01), # MultiRoom Vanilla
+                    "fine-tune": (0.03, 0.03), # MultiRoom Fine-tune
+                    "neural-augmented": (0.02, 0.01), # MultiRoom Neural Augmented
+                    "dec-whole": (0.03, 0.01) # MultiRoom Dec-whole
+                },
+                "MiniGrid-Unlock-v0": {
+                    "vanilla": (0.05, 0.05, 0.2)
 
+                }
             }
-        }
-        clip_coefs = {
-            "MiniGrid-MultiRoom-v0": {
-                "didec": (0.3, 0.3),
-                "didec-reg": (0.3, 0.2),
-                "vanilla": (0.3, 0.3), # MultiRoom Vanilla
-                "fine-tune": (0.3, 0.3), # MultiRoom Fine-tune
-                "neural-augmented": (0.15, 0.15), # MultiRoom Neural Augmented
-                "dec-whole": (0.1, 0.2) # MultiRoom Dec-whole
-            },
-            "MiniGrid-Unlock-v0": {
-                "vanilla": (0.3, 0.2, 0.2)
 
+            learning_rates = {
+                "MiniGrid-MultiRoom-v0": {
+                    "vanilla": (0.001, 0.001), # MultiRoom Vanilla
+                    "fine-tune": (0.01, 0.01), # MultiRoom Fine-tune
+                    "neural-augmented": (0.005, 0.0005), # MultiRoom Neural Augmented
+                    "dec-whole": (0.0005, 0.0005) # MultiRoom Dec-whole
+                },
+                "MiniGrid-Unlock-v0": {
+                    "vanilla": (0.005, 0.005, 0.005)
+
+                }
             }
-        }
-    
-        lrs = learning_rates[args.env_id][args.option_mode]
-        clip_coef = clip_coefs[args.env_id][args.option_mode]
-        ent_coef = ent_coefs[args.env_id][args.option_mode]
+            clip_coefs = {
+                "MiniGrid-MultiRoom-v0": {
+                    "vanilla": (0.3, 0.3), # MultiRoom Vanilla
+                    "fine-tune": (0.3, 0.3), # MultiRoom Fine-tune
+                    "neural-augmented": (0.15, 0.15), # MultiRoom Neural Augmented
+                    "dec-whole": (0.1, 0.2) # MultiRoom Dec-whole
+                },
+                "MiniGrid-Unlock-v0": {
+                    "vanilla": (0.3, 0.2, 0.2)
+
+                }
+            }
+        
+            lrs = learning_rates[args.env_id][args.option_mode]
+            clip_coef = clip_coefs[args.env_id][args.option_mode]
+            ent_coef = ent_coefs[args.env_id][args.option_mode]
     else:
         lrs = args.learning_rate
         clip_coef = args.clip_coef
         ent_coef = args.ent_coef
+        reg_coef = args.reg_coef
     exp_id = args.exp_id
     if isinstance(lrs, float) or len(lrs) == 1:
         lrs = tuple(lrs) * len(args.env_seeds)
@@ -360,6 +382,8 @@ if __name__ == "__main__":
         clip_coef = tuple(clip_coef) * len(args.env_seeds)
     if isinstance(ent_coef, float) or len(ent_coef) == 1:
         ent_coef = tuple(ent_coef) * len(args.env_seeds)
+    if isinstance(reg_coef, float) or len(reg_coef) == 1:
+        reg_coef = tuple(reg_coef) * len(args.env_seeds)
     
     for i in range(len(args.env_seeds)):
         if i != env_idx:
@@ -371,6 +395,7 @@ if __name__ == "__main__":
         args.ent_coef = ent_coef[i]
         args.clip_coef = clip_coef[i]
         args.learning_rate = lrs[i]
+        args.reg_coef = reg_coef[i]
         args.exp_id = f'{exp_id}_lr{args.learning_rate}_clip{args.clip_coef}_ent{args.ent_coef}_envsd{args.env_seed}'
         if args.env_id == "ComboGrid":
             args.problem = COMBOGRID_PROBLEMS[args.env_seed]
