@@ -282,7 +282,7 @@ def load_options(args, logger):
         args.env_id = "MiniGrid-SimpleCrossingS9N1-v0"
     elif args.env_id == "MiniGrid-MultiRoom-v0":
         args.env_id = "MiniGrid-Unlock-v0"
-    save_dir = f"binary/options/{args.env_id}_width={args.game_width}_reg={args.reg_coef}_{args.mask_type}/seed={args.seed}"
+    save_dir = f"binary/options/{args.env_id}_width={args.game_width}_reg={args.reg_coef}_{args.option_mode}_{args.mask_type}/seed={args.seed}"
 
     logger.info(f"Option directory: {save_dir}")
 
@@ -2227,8 +2227,8 @@ def main():
     module_extractor = LearnOptions(args, logger)
     module_extractor.discover()
 
-    module_extractor = WholeDecOption(args, logger)
-    module_extractor.discover()
+    # module_extractor = WholeDecOption(args, logger)
+    # module_extractor.discover()
 
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()

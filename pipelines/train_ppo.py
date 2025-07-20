@@ -254,7 +254,7 @@ def main(args: Args):
     if args.sweep_run == 1:
         model_path = f'{args.models_path_prefix}/{args.env_id}_width={args.game_width}_{args.option_mode}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-3.pt'
     else:
-        model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}_{args.option_mode}/seed={args.seed}/{args.exp_id}.pt'
+        model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}_{args.option_mode}_{args.mask_type}_{args.reg_coef}/seed={args.seed}/{args.exp_id}.pt'
         if os.path.isfile(model_path):
             logger.info(f"Model already exists. Stopping training...")
             exit()
