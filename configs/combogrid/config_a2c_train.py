@@ -4,6 +4,7 @@ from typing import List
 import datetime
 import torch
 import os
+import random
 
 from Environments.ComboGrid.GetEnvironment import COMBOGRID_ENV_LST
 
@@ -16,7 +17,12 @@ MODE = os.environ.get("MODE", "train_option").split("-")
 ENV_SEEDS = list(map(int, os.environ.get("ENV_SEEDS", "0 1 2 3").split(" ")))
 ENV_NAME = os.environ.get("ENV_NAME", "ComboGrid")
 RES_DIR = os.environ.get("RES_DIR", f"Results_{ENV_NAME}_gw{GAME_WIDTH}h{HIDDEN_SIZE}_A2C_ReLU")
- 
+AGENT_CLASS = os.environ.get("AGENT_CLASS", "A2CAgent")
+
+
+# np.random.seed(SEED)
+# torch.manual_seed(SEED)
+# random.seed(SEED)
 
 def default_env_wrappers(env_name, **kwargs):
     
@@ -36,8 +42,10 @@ class arguments:
     game_width:               int                = GAME_WIDTH
     hidden_size:              int                = HIDDEN_SIZE
 
+    critic_hidden_size:       int        = 200 # Hidden size for the critic network, used in A2CAgent       
+    
     # ----- train experiment settings -----
-    agent_class:              str                = "A2CAgent" # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent, A2CAgent
+    agent_class:              str                = AGENT_CLASS # PPOAgent, ElitePPOAgent, RandomAgent, SACAgent, DDPGAgent, A2CAgent
     seeds                                        = [SEED] 
     exp_total_steps:          int                = TOTAL_STEPS 
     exp_total_episodes:       int                = 0
@@ -73,6 +81,23 @@ class arguments:
     tuning_nametag:           str              = f"gw{GAME_WIDTH}-h{HIDDEN_SIZE}-vanilla"
     num_trials:               int              = 10   
     steps_per_trial:          int              = 100_000
+    # param_ranges                               = {
+    #                                             "gamma": [0.95, 0.97, 0.99],  # Typical range for discount factors
+    #                                             "lamda": [0.90, 0.95, 0.97, 0.99],  # GAE lambda
+    #                                             "epochs": [3, 5, 10],  # PPO epoch count per update
+    #                                             "rollout_steps": [1024, 2048, 4096],  # Number of steps per rollout
+    #                                             "num_minibatches": [16, 32, 64],  # Used for batch splitting
+    #                                             "step_size": [
+    #                                                 1e-6, 3e-6, 1e-5, 3e-5, 5e-5,
+    #                                                 1e-4, 2e-4, 3e-4, 1e-3, 3e-3
+    #                                             ],
+    #                                             "entropy_coef": [0.0, 0.01, 0.02, 0.05],  # Encourages exploration
+    #                                             "critic_coef": [0.25, 0.5, 1.0],  # Value loss weight
+    #                                             "clip_ratio": [0.1, 0.2, 0.3],  # PPO clip parameter
+    #                                             "max_grad_norm": [0.1, 0.5, 1.0],  # Gradient clipping
+    #                                             "var_coef": [0.0, 0.01, 0.1],  # Optional value loss penalty
+    #                                             "l1_lambda": [0.0, 1e-6, 1e-5, 1e-4]
+    #                                                 }
     param_ranges                               = {
                                                         "step_size":[
                                                                         1e-6,
@@ -94,17 +119,38 @@ class arguments:
     tuning_env_max_steps:     int              = 500
     tuning_seeds                               = [0]
     exhaustive_search:        bool             = True
-    # num_grid_points:          int              = 5
+    num_grid_points:          int              = 10
     option_path_tuning                         = []
     tuning_storage:           str              = "sqlite:///optuna.db"
-    n_trials_per_job:         int              = 1
+    n_trials_per_job:         int              = 10
 
     # ----- A2C hyper‑parameters -----
-    gamma:                    float              = 0.99
+    gamma:                    float              = 1
     lamda:                    float              = 0.95
     rollout_steps:            int                = 7
     step_size:                float              = float(os.environ.get("STEP_SIZE", 3e-4))
     
+
+    # ----- PPO hyper‑parameters -----
+    gamma:                    float              = 0.99
+    lamda:                    float              = 0.95
+
+    epochs:                   int                = 10
+    total_steps:              int                = TOTAL_STEPS
+    rollout_steps:            int                = 2048
+    num_minibatches:          int                = 32
+    
+    flag_anneal_step_size:    bool               = True
+    step_size:                float              = float(os.environ.get("STEP_SIZE", 3e-4))
+    entropy_coef:             float              = float(os.environ.get("ENTROPY_COEF", 0.0))
+    critic_coef:              float              = 0.5
+    clip_ratio:               float              = 0.2
+    flag_clip_vloss:          bool               = True
+    flag_norm_adv:            bool               = True
+    max_grad_norm:            float              = 0.5
+    flag_anneal_var:          bool               = False
+    var_coef:                 float              = 0.0
+    l1_lambda:                float              = float(os.environ.get("L1_LAMBDA", 1e-5))
 
     # ----- plot setting -----
     pattern                                      = {
@@ -186,7 +232,7 @@ class arguments:
     
     # ----- test option experiment settings -----
     option_save_results:      bool               = True
-    option_name_tag:          str                = f"block_distractors_50_stepsize_{step_size}"
+    option_name_tag:          str                = f"distractors_50_stepsize_{step_size}"
     test_option_env_name:     str                = os.environ.get("TEST_OPTION_ENV_NAME", ENV_NAME) #Medium_Maze, Large_Maze, Hard_Maze
     test_option_env_params                       = {"env_seed": 12, "step_reward": 0, "goal_reward": 10, "game_width": GAME_WIDTH}
     test_option_env_wrappers                     = default_env_wrappers(test_option_env_name)[0]
