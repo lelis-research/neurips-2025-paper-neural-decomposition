@@ -51,7 +51,7 @@ class PPOAgent:
         self.device = kwargs['device']
 
         if isinstance(action_space, gym.spaces.Discrete):
-            self.actor_critic = ActorCriticDiscrete(observation_space, action_space).to(self.device)
+            self.actor_critic = ActorCriticDiscrete(observation_space, action_space, hidden_size=kwargs.get("hidden_size", 64), critic_hidden_size=kwargs.get("critic_hidden_size", 200)).to(self.device)
         elif isinstance(action_space, gym.spaces.MultiDiscrete):
             self.actor_critic = ActorCriticMultiDiscrete(observation_space, action_space).to(self.device)
         else:
@@ -115,12 +115,12 @@ class PPOAgent:
         self.prev_action = action
         # action  = true_action
         
-        if isinstance(self.action_space, gym.spaces.Discrete):
-            return discrete_to_continuous(action.squeeze(0).detach().cpu().numpy())
-        elif isinstance(self.action_space, gym.spaces.MultiDiscrete):
-            return multidiscrete_to_continuous(action.squeeze(0).detach().cpu().numpy())
-        else:
-            return action.squeeze(0).detach().cpu().numpy()
+        # if isinstance(self.action_space, gym.spaces.Discrete):
+        #     return discrete_to_continuous(action.squeeze(0).detach().cpu().numpy())
+        # elif isinstance(self.action_space, gym.spaces.MultiDiscrete):
+        #     return multidiscrete_to_continuous(action.squeeze(0).detach().cpu().numpy())
+        # else:
+        return action.squeeze(0).cpu().numpy()
         
     
     
@@ -245,7 +245,7 @@ class PPOAgent:
                 #   var_penalty = mean(σ²) = mean(exp(2 log σ))
                 # var_penalty = torch.exp(log_std).mean()
 
-                l1_norm = sum(p.abs().sum() for name, p in self.actor_critic.actor_mean.named_parameters() 
+                l1_norm = sum(p.abs().sum() for name, p in self.actor_critic.actor.named_parameters() 
                               if p.requires_grad and "bias" not in name)
                 # ===============================
 
@@ -309,7 +309,7 @@ class PPOAgent:
         
         agent.actor_critic.load_state_dict(checkpoint["actor_critic"])
         agent.optimizer.load_state_dict(checkpoint["optimizer"])
-        agent.actor_critic.analyze_weights()
+        # agent.actor_critic.analyze_weights()
         
         print(f"Agent loaded from {file_path}")
         return agent

@@ -21,9 +21,6 @@ from Experiments.EnvAgentLoops import agent_environment_step_loop, agent_environ
 
     
 def train_single_seed(seed, args):
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    random.seed(seed)
 
     env = get_env(env_name=args.training_env_name,
                   env_params=args.training_env_params,
@@ -41,7 +38,7 @@ def train_single_seed(seed, args):
                     "flag_anneal_step_size", "step_size",
                     "entropy_coef", "critic_coef",  "clip_ratio", 
                     "flag_clip_vloss", "flag_norm_adv", "max_grad_norm",
-                    "flag_anneal_var", "var_coef", "l1_lambda",
+                    "flag_anneal_var", "var_coef", "l1_lambda", "hidden_size", "critic_hidden_size"
                     ]
     elif args.agent_class in ["DQNAgent", "NStepDQNAgent"]:
         keys = ["gamma", "step_size",
@@ -55,7 +52,7 @@ def train_single_seed(seed, args):
                 "noise_phi", "ou_theta", "ou_sigma",
                 "epsilon_end", "decay_steps"]
     elif args.agent_class == "A2CAgent":
-        keys = ["gamma", "step_size", "rollout_steps", "lamda", "hidden_size"]
+        keys = ["gamma", "step_size", "rollout_steps", "lamda", "hidden_size", "critic_hidden_size"]
     else:
         raise NotImplementedError("Agent class not known")
     
@@ -75,6 +72,7 @@ def train_single_seed(seed, args):
         agent = agent_class.load(agent_path)
         agent.initialize_params(**agent_kwargs)
     
+    print(agent.actor_critic)
 
     writer = None
     if args.save_results:

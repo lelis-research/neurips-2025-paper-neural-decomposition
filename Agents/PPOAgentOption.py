@@ -10,7 +10,7 @@ from torch.distributions import Categorical
 
 
 class PPOAgentOption:
-    def __init__(self, observation_space, options_list, **kwargs):
+    def __init__(self, observation_space, action_space, options_list, **kwargs):
         """
         Hierarchical PPO: high‐level policy over discrete options.
         options_list: List[Option], where each Option has .max_len and .act(obs)
@@ -20,12 +20,17 @@ class PPOAgentOption:
 
         self.observation_space = observation_space
         self.options           = options_list
+        self.primitive_action_space = action_space
+        
+        self.num_options = len(options_list)
+        self.num_primitives = action_space.n
         
         self.option_space      = gym.spaces.Discrete(len(options_list))
+        self.action_space = gym.spaces.Discrete(self.num_primitives + self.num_options)
         self.device            = kwargs["device"]
 
         # high‐level actor‐critic over options
-        self.actor_critic = ActorCriticDiscrete(observation_space, self.option_space).to(self.device)
+        self.actor_critic = ActorCriticDiscrete(observation_space, self.action_space, hidden_size=kwargs.get("hidden_size", 64), critic_hidden_size=kwargs.get("critic_hidden_size", 200)).to(self.device)
 
         self.optimizer = optim.Adam(self.actor_critic.parameters(), lr=self.step_size, eps=1e-5)
 
@@ -34,10 +39,14 @@ class PPOAgentOption:
         self.update_counter = 0
         self.ep_counter     = 0
 
-        # option‐execution state
-        self.current_option     = None   # index of chosen option
-        self.option_step_count  = 0      # how many primitives we've executed under it
-        self.accum_reward       = 0.0
+        # # option‐execution state
+        # self.current_option     = None   # index of chosen option
+        # self.option_step_count  = 0      # how many primitives we've executed under it
+        # self.accum_reward       = 0.0
+
+        self.current_high    = None  # last high-level action index
+        self.option_step     = 0     # steps executed under current option
+        self.accum_reward    = 0.0
     
     def initialize_params(self, **kwargs):
          # Return Calculation Params 
@@ -67,37 +76,63 @@ class PPOAgentOption:
         self.flag_anneal_var = kwargs.get("flag_anneal_var", True) # Anneal Variance
         self.var_coef = kwargs.get("var_coef", 0.01) # Variance Coefficient
               
+    # def act(self, observation, greedy=False):
+    #     """
+    #     1) If no option is active, or we've reached its max_len,
+    #        sample a new option from the high‐level policy.
+    #     2) Execute that option for up to opt.max_len steps.
+    #     """
+    #     state = torch.tensor(observation, device=self.device, dtype=torch.float32).unsqueeze(0)
+
+    #     # pick new option if needed
+    #     if (self.current_option is None or
+    #         self.option_step_count >= self.options[self.current_option].max_len):
+    #         # sample high‐level policy
+    #         with torch.no_grad():
+    #             option_idx_tensor, log_prob, _ = self.actor_critic.get_action(state, greedy=greedy)
+            
+    #         self.current_option    = option_idx_tensor.item()
+            
+    #         self.prev_state        = state
+    #         self.last_log_prob     = log_prob
+    #         self.prev_option       = option_idx_tensor
+            
+    #         self.option_step_count = 0
+    #         self.accum_reward      = 0.0
+
+    #     # execute the chosen option's primitive policy
+    #     action = self.options[self.current_option].act(observation)  # returns a torch.Tensor
+
+    #     # increment the counter
+    #     self.option_step_count += 1
+
+    #     return action.detach().cpu().numpy()
+
     def act(self, observation, greedy=False):
-        """
-        1) If no option is active, or we've reached its max_len,
-           sample a new option from the high‐level policy.
-        2) Execute that option for up to opt.max_len steps.
-        """
-        state = torch.tensor(observation, device=self.device, dtype=torch.float32).unsqueeze(0)
-
-        # pick new option if needed
-        if (self.current_option is None or
-            self.option_step_count >= self.options[self.current_option].max_len):
-            # sample high‐level policy
+        state = torch.tensor(observation, dtype=torch.float32, device=self.device).unsqueeze(0)
+        
+        if (self.current_high is None or (self.current_high >= self.num_primitives and self.option_step >= self.options[self.current_high - self.num_primitives].max_len)):
+            # choose primitive or option
             with torch.no_grad():
-                option_idx_tensor, log_prob, _ = self.actor_critic.get_action(state, greedy=greedy)
+                high_idx_t, log_prob, _ = self.actor_critic.get_action(state, greedy=greedy)
+            self.current_high = high_idx_t.item()
+            self.prev_state   = state
+            self.prev_log_prob = log_prob
+            self.prev_high    = high_idx_t
             
-            self.current_option    = option_idx_tensor.item()
+            # reset counters
+            self.option_step  = 0
+            self.accum_reward = 0.0
             
-            self.prev_state        = state
-            self.last_log_prob     = log_prob
-            self.prev_option       = option_idx_tensor
-            
-            self.option_step_count = 0
-            self.accum_reward      = 0.0
-
-        # execute the chosen option's primitive policy
-        action = self.options[self.current_option].act(observation)  # returns a torch.Tensor
-
-        # increment the counter
-        self.option_step_count += 1
-
-        return action.detach().cpu().numpy()
+        # execute primitive directly or delegate to option
+        if self.current_high < self.num_primitives:
+            primitive = self.current_high
+        else:
+            opt_idx  = self.current_high - self.num_primitives
+            primitive = self.options[opt_idx].act(observation)
+            self.option_step += 1
+        
+        return primitive
     
     def update(self, next_observation, reward, terminated, truncated):
         """
@@ -107,17 +142,30 @@ class PPOAgentOption:
         self.accum_reward += reward
         next_state = torch.tensor(next_observation, device=self.device, dtype=torch.float32).unsqueeze(0)
         
-        if self.option_step_count >= self.options[self.current_option].max_len or terminated or truncated:
-            self.memory.append({
-                "state":      self.prev_state,     # (1, obs_dim)
-                "option":     self.prev_option,    # scalar tensor
-                "log_prob":   self.last_log_prob,  # scalar tensor
+        # if self.option_step_count >= self.options[self.current_option].max_len or terminated or truncated:
+        #     self.memory.append({
+        #         "state":      self.prev_state,     # (1, obs_dim)
+        #         "option":     self.prev_option,    # scalar tensor
+        #         "log_prob":   self.last_log_prob,  # scalar tensor
                 
-                "next_state": next_state,          # (1, obs_dim)
-                "reward":     self.accum_reward,              # float
-                "done":       terminated,
+        #         "next_state": next_state,          # (1, obs_dim)
+        #         "reward":     self.accum_reward,              # float
+        #         "done":       terminated,
+        #     })
+        #     self.current_option = None
+
+        if self.current_high < self.num_primitives or \
+            self.option_step >= self.options[self.current_high - self.num_primitives].max_len or \
+            terminated or truncated:
+            self.memory.append({
+                'state':      self.prev_state,
+                'action':     self.prev_high,
+                'log_prob':   self.prev_log_prob,
+                'reward':     self.accum_reward,
+                'next_state': next_state,
+                'done':       terminated
             })
-            self.current_option = None
+            self.current_high = None
 
         if terminated or truncated:
             self.ep_counter += 1
@@ -147,7 +195,7 @@ class PPOAgentOption:
 
         # (2) unpack buffer
         states = torch.cat([t["state"] for t in self.memory],0).to(self.device)
-        options = torch.cat([t["option"] for t in self.memory]).to(self.device)
+        options = torch.cat([t["action"] for t in self.memory]).to(self.device)
         old_log_probs = torch.stack([t["log_prob"] for t in self.memory]).squeeze().to(self.device)
         
         next_states = torch.cat([t["next_state"] for t in self.memory], 0).to(self.device)

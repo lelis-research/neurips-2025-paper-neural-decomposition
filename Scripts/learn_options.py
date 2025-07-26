@@ -15,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 from Experiments.LearnOptions import extract_trajectory, generate_subtrajectories, learn_mask, fine_tune_policy, find_best_subset_stochastic_parallel
 from Experiments.LevinLoss import levin_loss_continuous_with_maxlen, levin_loss_discrete
 from Environments.GetEnvironment import get_env
-# from Agents.PPOAgent import PPOAgent
+from Agents.PPOAgent import PPOAgent
 from Agents.PPOAgentOption import PPOAgentOption
 from Agents.A2CAgentOption import A2CAgentOption
 from Agents.A2CAgent import A2CAgent
@@ -129,13 +129,18 @@ def train_options(args):
         os.makedirs(exp_dir)
 
     print("env_agent_list: ", args.env_agent_list)
+
+    if args.agent_class in ["A2CAgent", "A2CAgentOption"]:
+        agent_class = A2CAgent
+    elif args.agent_class in ["PPOAgent", "PPOAgentOption"]:
+        agent_class = PPOAgent
     
     if args.baseline == "Transfer":
         # No training, just copy the base policies
         options_lst = []
         for env_agent in args.env_agent_list:
             agent_path = os.path.join(args.res_dir, env_agent["agent_path"], "final.pt")
-            agent = A2CAgent.load(agent_path) 
+            agent = agent_class.load(agent_path) 
             options_lst.append(Option(agent.actor_critic.actor, None, 1))
         best_options = options_lst
         torch.save(best_options, os.path.join(exp_dir, "selected_options.pt"))
@@ -154,7 +159,7 @@ def train_options(args):
                             max_steps=env_agent["env_max_steps"],
                             )
                 agent_path = os.path.join(args.res_dir, env_agent["agent_path"], "final.pt")
-                agent = A2CAgent.load(agent_path) 
+                agent = agent_class.load(agent_path) 
 
                 print("extracting trajectory for: ", env_agent["env_name"], agent_path)
                 traj = extract_trajectory(agent, env)
@@ -290,16 +295,29 @@ def test_options(args):
     #             "flag_clip_vloss", "flag_norm_adv", "max_grad_norm",
     #             "flag_anneal_var", "var_coef",
     #             ]
-    keys = ["gamma", "step_size", "rollout_steps", "lamda"]
+
+    if args.agent_class in ["PPOAgent", "PPOAgentOption"]:
+        keys = ["gamma", "lamda",
+                    "epochs", "total_steps", "rollout_steps", "num_minibatches",
+                    "flag_anneal_step_size", "step_size",
+                    "entropy_coef", "critic_coef",  "clip_ratio", 
+                    "flag_clip_vloss", "flag_norm_adv", "max_grad_norm",
+                    "flag_anneal_var", "var_coef", "l1_lambda","hidden_size", "critic_hidden_size"
+                    ]
+        agent_class = PPOAgentOption
+    elif args.agent_class in ["A2CAgent", "A2CAgentOption"]:
+        keys = ["gamma", "step_size", "rollout_steps", "lamda", "hidden_size", "critic_hidden_size"]
+        agent_class = A2CAgentOption
     
     agent_kwargs = {k: getattr(args, k) for k in keys}
 
-    agent = A2CAgentOption(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space, 
+    agent = agent_class(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space, 
                            env.single_action_space if hasattr(env, "single_action_space") else env.action_space, 
                             best_options,
                             device=args.device,
                             **agent_kwargs
                             )
+    print(agent.actor_critic)
      
     writer = None
     if args.option_save_results:

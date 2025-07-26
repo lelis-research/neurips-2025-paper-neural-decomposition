@@ -24,7 +24,7 @@ from Agents.DQNAgent import DQNAgent
 from Agents.NStepDQNAgent import NStepDQNAgent
 from Agents.A2CAgent import A2CAgent
 from Agents.A2CAgentOption import A2CAgentOption
-
+import random
 import warnings
 
 
@@ -42,6 +42,15 @@ class ProgressCallBack:
                     f"Progress: {n_completed} trials completed out of {len(study.trials)} total."
                 )
 
+
+def set_seed(seed):
+    """
+    Set the random seed for reproducibility.
+    """
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    random.seed(seed)
 
 def tune_agent(args):
     """
@@ -86,7 +95,7 @@ def tune_agent(args):
 
     # 1) If exhaustive, build the grid_space and sampler
     if args.exhaustive_search:
-        num_points = getattr(args, "num_grid_points", 5)
+        num_points = getattr(args, "num_grid_points", 10)
         grid_space = {}
         for name, bounds in args.param_ranges.items():
             if isinstance(bounds, list):
@@ -106,9 +115,13 @@ def tune_agent(args):
             study = optuna.create_study(**study_kwargs, sampler=sampler)
         # optimize_kwargs = {"n_jobs":args.num_tuning_workers}  # omit n_trials → exhausts the grid
         total_trials = int(np.prod([len(v) for v in grid_space.values()]))
+
+        print(f"Exhaustive search with {total_trials} trials over {len(grid_space)} parameters.")
     else:
-        study = optuna.load_study(**study_kwargs)
-        # study = optuna.create_study(**study_kwargs)
+        try:
+            study = optuna.load_study(**study_kwargs)
+        except: 
+            study = optuna.create_study(**study_kwargs)
         # optimize_kwargs = {"n_trials": args.num_trials, "n_jobs":args.num_tuning_workers}
         total_trials = args.num_trials
         
@@ -118,9 +131,9 @@ def tune_agent(args):
         if args.exhaustive_search:
             n_trials = None   # GridSampler will exhaustively run all
         else:
-            n_trials = args.num_trials
+            n_trials = args.num1trials
     
-    optimize_kwargs = {"n_trials": n_trials, "n_jobs": 1, "callbacks":[ProgressCallBack()]}
+    optimize_kwargs = {"n_trials": n_trials, "n_jobs": 1, "callbacks":[ProgressCallBack()], "show_progress_bar":True}
 
     # 2) The objective always uses trial.suggest_*
     def objective(trial):
@@ -205,7 +218,10 @@ def tune_agent(args):
             
         else:
             sum_return = 0
+            assert len(args.seeds) == 1, "Tuning should be done with a single seed"
+            SEED = args.seeds[0]
             for seed in args.tuning_seeds:
+                set_seed(SEED + seed)
                 agent = agent_class(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space,
                         env.single_action_space if hasattr(env, "single_action_space") else env.action_space,
                         device=args.device,
@@ -219,6 +235,7 @@ def tune_agent(args):
                 result, _ = agent_environment_step_loop(env, agent, args.steps_per_trial, verbose=True)
                 sum_return += sum(r['episode_return'] for r in result)
             avg_return = sum_return / len(args.tuning_seeds)
+            set_seed(SEED)
             
 
         # minimize → negative return -> maximize return
