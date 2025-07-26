@@ -15,10 +15,7 @@ from Experiments.EnvAgentLoops import agent_environment_step_loop, agent_environ
 from Agents.A2CAgent import A2CAgent
 
 def test_agent(seed, args):
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    random.seed(seed)
-
+    
     env = get_env(env_name=args.test_env_name,
                   env_params=args.test_env_params,
                   wrapping_lst=args.test_env_wrappers,

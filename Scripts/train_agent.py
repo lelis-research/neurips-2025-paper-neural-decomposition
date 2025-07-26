@@ -60,7 +60,7 @@ def train_single_seed(seed, args):
     agent_class = eval(args.agent_class)
 
     if args.load_agent is None:
-        print("Training a new agent")
+        print("Training a new agent of type", args.agent_class)
         agent = agent_class(env.single_observation_space if hasattr(env, "single_observation_space") else env.observation_space,
                         env.single_action_space if hasattr(env, "single_action_space") else env.action_space,
                         device=args.device,
@@ -87,6 +87,16 @@ def train_single_seed(seed, args):
             os.makedirs(exp_dir)
         else:
             print(f"Experiment directory {exp_dir} already exists !")
+            if args.repeated_experiment_policy == "overwrite":
+                print("Overwriting the existing directory.")
+                os.rmdir(exp_dir)
+                os.makedirs(exp_dir)
+            elif args.repeated_experiment_policy == "halt":
+                raise ValueError(f"Experiment directory {exp_dir} already exists. Halting the experiment.")
+            elif args.repeated_experiment_policy == "continue":
+                print("Continuing the experiment in the existing directory.")
+            else:
+                raise ValueError(f"Unknown repeated experiment policy: {args.repeated_experiment_policy}")
         writer = SummaryWriter(log_dir=exp_dir)
     
     if args.exp_total_steps > 0 and args.exp_total_episodes == 0:
@@ -110,6 +120,8 @@ def train_single_seed(seed, args):
 
 def train_parallel_seeds(seeds, args):
     # cap the number of workers to at most len(seeds) or the cpu count
+
+    # Is only used for more than one seed trained in one job in parallel
     num_workers = min(args.num_workers, len(seeds), multiprocessing.cpu_count())
     if args.num_workers > 1:
         pool = multiprocessing.Pool(processes=num_workers)

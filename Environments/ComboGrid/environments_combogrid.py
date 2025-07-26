@@ -19,7 +19,7 @@ SEEDS = {
     "TR-ML": 10,
     "BR-ML": 11,
 
-    "BL-MR-ML-BM-TM": 12,
+    "MM-MR-ML-BM-TM": 12,
     "BL-MR-BM": 13,
 
     "MM-MR-ML|hallways": 14,

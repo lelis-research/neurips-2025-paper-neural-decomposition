@@ -239,35 +239,5 @@ class arguments:
     exp_options_total_steps:   int               = TOTAL_STEPS
     exp_options_total_episodes:int               = 0
 
-
-
-    # if SEED == 0:
-    #     for i in [0,1,3]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 1:
-    #     for i in [0]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 2:
-    #     for i in [2,3]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 3:
-    #     for i in [1]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 5:
-    #     for i in [2]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 9:
-    #     for i in [1]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 10:
-    #     for i in [0]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 12:
-    #     for i in [1]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 13:
-    #     for i in [2]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 14:
-    #     for i in [1]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
+    # ----- experiment output settings -----
+    repeated_experiment_policy: str = "halt" # "continue", "overwrite", "halt"
