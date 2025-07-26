@@ -11,6 +11,9 @@ from Scripts.test_agent import test_agent
 from Scripts.tune_params import tune_agent
 from Scripts.learn_options import train_options, test_options
 from Scripts.search_options import search_options
+import numpy as np
+import torch
+import random
 
 def load_config_module(path: str):
     """
@@ -43,6 +46,12 @@ if __name__ == "__main__":
 
     # instantiate the arguments dataclass
     args = config_mod.arguments()
+    
+    assert len(args.seeds) == 1
+    seed = args.seeds[0]
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    random.seed(seed)
     print(args)
 
     # make sure result directory exists

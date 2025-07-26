@@ -94,7 +94,7 @@ class arguments:
     tuning_env_max_steps:     int              = 500
     tuning_seeds                               = [0]
     exhaustive_search:        bool             = True
-    # num_grid_points:          int              = 5
+    num_grid_points:          int              = 10 
     option_path_tuning                         = []
     tuning_storage:           str              = "sqlite:///optuna.db"
     n_trials_per_job:         int              = 1
@@ -200,35 +200,5 @@ class arguments:
     exp_options_total_steps:   int               = TOTAL_STEPS
     exp_options_total_episodes:int               = 0
 
-
-
-    # if SEED == 0:
-    #     for i in [0,1,3]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 1:
-    #     for i in [0]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 2:
-    #     for i in [2,3]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 3:
-    #     for i in [1]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 5:
-    #     for i in [2]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 9:
-    #     for i in [1]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 10:
-    #     for i in [0]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 12:
-    #     for i in [1]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 13:
-    #     for i in [2]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
-    # if SEED == 14:
-    #     for i in [1]:
-    #         env_agent_list[i]['agent_path'] = f"ComboGrid_{SEED}_{200000}_env_{i}"
+    # ----- experiment output settings -----
+    repeated_experiment_policy: str = "halt" # "continue", "overwrite", "halt"

@@ -105,7 +105,7 @@ def plot_results(runs_metrics, window_size=500, interpolation_resolution=100_000
         avg_label = f"Avg Return Over {len(returns_lst)} Runs"
     
     # Plot the average return.
-    ax.plot(x, avg_returns, linestyle, label=avg_label, color=color, markevery=50)
+    ax.plot(x, avg_returns, linestyle, label=avg_label, color=color, markevery=1000)
     
     # Set plot properties.
     ax.set_title(f"Result of {nametag}")
@@ -184,9 +184,9 @@ def plot_comparison(args, method_patterns,
     # automatic distinct colors
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
-    for (method_name, pattern), _ in zip(method_patterns.items(), colors):
+    for idx, ((method_name, pattern), _) in enumerate(zip(method_patterns.items(), colors)):
 
-        color, linestyle, label = args.baselines_spec.get(method_name, (colors[0], '-', method_name))
+        color, linestyle, label = args.baselines_spec.get(method_name, (colors[idx], '-', method_name))
         print(f"Loading {method_name}")
         folders = glob.glob(f"{res_dir}/{pattern}")
         print(f"{len(folders)} experiments found")
@@ -196,7 +196,7 @@ def plot_comparison(args, method_patterns,
 
         # load each run's res.pkl
         runs = []
-        for folder in folders:
+        for folder in sorted(folders):
             try:
                 with open(os.path.join(folder, "res.pkl"), "rb") as f:
                     r = pickle.load(f)

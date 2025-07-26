@@ -86,7 +86,7 @@ def tune_agent(args):
 
     # 1) If exhaustive, build the grid_space and sampler
     if args.exhaustive_search:
-        num_points = getattr(args, "num_grid_points", 5)
+        num_points = getattr(args, "num_grid_points", 10)
         grid_space = {}
         for name, bounds in args.param_ranges.items():
             if isinstance(bounds, list):
