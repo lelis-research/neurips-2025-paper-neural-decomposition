@@ -37,19 +37,19 @@ class Args:
     # exp_name: str = "extract_learnOptions_randomInit_pitisFunction"
     """the name of this experiment"""
     # env_seeds: Union[List, str, Tuple] = (0,1,2,3)
-    # env_seeds: Union[List, str, Tuple] = (0,1,2)
-    env_seeds: Union[List, str, Tuple] = (1,3,17)
+    env_seeds: Union[List, str, Tuple] = (0,1,2)
+    # env_seeds: Union[List, str, Tuple] = (1,3,17)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
-    # model_paths: List[str] = (
-    #     'minigrid-simplecrossings9n1-v0-0',
-    #     'minigrid-simplecrossings9n1-v0-1',
-    #     'minigrid-simplecrossings9n1-v0-2'
-    # )
     model_paths: List[str] = (
-        'minigrid-unlock-v0-1',
-        'minigrid-unlock-v0-3',
-        'minigrid-unlock-v0-17'
+        'minigrid-simplecrossings9n1-v0-0',
+        'minigrid-simplecrossings9n1-v0-1',
+        'minigrid-simplecrossings9n1-v0-2'
     )
+    # model_paths: List[str] = (
+    #     'minigrid-unlock-v0-1',
+    #     'minigrid-unlock-v0-3',
+    #     'minigrid-unlock-v0-17'
+    # )
     # model_paths: List[str] = (
     #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.0005_clip0.25_ent0.1_envsd0',
     #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.001_clip0.2_ent0.1_envsd1',
@@ -75,7 +75,7 @@ class Args:
     """the name of the problems the agents were trained on; To be filled in runtime"""
 
     # Algorithm specific arguments
-    env_id: str = "MiniGrid-Unlock-v0"
+    env_id: str = "MiniGrid-SimpleCrossingS9N1-v0"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
@@ -103,7 +103,7 @@ class Args:
     """"""
     input_update_frequency: int = 1
     """"""
-    mask_type: str = "both"
+    mask_type: str = "internal"
     """It's one of these: [internal, input, both]"""
     mask_transform_type: str = "softmax"
     """It's either `softmax` or `quantize`"""
@@ -118,7 +118,7 @@ class Args:
     # max_num_options: int = 10
     max_num_options: int = 5
     """"""
-    option_mode:str = "didec-reg"
+    option_mode:str = "didec"
 
     # Script arguments
     seed: int = 0

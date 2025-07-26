@@ -23,7 +23,7 @@ class Args:
     """The ID of the finished experiment; to be filled in run time"""
     exp_name: str = "train_ppoAgent"
     """the name of this experiment"""
-    env_id: str = "MiniGrid-MultiRoom-v0"
+    env_id: str = "MiniGrid-FourRooms-v0"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0, MiniGrid-FourRooms-v0, MiniGrid-Unlock-v0, MiniGrid-MultiRoom-v0]
     """
@@ -31,9 +31,9 @@ class Args:
     option_mode: str = "didec"
     # env_seeds: Union[List[int], str] = (0,1,2) # SimpleCrossing
     # env_seeds: Union[List, str, Tuple] = (0,1,2,3) # ComboGrid
-    # env_seeds: Union[List[int], str] = (8,41,51) # FourRooms
+    env_seeds: Union[List[int], str] = (8,51) # FourRooms
     # env_seeds: Union[List[int], str] = (1,3,17) # Unlock
-    env_seeds: Union[List[int], str] = (230, 431) # MultiRoom Unlock
+    # env_seeds: Union[List[int], str] = (230, 431) # MultiRoom Unlock
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'.
     This determines the exact environments that will be separately used for training.
     """
@@ -55,7 +55,7 @@ class Args:
     """"Not used in this experiment"""
     save_run_info: int = 0
     """"""
-    reg_coef: float = 0.1
+    reg_coef: Union[List[float], float] = 0.1
     """"""
     mask_type: str = "internal"
     
@@ -252,7 +252,7 @@ def main(args: Args):
     
     # model_path = f'{args.models_path_prefix}/{args.exp_id}/seed={args.seed}/ppo_first_MODEL.pt'
     if args.sweep_run == 1:
-        model_path = f'{args.models_path_prefix}/{args.env_id}_width={args.game_width}_{args.option_mode}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-3.pt'
+        model_path = f'{args.models_path_prefix}/{args.env_id}_width={args.game_width}_{args.option_mode}_{args.mask_type}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-3.pt'
     else:
         model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}_{args.option_mode}_{args.mask_type}_{args.reg_coef}/seed={args.seed}/{args.exp_id}.pt'
         if os.path.isfile(model_path):
@@ -371,6 +371,7 @@ if __name__ == "__main__":
             clip_coef = clip_coefs[args.env_id][args.option_mode]
             ent_coef = ent_coefs[args.env_id][args.option_mode]
     else:
+#        print(args.learning_rate, args.clip_coef, args.ent_coef, args.reg_coef)
         lrs = args.learning_rate
         clip_coef = args.clip_coef
         ent_coef = args.ent_coef

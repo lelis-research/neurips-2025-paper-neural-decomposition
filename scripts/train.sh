@@ -2,9 +2,9 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=1G
 #SBATCH --time=01:40:00
-#SBATCH --output=MultiRoom/%A-%a.out
+#SBATCH --output=MultiRoom-didec/%A-%a.out
 #SBATCH --account=rrg-lelis
-#SBATCH --array=80-139
+#SBATCH --array=0-139
 
 source /home/iprnb/venvs/neural-policy-decomposition/bin/activate
 
@@ -21,8 +21,9 @@ python3.11 ~/scratch/neurips-2025-paper-neural-decomposition/pipelines/train_ppo
     --game_width 9\
     --total_timesteps 1000000\
     --save_run_info 1\
-    --method "no_options"\
-    --option_mode "vanilla"\
+    --method "options"\
+    --option_mode "didec"\
+    --mask_type "both"\
     --sweep_run 1
 
     # python3.11 ~/scratch/neurips-2025-paper-neural-decomposition/pipelines/train_ppo.py \
