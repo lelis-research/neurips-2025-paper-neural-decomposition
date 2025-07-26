@@ -303,26 +303,49 @@ if __name__ == "__main__":
     # Parameter specification for each problem
     if args.sweep_run == 1:
         if args.option_mode == "didec":
-            best_hyperparams = {
-                'internal': {
-                    'reg_coef': (0.25, 0.1),
-                    'learning_rate': (0.005, 0.01),
-                    'clipping_coef': (0.3, 0.3),
-                    'entropy_coef': (0.02, 0.05)
-                },
-                'both': {
-                    'reg_coef': (0.01, 0.0),
-                    'learning_rate': (0.005, 0.001),
-                    'clipping_coef': (0.3, 0.2),
-                    'entropy_coef': (0.01, 0.05)
-                },
-                'input': {
-                    'reg_coef': (0.25, 0.05),
-                    'learning_rate': (0.001, 0.005),
-                    'clipping_coef': (0.3, 0.3),
-                    'entropy_coef': (0.01, 0.05)
+            if args.env_id == "MiniGrid-MultiRoom-v0":
+                best_hyperparams = {
+                    'internal': {
+                        'reg_coef': (0.25, 0.1),
+                        'learning_rate': (0.005, 0.01),
+                        'clipping_coef': (0.3, 0.3),
+                        'entropy_coef': (0.02, 0.05)
+                    },
+                    'both': {
+                        'reg_coef': (0.01, 0.0),
+                        'learning_rate': (0.005, 0.001),
+                        'clipping_coef': (0.3, 0.2),
+                        'entropy_coef': (0.01, 0.05)
+                    },
+                    'input': {
+                        'reg_coef': (0.25, 0.05),
+                        'learning_rate': (0.001, 0.005),
+                        'clipping_coef': (0.3, 0.3),
+                        'entropy_coef': (0.01, 0.05)
+                    }
                 }
-            }
+            elif args.env_id == "MiniGrid-FourRooms-v0":
+                best_hyperparams = {
+                    'internal': {
+                        'reg_coef': (0.05, 0.01),
+                        'learning_rate': (0.005, 0.005),
+                        'clipping_coef': (0.3, 0.3),
+                        'entropy_coef': (0.1, 0.02)
+                    },
+                    'both': {
+                        'reg_coef': (0.25, 0.25),
+                        'learning_rate': (0.01, 0.005),
+                        'clipping_coef': (0.3, 0.3),
+                        'entropy_coef': (0.02, 0.01)
+                    },
+                    'input': {
+                        'reg_coef': (0.01, 0.0),
+                        'learning_rate': (0.01, 0.01),
+                        'clipping_coef': (0.3, 0.3),
+                        'entropy_coef': (0.03, 0.01)
+                    }
+                }
+
             lrs = best_hyperparams[args.mask_type]['learning_rate']
             clip_coef = best_hyperparams[args.mask_type]['clipping_coef']
             ent_coef = best_hyperparams[args.mask_type]['entropy_coef']
