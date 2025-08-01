@@ -18,7 +18,7 @@ export PYTHONPATH=":$PYTHONPATH"
 
 
 # seeds=(6 7 8 12 13 14 15 16 17) #9
-seeds=(10 11 30 31 50 51) #6
+seeds=(0 1 2 3 4 5) #6
 learning_rates=(0.01 0.005 0.001 0.0005 0.00005) #5
 clip_coef=(0.01 0.05 0.1 0.15 0.2 0.3) #6
 ent_coefs=(0.01 0.02 0.03 0.05 0.1 0.2) #6
@@ -73,5 +73,5 @@ OMP_NUM_THREADS=1 python3.11 ~/scratch/neurips-2025-paper-neural-decomposition/p
     --method "options"\
     --option_mode "didec"\
     --reg_coef "${NUM}"\
-    --mask_type "input"\
+    --mask_type "internal"\
     --sweep_run 0

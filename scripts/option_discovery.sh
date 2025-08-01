@@ -14,7 +14,7 @@ export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export PYTHONPATH=":$PYTHONPATH"
 
-seeds=(5 15 25)
+seeds=(0 1 2)
 reg_coefs=(0 0.01 0.05 0.1 0.25)
 
 num_seed=${#seeds[@]}
@@ -36,4 +36,4 @@ python3.11 ~/scratch/neurips-2025-paper-neural-decomposition/pipelines/option_di
     --cpus $SLURM_CPUS_PER_TASK\
     --option_mode "didec"\
     --reg_coef "${REG}"\
-    --mask_type "input"
+    --mask_type "both"
