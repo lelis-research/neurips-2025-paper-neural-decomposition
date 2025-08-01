@@ -107,10 +107,11 @@ class MiniGridWrap(gym.Env):
         reward_sum = 0
         if self.options and action >= self.n_discrete_actions:
             option = self.options[action - self.n_discrete_actions]
-
+            print(" | Action: ", action, end=" , ")
             for idx in range(option.option_size):
                 option_action, _ = option.get_action_with_mask(torch.tensor(self.get_observation(), dtype=torch.float32).view(1, -1))
                 self.steps += 1
+                print(option_action, end=" ")
                 _, temp_reward, terminated, truncated, _ = self.env.step(option_action)
                 reward_sum += self.custom_reward(terminated)
                 if terminated or truncated:
@@ -202,7 +203,7 @@ def get_test_tasks_fourrooms3(view_size=7, seed=0):
 
 def get_simplecross_env(*args, **kwargs):
     env = MiniGridWrap(
-                CrossingEnv(obstacle_type=Wall, max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], seed=kwargs['seed']),
+                CrossingEnv(obstacle_type=Wall, max_steps=1000 if 'max_episode_steps' not in kwargs else kwargs['max_episode_steps'], seed=kwargs['seed'], render_mode="rgb_array"),
                 seed=kwargs['seed'],
                 n_discrete_actions=3,
                 view_size=kwargs['view_size'] if 'view_size' in kwargs else 9,

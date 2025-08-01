@@ -282,19 +282,20 @@ def load_options(args, logger):
         args.env_id = "MiniGrid-SimpleCrossingS9N1-v0"
     elif args.env_id == "MiniGrid-MultiRoom-v0":
         args.env_id = "MiniGrid-Unlock-v0"
-    save_dir = f"binary/options/{args.env_id}_width={args.game_width}_reg={args.reg_coef}_{args.option_mode}_{args.mask_type}/seed={args.seed}"
+    if args.option_mode == "didec":
+        save_dir = f"binary/options/{args.env_id}_width={args.game_width}_reg={args.reg_coef}_{args.option_mode}_{args.mask_type}/seed={args.seed}"
+    else:
+        save_dir = f"binary/options/{args.env_id}_width={args.game_width}_{args.option_mode}/seed={args.seed}"
 
-    logger.info(f"Option directory: {save_dir}")
+    # logger.info(f"Option directory: {save_dir}")
 
     model_files = sorted([f for f in os.listdir(save_dir) if f.startswith('ppo_model_option_') and f.endswith('.pth')])
     
-    logger.info(f"Found options: {model_files}")
+    # logger.info(f"Found options: {model_files}")
 
     n = len(model_files)
     options = [None] * n
 
-    print(model_files)
-    
 
     for model_file in model_files:
         model_path = os.path.join(save_dir, model_file)
