@@ -102,9 +102,9 @@ class PPOAgent:
         Given an observation, sample an action according to the current policy.
         Stores the observation for the later update step.
         """
-        self.mode = update_mode(self.mode, observation)
-        true_action, _ = get_mode_action(self.mode)
-        true_action = torch.tensor(true_action, dtype=torch.float32, device=self.device).unsqueeze(0)
+        # self.mode = update_mode(self.mode, observation)
+        # true_action, _ = get_mode_action(self.mode)
+        # true_action = torch.tensor(true_action, dtype=torch.float32, device=self.device).unsqueeze(0)
         
         state = torch.tensor(observation, device=self.device, dtype=torch.float32).unsqueeze(0)
         with torch.no_grad():
@@ -121,7 +121,7 @@ class PPOAgent:
         #     return multidiscrete_to_continuous(action.squeeze(0).detach().cpu().numpy())
         # else:
         return action.squeeze(0).cpu().numpy()
-        
+      
     
     
     def update(self, next_observation, reward, terminated, truncated):

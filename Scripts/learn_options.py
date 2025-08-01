@@ -297,9 +297,9 @@ def test_options(args):
     #             ]
 
     if args.agent_class in ["PPOAgent", "PPOAgentOption"]:
-        keys = ["gamma", "lamda",
-                    "epochs", "total_steps", "rollout_steps", "num_minibatches",
-                    "flag_anneal_step_size", "step_size",
+        keys = ["ppo_gamma", "ppo_lamda",
+                    "epochs", "total_steps", "ppo_rollout_steps", "num_minibatches",
+                    "flag_anneal_step_size", "ppo_step_size",
                     "entropy_coef", "critic_coef",  "clip_ratio", 
                     "flag_clip_vloss", "flag_norm_adv", "max_grad_norm",
                     "flag_anneal_var", "var_coef", "l1_lambda","hidden_size", "critic_hidden_size"

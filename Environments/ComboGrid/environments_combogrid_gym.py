@@ -12,7 +12,6 @@ class ComboGym(gym.Env):
         self._rows = rows
         self._columns = columns
         self._problem = problem
-        self.render_mode = None
         self.observation_space = gym.spaces.Box(low=0, high=1, shape=(len(self._game.get_observation()), ), dtype=np.float64)
         self.n_discrete_actions = 3
         self.action_space = gym.spaces.Discrete(self.n_discrete_actions)
@@ -20,7 +19,6 @@ class ComboGym(gym.Env):
         self.reward_per_step = reward_per_step
         self.reward_goal = reward_goal
         self.max_steps = max_steps
-        self.render_mode = ""
         
         if options is not None:
             self.setup_options(options)
@@ -50,8 +48,8 @@ class ComboGym(gym.Env):
             nonlocal truncated
             self._game.apply_action(action)
             self.n_steps += 1
-            terminated, is_goal = self._game.is_over()
-            reward = self.reward_goal if is_goal else self.reward_per_step 
+            terminated, goal_reched = self._game.is_over()
+            reward = self.reward_goal if goal_reched else self.reward_per_step 
             if self.n_steps == self.max_steps:
                 truncated = True
             return self.get_observation(), reward, terminated, truncated, {"steps": self.n_steps, "action_size": 1}
@@ -101,3 +99,30 @@ register(
      id="ComboGridWorld-v0",
      entry_point=ComboGym
 )
+
+
+if __name__ == "__main__":
+    from environments_combogrid import Game
+    
+    env = gym.make("ComboGridWorld-v0", rows=3, columns=3, problem="MM-MR-ML-BM-TM")
+
+    # Run test episodes
+    n_episodes = 1
+    max_steps = 100
+    actions = [0, 0, 1,1, 0, 2,  0, 1, 2, 0, 1, 2, 2, 1, 0, 2, 1, 0, 0, 0, 1, 0, 0, 1  ]
+
+    for episode in range(n_episodes):
+        obs, info = env.reset()
+        print(f"\nEpisode {episode + 1} start")
+        total_reward = 0
+        for step in range(max_steps):
+            action = actions[step]  # Random action
+            obs, reward, terminated, truncated, info = env.step(action)
+            total_reward += reward
+            print(f"Step {step+1}: Action={action}, Reward={reward}, Terminated={terminated}, Truncated={truncated}, obs={obs}, Info={info}")
+            if terminated or truncated:
+                print("Episode finished!")
+                break
+        print(f"Total reward: {total_reward}")
+
+    env.close()

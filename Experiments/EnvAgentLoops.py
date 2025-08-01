@@ -130,7 +130,7 @@ def agent_environment_episode_loop(env, agent, total_episodes, training=True, wr
             next_observation, reward, terminated, truncated, info = env.step(action)
             if training:
                 agent.update(next_observation, reward, terminated, truncated)
-            episode_return_org += info["actual_reward"] if "actual_reward" in info else reward
+            episode_return_org += info.get("actual_reward", reward)
             episode_return_wrapped += reward
 
             episode_length += 1
