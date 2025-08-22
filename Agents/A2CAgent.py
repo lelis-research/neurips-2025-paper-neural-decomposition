@@ -22,7 +22,7 @@ class A2CAgent:
         # Build actor-critic model
         if isinstance(action_space, gym.spaces.Discrete):
             # Discrete actions
-            self.actor_critic = ActorCriticDiscrete(observation_space, action_space, hidden_size=kwargs.get("hidden_size", 64)).to(self.device)
+            self.actor_critic = ActorCriticDiscrete(observation_space, action_space, hidden_size=kwargs.get("hidden_size", 64), critic_hidden_size=kwargs.get("critic_hidden_size", 200)).to(self.device)
         elif isinstance(action_space, gym.spaces.MultiDiscrete):
             # MultiDiscrete actions
             self.actor_critic = ActorCriticMultiDiscrete(observation_space, action_space).to(self.device)

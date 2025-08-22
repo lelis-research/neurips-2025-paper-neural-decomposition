@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import os
 import random
+import shutil
 import pickle
 import multiprocessing
 from torch.utils.tensorboard import SummaryWriter
@@ -33,12 +34,12 @@ def train_single_seed(seed, args):
     print(f"Action Space: {env.action_space}")
 
     if args.agent_class == "PPOAgent":
-        keys = ["gamma", "lamda",
-                    "epochs", "total_steps", "rollout_steps", "num_minibatches",
-                    "flag_anneal_step_size", "step_size",
+        keys = ["ppo_gamma", "ppo_lamda",
+                    "epochs", "total_steps", "ppo_rollout_steps", "num_minibatches",
+                    "flag_anneal_step_size", "ppo_step_size",
                     "entropy_coef", "critic_coef",  "clip_ratio", 
                     "flag_clip_vloss", "flag_norm_adv", "max_grad_norm",
-                    "flag_anneal_var", "var_coef", "l1_lambda", "hidden_size", "critic_hidden_size"
+                    "flag_anneal_var", "var_coef", "l1_lambda","hidden_size", "critic_hidden_size"
                     ]
     elif args.agent_class in ["DQNAgent", "NStepDQNAgent"]:
         keys = ["gamma", "step_size",
@@ -52,7 +53,7 @@ def train_single_seed(seed, args):
                 "noise_phi", "ou_theta", "ou_sigma",
                 "epsilon_end", "decay_steps"]
     elif args.agent_class == "A2CAgent":
-        keys = ["gamma", "step_size", "rollout_steps", "lamda", "hidden_size"]
+        keys = ["gamma", "step_size", "rollout_steps", "lamda", "hidden_size", "critic_hidden_size"]
     else:
         raise NotImplementedError("Agent class not known")
     
@@ -72,6 +73,7 @@ def train_single_seed(seed, args):
         agent = agent_class.load(agent_path)
         agent.initialize_params(**agent_kwargs)
     
+    print(agent.actor_critic)
 
     writer = None
     if args.save_results:
@@ -88,7 +90,7 @@ def train_single_seed(seed, args):
             print(f"Experiment directory {exp_dir} already exists !")
             if args.repeated_experiment_policy == "overwrite":
                 print("Overwriting the existing directory.")
-                os.rmdir(exp_dir)
+                shutil.rmtree(exp_dir)
                 os.makedirs(exp_dir)
             elif args.repeated_experiment_policy == "halt":
                 raise ValueError(f"Experiment directory {exp_dir} already exists. Halting the experiment.")

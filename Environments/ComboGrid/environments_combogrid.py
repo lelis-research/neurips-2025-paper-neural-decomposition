@@ -60,12 +60,11 @@ class Problem:
         self.columns = columns
         self.walls = []
 
-        problem_str_decopled = problem_str.split("|")
-        locations_str = problem_str_decopled[0]
-        if len(problem_str_decopled) > 1:
-            self.setup_walls(problem_str_decopled[1])
+        problem_str_decoupled = problem_str.split("|")
+        locations_str = problem_str_decoupled[0]
+        if len(problem_str_decoupled) > 1:
+            self.setup_walls(problem_str_decoupled[1])
         self.initial, self.goals = self._parse_problem(locations_str)
-        self.init_goals = copy.deepcopy(self.goals)
         
         self.reset()
 
@@ -107,26 +106,9 @@ class Problem:
             for i in range(1, self.rows - 1):
                 for j in range(1, self.columns - 1):
                     self.walls.append((i, j))
-
-    def remove_goal(self, loc) -> bool:
-        """
-        Updates the goal coordinations.
-
-        Returns whether or not all goals have been reached.
-        
-        Returns:
-            bool: True if all goals have been reached, False otherwise.
-        """
-        try:
-            self.goals.remove(loc)
-        except ValueError:
-            raise Exception(f"Goal {loc} not found in the list of goals.")
-
-        finished = len(self.goals) == 0
-        return finished
     
     def reset(self):
-        self.goals = copy.deepcopy(self.init_goals)
+        pass
 
     def is_goal(self, loc):
         return any([(loc[0] == goal[0]) and (loc[1]==goal[1]) for goal in self.goals])
@@ -182,7 +164,6 @@ class Game:
             self._action_pattern[(1, 2, 1, 0)] = 2
             self._action_pattern[(1, 0, 2, 2)] = 3
 
-
     def reset(self, init_loc=None):
         self._matrix_unit = np.zeros((self._rows, self._columns))
         self.problem.reset()
@@ -190,14 +171,13 @@ class Game:
         self._x, self._y = init_loc if init_loc else initial
         self._matrix_unit[self._x][self._y] = 1
         self._state = []
-        self.setup_goals()   
-        gc.collect()
-
-    def setup_goals(self):
+        
+        # Setup goal matrix
         self._matrix_goal = np.zeros((self._rows, self._columns))
         for goal in self.problem.goals:
             self._matrix_goal[goal[0]][goal[1]] = 1
-
+        gc.collect()
+        
     def get_goals(self):
         return self.problem.goals
 
@@ -243,12 +223,12 @@ class Game:
         return np.concatenate((self._matrix_unit.ravel(), one_hot_matrix_state.ravel(), self._matrix_goal.ravel()))
     
     def is_over(self):
-        is_goal = self._matrix_goal[self._x][self._y] == 1
-        finished = False
-        if is_goal:
-            finished = self.problem.remove_goal((self._x, self._y))
+        goal_reached = self._matrix_goal[self._x][self._y] == 1
+        terminated = False
+        if goal_reached:
             self._matrix_goal[self._x][self._y] = 0
-        return finished, is_goal
+            terminated = self._matrix_goal.sum() == 0
+        return terminated, goal_reached
     
     def get_actions(self):
         return [0, 1, 2]

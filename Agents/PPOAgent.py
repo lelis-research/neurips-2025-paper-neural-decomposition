@@ -51,7 +51,7 @@ class PPOAgent:
         self.device = kwargs['device']
 
         if isinstance(action_space, gym.spaces.Discrete):
-            self.actor_critic = ActorCriticDiscrete(observation_space, action_space).to(self.device)
+            self.actor_critic = ActorCriticDiscrete(observation_space, action_space, hidden_size=kwargs.get("hidden_size", 64), critic_hidden_size=kwargs.get("critic_hidden_size", 200)).to(self.device)
         elif isinstance(action_space, gym.spaces.MultiDiscrete):
             self.actor_critic = ActorCriticMultiDiscrete(observation_space, action_space).to(self.device)
         else:
@@ -102,9 +102,9 @@ class PPOAgent:
         Given an observation, sample an action according to the current policy.
         Stores the observation for the later update step.
         """
-        self.mode = update_mode(self.mode, observation)
-        true_action, _ = get_mode_action(self.mode)
-        true_action = torch.tensor(true_action, dtype=torch.float32, device=self.device).unsqueeze(0)
+        # self.mode = update_mode(self.mode, observation)
+        # true_action, _ = get_mode_action(self.mode)
+        # true_action = torch.tensor(true_action, dtype=torch.float32, device=self.device).unsqueeze(0)
         
         state = torch.tensor(observation, device=self.device, dtype=torch.float32).unsqueeze(0)
         with torch.no_grad():
@@ -115,13 +115,13 @@ class PPOAgent:
         self.prev_action = action
         # action  = true_action
         
-        if isinstance(self.action_space, gym.spaces.Discrete):
-            return discrete_to_continuous(action.squeeze(0).detach().cpu().numpy())
-        elif isinstance(self.action_space, gym.spaces.MultiDiscrete):
-            return multidiscrete_to_continuous(action.squeeze(0).detach().cpu().numpy())
-        else:
-            return action.squeeze(0).detach().cpu().numpy()
-        
+        # if isinstance(self.action_space, gym.spaces.Discrete):
+        #     return discrete_to_continuous(action.squeeze(0).detach().cpu().numpy())
+        # elif isinstance(self.action_space, gym.spaces.MultiDiscrete):
+        #     return multidiscrete_to_continuous(action.squeeze(0).detach().cpu().numpy())
+        # else:
+        return action.squeeze(0).cpu().numpy()
+      
     
     
     def update(self, next_observation, reward, terminated, truncated):
@@ -245,7 +245,7 @@ class PPOAgent:
                 #   var_penalty = mean(σ²) = mean(exp(2 log σ))
                 # var_penalty = torch.exp(log_std).mean()
 
-                l1_norm = sum(p.abs().sum() for name, p in self.actor_critic.actor_mean.named_parameters() 
+                l1_norm = sum(p.abs().sum() for name, p in self.actor_critic.actor.named_parameters() 
                               if p.requires_grad and "bias" not in name)
                 # ===============================
 
@@ -309,7 +309,7 @@ class PPOAgent:
         
         agent.actor_critic.load_state_dict(checkpoint["actor_critic"])
         agent.optimizer.load_state_dict(checkpoint["optimizer"])
-        agent.actor_critic.analyze_weights()
+        # agent.actor_critic.analyze_weights()
         
         print(f"Agent loaded from {file_path}")
         return agent

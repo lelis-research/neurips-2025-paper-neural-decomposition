@@ -1,10 +1,7 @@
 import numpy as np
 from dataclasses import dataclass, field
-from typing import List
-import datetime
 import torch
 import os
-import random
 
 from Environments.ComboGrid.GetEnvironment import COMBOGRID_ENV_LST
 
@@ -19,10 +16,6 @@ ENV_NAME = os.environ.get("ENV_NAME", "ComboGrid")
 RES_DIR = os.environ.get("RES_DIR", f"Results_{ENV_NAME}_gw{GAME_WIDTH}h{HIDDEN_SIZE}_A2C_ReLU")
 AGENT_CLASS = os.environ.get("AGENT_CLASS", "A2CAgent")
 
-
-# np.random.seed(SEED)
-# torch.manual_seed(SEED)
-# random.seed(SEED)
 
 def default_env_wrappers(env_name, **kwargs):
     
@@ -78,7 +71,7 @@ class arguments:
 
     # ----- tune experiment settings -----
 
-    tuning_nametag:           str              = f"gw{GAME_WIDTH}-h{HIDDEN_SIZE}-vanilla"
+    tuning_nametag:           str              = f"gw{GAME_WIDTH}-h{HIDDEN_SIZE}-vanilla_envsd{ENV_SEED}-sd{SEED}"
     num_trials:               int              = 10   
     steps_per_trial:          int              = 100_000
     # param_ranges                               = {
@@ -117,7 +110,7 @@ class arguments:
     tuning_env_wrappers                        = default_env_wrappers(tuning_env_name)[0]
     tuning_wrapping_params                     = default_env_wrappers(tuning_env_name)[1]
     tuning_env_max_steps:     int              = 500
-    tuning_seeds                               = [0]
+    tuning_seeds                               = [0,1,2]
     exhaustive_search:        bool             = True
     num_grid_points:          int              = 10
     option_path_tuning                         = []
