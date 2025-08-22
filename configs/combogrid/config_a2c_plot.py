@@ -37,6 +37,7 @@ class arguments:
     device:                   str                = torch.device("cpu")
     game_width:               int                = GAME_WIDTH
     hidden_size:              int                = HIDDEN_SIZE
+    seeds: List = tuple([SEED])
 
     
     # ----- plot setting -----
