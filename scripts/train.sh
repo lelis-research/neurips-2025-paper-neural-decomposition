@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=1G
-#SBATCH --time=01:40:00
-#SBATCH --output=FourRooms-didec/%A-%a.out
-#SBATCH --account=rrg-lelis
-#SBATCH --array=0-59
+#SBATCH --time=00:50:00
+#SBATCH --output=combotrainwwalls/%A-%a.out
+#SBATCH --account=aip-lelis
+#SBATCH --array=0-899
 
-source /home/iprnb/venvs/neural-policy-decomposition/bin/activate
+source /home/iprnb/venvs/neural-decomposition/bin/activate
 
 export FLEXIBLAS=imkl
 export OMP_NUM_THREADS=1
@@ -14,17 +14,20 @@ export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export PYTHONPATH=":$PYTHONPATH"
 
+idx=$(( $SLURM_ARRAY_TASK_ID + 0 ))
+
 python3.11 ~/scratch/neurips-2025-paper-neural-decomposition/pipelines/train_ppo.py \
-    --seed $SLURM_ARRAY_TASK_ID\
-    --env_id "MiniGrid-FourRooms-v0"\
+    --seed "${idx}"\
+    --env_id "ComboGrid"\
     --num_steps 2000\
-    --game_width 9\
+    --game_width 8\
     --total_timesteps 1000000\
-    --save_run_info 1\
-    --method "options"\
-    --option_mode "didec"\
-    --mask_type "input"\
-    --sweep_run 1
+    --save_run_info 0\
+    --method "no_options"\
+    --option_mode "vanilla"\
+    --mask_type "both"\
+    --sweep_run 1\
+    --update_epochs 10
 
     # python3.11 ~/scratch/neurips-2025-paper-neural-decomposition/pipelines/train_ppo.py \
     # --seed $SLURM_ARRAY_TASK_ID\

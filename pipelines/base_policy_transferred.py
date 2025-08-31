@@ -36,10 +36,10 @@ class Args:
     env_seeds: Union[List, str, Tuple] = (1,3,17)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
     # model_paths: List[str] = (
-    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd0_TL-BR',
-    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd1_TR-BL',
-    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd2_BR-TL',
-    #     'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd3_BL-TR',
+    #     'combogrid-TL-BR',
+    #     'combogrid-TR-BL',
+    #     'combogrid-BR-TL',
+    #     'combogrid-BL-TR',
     # )
 
     # model_paths: List[str] = (
@@ -48,9 +48,9 @@ class Args:
     #     'minigrid-simplecrossings9n1-v0-2'
     # )
     model_paths: List[str] = (
-            'minigrid-unlock-v0-1-3',
-            'minigrid-unlock-v0-3-3',
-            'minigrid-unlock-v0-17-3'
+            'minigrid-unlock-v0-1',
+            'minigrid-unlock-v0-3',
+            'minigrid-unlock-v0-17'
         )
 
     # These attributes will be filled in the runtime
@@ -137,7 +137,7 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     trajectories = {}
     
     for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}.pt'
+        model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}-combo4.pt'
         env = get_single_environment(args, seed=seed)
         
         if verbose:
@@ -280,7 +280,7 @@ class WholeDecOption:
         for primary_env_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
             env = get_single_environment(self.args, seed=primary_env_seed)
             option = PPOAgent(env, hidden_size=self.args.hidden_size)
-            option.load_state_dict(torch.load(os.path.join("binary/models", f"{self.args.env_id}_width={self.args.game_width}_vanilla" ,f"seed={self.args.seed}", f"{primary_model_directory}.pt")))
+            option.load_state_dict(torch.load(os.path.join("binary/models", f"{self.args.env_id}_width={self.args.game_width}_vanilla" ,f"seed={self.args.seed}", f"{primary_model_directory}-combo4.pt")))
             mask = torch.zeros(3, self.args.hidden_size)
             mask[-1] = 1
             option.to_option(mask, 1, primary_problem)  
@@ -303,15 +303,15 @@ class WholeDecOption:
         self.levin_loss.print_output_subpolicy_trajectory(selected_options, trajectories, logger=self.logger)
         utils.logger_flush(self.logger)
 
-        self.logger.info("Testing on each grid cell")
-        for seed, problem in zip(self.args.env_seeds, self.args.problems):
-            self.logger.info(f"Testing on each cell..., {problem}")
-            self.levin_loss.evaluate_on_each_cell(options=selected_options, 
-                                    trajectories=trajectories,
-                                    problem_test=problem, 
-                                    args=self.args, 
-                                    seed=seed, 
-                                    logger=self.logger)
+        # self.logger.info("Testing on each grid cell")
+        # for seed, problem in zip(self.args.env_seeds, self.args.problems):
+        #     self.logger.info(f"Testing on each cell..., {problem}")
+        #     self.levin_loss.evaluate_on_each_cell(options=selected_options, 
+        #                             trajectories=trajectories,
+        #                             problem_test=problem, 
+        #                             args=self.args, 
+        #                             seed=seed, 
+        #                             logger=self.logger)
 
         utils.logger_flush(self.logger)
 

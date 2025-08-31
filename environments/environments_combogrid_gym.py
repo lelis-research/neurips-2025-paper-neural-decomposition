@@ -43,6 +43,7 @@ class ComboGym(gym.Env):
     
     def step(self, action:int):
         truncated = False
+        performed_actions = []
         def process_action(action: int):
             nonlocal truncated
             self._game.apply_action(action)
@@ -63,10 +64,11 @@ class ComboGym(gym.Env):
                 else:
                     option_action = option.get_action_and_value(x_tensor, deterministic=True)[0]
                 obs, reward, terminated, truncated, _ = process_action(option_action)
+                performed_actions.append(option_action)
                 reward_sum += reward
                 if terminated or truncated:
-                    return obs, reward_sum, terminated, truncated, {"steps": self.n_steps, "action_size": idx + 1}
-            return obs, reward_sum, terminated, truncated, {"steps": self.n_steps, "action_size": idx + 1}
+                    return obs, reward_sum, terminated, truncated, {"steps": self.n_steps, "action_size": idx + 1, "performed_actions": performed_actions}
+            return obs, reward_sum, terminated, truncated, {"steps": self.n_steps, "action_size": idx + 1, "performed_actions": performed_actions}
         else:
             return process_action(action)
     
@@ -76,7 +78,7 @@ class ComboGym(gym.Env):
         return self._game.is_over()[0]
     
     def get_observation_space(self):
-        return self._rows * self._columns * 2 + 9
+        return len(self.get_observation())
     
     def get_action_space(self):
         return self.action_space.n

@@ -43,9 +43,10 @@ class Args:
     #     'train_ppoAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2'
     # )
     # model_paths: List[str] = (
-    #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.0005_clip0.25_ent0.1_envsd0',
-    #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.001_clip0.2_ent0.1_envsd1',
-    #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.001_clip0.2_ent0.1_envsd2'
+    #     'combogrid-TL-BR',
+    #     'combogrid-TR-BL',
+    #     'combogrid-BR-TL',
+    #     'combogrid-BL-TR'
     # )
     # model_paths: List[str] = (
     #     'train_ppoAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
@@ -59,9 +60,9 @@ class Args:
     # )
 
     model_paths: List[str] = (
-            'minigrid-unlock-v0-1-3',
-            'minigrid-unlock-v0-3-3',
-            'minigrid-unlock-v0-17-3'
+            'minigrid-unlock-v0-1',
+            'minigrid-unlock-v0-3',
+            'minigrid-unlock-v0-17'
         )
     # These attributes will be filled in the runtime
     exp_id: str = ""
@@ -167,11 +168,11 @@ class FineTuning:
         self.selection_type = args.selection_type
         if args.cache_path == "":
             args.cache_path = "binary/cache/"
-            self.option_candidates_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_fine-tune", f"seed={args.seed}", "data.pkl")
-            self.option_cache_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_fine-tune", f"seed={args.seed}", "option_cache.pkl")
+            self.option_candidates_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_fine-tune", f"seed={args.seed}", "data_wall.pkl")
+            self.option_cache_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_fine-tune", f"seed={args.seed}", "option_cache_wall.pkl")
         else:
-            self.option_candidates_path = os.path.join(args.cache_path, f"seed={args.seed}", "data.pkl")
-            self.option_cache_path = os.path.join(args.cache_path, f"seed={args.seed}", "option_cache.pkl")
+            self.option_candidates_path = os.path.join(args.cache_path, f"seed={args.seed}", "data_wall.pkl")
+            self.option_cache_path = os.path.join(args.cache_path, f"seed={args.seed}", "option_cache_wall.pkl")
 
         print(f"Option candidates path: {self.option_candidates_path}")
         print(f"exists:{os.path.exists(self.option_candidates_path)}")
@@ -243,7 +244,7 @@ class FineTuning:
                 for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
                     if primary_problem == target_problem:
                         continue
-                    model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}.pt'
+                    model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}-combo4.pt'
                     primary_env = get_single_environment(self.args, seed=primary_seed)
                     primary_agent = PPOAgent(primary_env, hidden_size=self.args.hidden_size)
                     primary_agent.load_state_dict(torch.load(model_path))
@@ -298,7 +299,10 @@ class FineTuning:
                 utils.logger_flush(self.logger)
             self.logger.debug("\n")
             self.logger.info("Saving parameters ... ")
-            os.makedirs(os.path.dirname(self.option_candidates_path))
+            try:
+                os.makedirs(os.path.dirname(self.option_candidates_path))
+            except:
+                pass
             with open(self.option_candidates_path, 'wb') as f:
                 pickle.dump({'option_candidates': option_candidates, 'trajectories': trajectories}, f, protocol=pickle.HIGHEST_PROTOCOL)
         else:
@@ -470,7 +474,10 @@ class FineTuning:
             not_selected_options = all_option_refs - selected_options
             weights = self._compute_sample_weight(not_selected_options, possible_sequences, all_options)
             num_neighbours = min(max_num_neighbours, len(not_selected_options))
-            sample_options = random_generator.choice(list(not_selected_options), p=weights, size=num_neighbours, replace=False).tolist()
+            if num_neighbours > 0:
+                sample_options = random_generator.choice(list(not_selected_options), p=weights, size=num_neighbours, replace=False).tolist()
+            else:
+                sample_options = []
             # assert len(sample_options) == (len(all_options) - len(selected_options)) == len(not_selected_options), f"Sampled options {len(sample_options)} should be equal to all options {len(all_options)} len of selected ones: {len(selected_options)}, len of not selected ones: {len(not_selected_options)}"
 
             neighbours = []

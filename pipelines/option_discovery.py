@@ -36,25 +36,26 @@ class Args:
     # exp_name: str = "extract_learnOptions_randomInit_discreteMasks"
     # exp_name: str = "extract_learnOptions_randomInit_pitisFunction"
     """the name of this experiment"""
-    # env_seeds: Union[List, str, Tuple] = (0,1,2,3)
+    env_seeds: Union[List, str, Tuple] = (0,1,2,3)
     # env_seeds: Union[List, str, Tuple] = (0,1,2)
-    env_seeds: Union[List, str, Tuple] = (1,3,17)
+    # env_seeds: Union[List, str, Tuple] = (1,3,17)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
     # model_paths: List[str] = (
     #     'minigrid-simplecrossings9n1-v0-0',
     #     'minigrid-simplecrossings9n1-v0-1',
     #     'minigrid-simplecrossings9n1-v0-2'
     # )
-    model_paths: List[str] = (
-        'minigrid-unlock-v0-1',
-        'minigrid-unlock-v0-3',
-        'minigrid-unlock-v0-17'
-    )
     # model_paths: List[str] = (
-    #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.0005_clip0.25_ent0.1_envsd0',
-    #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.001_clip0.2_ent0.1_envsd1',
-    #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.001_clip0.2_ent0.1_envsd2'
+    #     'minigrid-unlock-v0-1',
+    #     'minigrid-unlock-v0-3',
+    #     'minigrid-unlock-v0-17'
     # )
+    model_paths: List[str] = (
+        'combogrid-TL-BR',
+        'combogrid-TR-BL',
+        'combogrid-BR-TL',
+        'combogrid-BL-TR'
+    )
     # model_paths: List[str] = (
     #     'train_ppoAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
     #     'train_ppoAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd1',
@@ -75,7 +76,7 @@ class Args:
     """the name of the problems the agents were trained on; To be filled in runtime"""
 
     # Algorithm specific arguments
-    env_id: str = "MiniGrid-Unlock-v0"
+    env_id: str = "ComboGrid"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
@@ -83,7 +84,7 @@ class Args:
     """"The number of CPUTs used in this experiment."""
     
     # hyperparameters
-    game_width: int = 9
+    game_width: int = 6
     """the length of the combo/mini grid square"""
     hidden_size: int = 64
     """"""
@@ -193,10 +194,7 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     print(args.env_seeds, args.problems, args.model_paths)
     
     for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        if args.seed > 29:
-             model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}-3.pt'
-        else:
-            model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}.pt'
+        model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}-combo4.pt'
         env = get_single_environment(args, seed=seed)
         print(env, seed)
         
@@ -208,15 +206,15 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
         agent.load_state_dict(torch.load(model_path, weights_only=True))
         agent.eval()
 
-        trajectory, _ = agent.run(env, verbose=verbose, length_cap=21)
+        trajectory, _ = agent.run(env, verbose=verbose, length_cap=500)
         trajectories[problem] = trajectory
 
         if verbose:
             logger.info(f"The trajectory length: {len(trajectory.get_state_sequence())}")
         
-        if len(trajectory.get_state_sequence()) > 20:
-            logger.warning("The trajectory is longer than 20 steps, stopping the process..")
-            exit()
+        if len(trajectory.get_state_sequence()) > args.game_width * 6:
+            logger.warning(f"The trajectory is longer than {args.game_width * 6} steps, stopping the process..")
+            raise RuntimeError(f"The trajectory is longer than {args.game_width * 6} steps, stopping the process..")
 
     return trajectories
 
@@ -230,7 +228,11 @@ def save_options(options: List[PPOAgent], trajectories: dict, args: Args, logger
         trajectories (Dict[str, Trajectory]): The trajectories corresponding to the these options
         save_dir (str): The directory where the options will be saved.
     """
-    save_dir = f"binary/options/{args.env_id}_width={args.game_width}_reg={args.reg_coef}_{args.option_mode}_{args.mask_type}/seed={args.seed}"
+    if args.option_mode == "didec":
+        save_dir = f"binary/options/{args.env_id}_width={args.game_width}_reg={args.reg_coef}_{args.option_mode}_{args.mask_type}/seed={args.seed}"
+    else:
+        save_dir = f"binary/options/{args.env_id}_width={args.game_width}_{args.option_mode}/seed={args.seed}"
+    
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     else:
@@ -282,6 +284,7 @@ def load_options(args, logger):
         args.env_id = "MiniGrid-SimpleCrossingS9N1-v0"
     elif args.env_id == "MiniGrid-MultiRoom-v0":
         args.env_id = "MiniGrid-Unlock-v0"
+    args.hidden_size = 64
     if args.option_mode == "didec":
         save_dir = f"binary/options/{args.env_id}_width={args.game_width}_reg={args.reg_coef}_{args.option_mode}_{args.mask_type}/seed={args.seed}"
     else:
@@ -309,13 +312,13 @@ def load_options(args, logger):
                 seed = int(checkpoint['problem'][-1])
             problem = None
         elif args.env_id == "ComboGrid":
-            seed = None
             problem = checkpoint['problem']
+            seed = checkpoint['extra_info']['primary_env_seed'] if problem == "" else None
         else:
-            raise NotImplementedError
+            raise NotImplementedError 
         envs = get_single_environment(args, seed, problem) # adding options and test/train configuration is not necessary
 
-        model = PPOAgent(envs=envs, hidden_size=args.hidden_size)  # Create a new PPOAgent instance with default parameters
+        model = PPOAgent(envs=envs, hidden_size=args.hidden_size, test_model=False)  # Create a new PPOAgent instance with default parameters
         model.load_state_dict(checkpoint['model_state_dict'])
         model.to_option(checkpoint['mask'], checkpoint['n_iterations'], checkpoint['problem'])
         model.extra_info = checkpoint['extra_info'] if 'extra_info' in checkpoint else {}
@@ -778,10 +781,7 @@ def whole_dec_options_training_data_levin_loss(args: Args, logger: logging.Logge
         best_mask_model = None
 
         for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-            if args.seed > 29:
-             model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}-3.pt'
-            else:
-                model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}.pt'
+            model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}-combo4.pt'
             logger.info(f'Extracting from the agent trained on {problem}, seed={seed}')
             env = get_single_environment(args, seed=seed)
 
@@ -883,8 +883,8 @@ class LearnOptions:
         self.selection_type = args.selection_type
         if args.cache_path == "":
             args.cache_path = "binary/cache/"
-            self.option_candidates_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_reg={args.reg_coef}_{args.option_mode}", f"seed={args.seed}", f"data_{args.mask_type}.pkl")
-            self.option_cache_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_reg={args.reg_coef}_{args.option_mode}", f"seed={args.seed}", f"option_cache_{args.mask_type}.pkl")
+            self.option_candidates_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_reg={args.reg_coef}_{args.option_mode}", f"seed={args.seed}", f"data_{args.mask_type}_wall.pkl")
+            self.option_cache_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_reg={args.reg_coef}_{args.option_mode}", f"seed={args.seed}", f"option_cache_{args.mask_type}_wall.pkl")
         else:
             self.option_candidates_path = os.path.join(args.cache_path, f"seed={args.seed}", f"data_{args.mask_type}.pkl")
             self.option_cache_path = os.path.join(args.cache_path, f"seed={args.seed}", f"option_cache_{args.mask_type}.pkl")
@@ -929,10 +929,7 @@ class LearnOptions:
                 for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
                     if primary_problem == target_problem:
                         continue
-                    if self.args.seed > 29:
-                        model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}-3.pt'
-                    else:
-                        model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}.pt'
+                    model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}-combo4.pt'
                     primary_env = get_single_environment(self.args, seed=primary_seed)
                     primary_agent = PPOAgent(primary_env, hidden_size=self.args.hidden_size)
                     primary_agent.load_state_dict(torch.load(model_path))
@@ -1029,7 +1026,7 @@ class LearnOptions:
         else:
             raise ValueError(f"Invalid selection type: {self.selection_type}")
         
-        assert len(selected_options) > 0
+        # assert len(selected_options) > 0
 
         # printing selected options
         self.logger.info("Selected options:")
@@ -1590,8 +1587,8 @@ class WholeDecOption:
         self.selection_type = args.selection_type
         if args.cache_path == "":
             args.cache_path = "binary/cache/"
-            self.option_candidates_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_{args.option_mode}", f"seed={args.seed}", "data.pkl")
-            self.option_cache_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_{args.option_mode}", f"seed={args.seed}", "option_cache.pkl")
+            self.option_candidates_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_{args.option_mode}", f"seed={args.seed}", "data_wall.pkl")
+            self.option_cache_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_{args.option_mode}", f"seed={args.seed}", "option_cache_wall.pkl")
         else:
             self.option_candidates_path = os.path.join(args.cache_path, f"seed={args.seed}", "data.pkl")
             self.option_cache_path = os.path.join(args.cache_path, f"seed={args.seed}", "option_cache.pkl")
@@ -1625,10 +1622,7 @@ class WholeDecOption:
         option_candidates = []
         for primary_env_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
             t_length = trajectories[primary_problem].get_length()
-            if self.args.seed > 29:
-                model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}-3.pt'
-            else:
-                model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}.pt'
+            model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}-combo4.pt'
             if self.mask_transform_type == "quantize":
                 mask = torch.zeros(self.args.hidden_size) - 1
             elif self.mask_transform_type == "softmax":
@@ -1652,7 +1646,7 @@ class WholeDecOption:
         else:
             raise ValueError(f"Invalid selection type: {self.selection_type}")
         
-        assert len(selected_options) > 0
+        # assert len(selected_options) > 0
 
         # printing selected options
         self.logger.info("Selected options:")
@@ -1800,7 +1794,7 @@ class WholeDecOption:
                     for option2 in selected_options:
                         neighbour = (selected_options - {option2}) | {option}
                         neighbours.append(neighbour)
-            if len(selected_options) > 1:
+            if len(selected_options) >= 1:
                 for option in selected_options:
                     neighbour = selected_options - {option}
                     neighbours.append(neighbour)
@@ -2010,7 +2004,7 @@ class WholeDecOption:
         
         self.logger.info(f"Levin loss: {best_levin_loss}")
         options = copy.deepcopy(best_selected_options)
-        while True and len(options) > 1:
+        while True:
             done = True
             best_loss_so_far = best_levin_loss
             for i in range(len(options)):
@@ -2225,11 +2219,12 @@ def main():
 
     logger.info(f'mask_type="{args.mask_type}", mask_transform_type="{args.mask_transform_type}, selection_type="{args.selection_type}"')
 
-    module_extractor = LearnOptions(args, logger)
-    module_extractor.discover()
-
-    # module_extractor = WholeDecOption(args, logger)
-    # module_extractor.discover()
+    if args.option_mode == "didec":
+        module_extractor = LearnOptions(args, logger)
+        module_extractor.discover()
+    else:
+        module_extractor = WholeDecOption(args, logger)
+        module_extractor.discover()
 
     # evaluate_all_masks_levin_loss(args, logger)
     # hill_climbing_mask_space_training_data()

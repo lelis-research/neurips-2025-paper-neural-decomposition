@@ -52,7 +52,7 @@ def get_single_environment_builder(args, seed, problem=None, options=None, is_te
     elif "ComboGrid" in args.env_id:
         if not problem:
             problem = COMBO_PROBLEM_NAMES[seed]
-        reward_per_step = -1
+        reward_per_step = 0 if is_test else -1
         reward_goal = 10 if is_test else 1
         env_fn = make_env_combogrid(rows=args.game_width, 
                                     columns=args.game_width, 

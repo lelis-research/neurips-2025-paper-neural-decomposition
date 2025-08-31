@@ -1,4 +1,5 @@
 import os
+import json
 import random
 import time
 from environments.utils import get_single_environment_builder
@@ -28,9 +29,10 @@ class Args:
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0, MiniGrid-FourRooms-v0, MiniGrid-Unlock-v0, MiniGrid-MultiRoom-v0]
     """
     method: str = "no_options"
-    option_mode: str = "didec"
+    option_mode: str = "vanilla"
     # env_seeds: Union[List[int], str] = (0,1,2) # SimpleCrossing
     env_seeds: Union[List, str, Tuple] = (0,1,2,3) # ComboGrid
+    # env_seeds: Union[List, str, Tuple] = (12,) #ComboGrid Test
     # env_seeds: Union[List[int], str] = (8,51) # FourRooms
     # env_seeds: Union[List[int], str] = (1,3,17) # Unlock
     # env_seeds: Union[List[int], str] = (230, 431) # MultiRoom Unlock
@@ -57,10 +59,10 @@ class Args:
     """"""
     reg_coef: Union[List[float], float] = (0.1,)
     """"""
-    mask_type: str = "internal"
+    mask_type: str = "both"
     
     # hyperparameter arguments
-    game_width: int = 5
+    game_width: int = 8
     """the length of the combo/mini-grid square"""
     hidden_size: int = 64
     # hidden_size: int = 6
@@ -73,7 +75,7 @@ class Args:
     # Specific arguments
     total_timesteps: int = 1_000_000
     """total timesteps for testinging"""
-    learning_rate: Union[Tuple[float, ...], float] = (0.001, 0.001, 0.001, 0.001) # ComboGrid
+    learning_rate: Union[Tuple[float, ...], float] = (0.005, 0.01, 0.005, 0.005) # ComboGrid
     # learning_rate: Union[List[float], float] = (0.005, 0.0005, 0.001) # Vanilla RL FourRooms
     # learning_rate: Union[List[float], float] = (0.005, 0.0005, 0.005) # Vanilla RL FourRooms View 5
     # learning_rate: Union[List[float], float] = (0.005, 0.005, 0.001) # Didec RL FourRooms no reg
@@ -135,7 +137,7 @@ class Args:
     """the surrogate clipping coefficient"""
     clip_vloss: bool = False
     """Toggles whether or not to use a clipped loss for the value function, as per the paper."""
-    ent_coef:Union[Tuple[float, ...], float] = (0.01, 0.01, 0.01, .01) # ComboGrid
+    ent_coef:Union[Tuple[float, ...], float] = (0.03, 0.01, 0.02, .04) # ComboGrid
     # ent_coef: Union[List[float], float] = (0.01, 0.01, 0.2) # Vanilla RL FourRooms
     # ent_coef: Union[List[float], float] = (0.03, 0.02, 0.05) # Vanilla RL FourRooms View 5
     # ent_coef: Union[List[float], float] = (0.01, 0.03, 0.05) # Didec RL FourRooms no reg
@@ -149,7 +151,7 @@ class Args:
     # ent_coef: Union[List[float], float] = (0.02, 0.02, 0.01) # neural-augmented FourRooms
     # ent_coef: Union[List[float], float] = (0.01, 0.02, 0.03) # neural-augmented FourRooms View 5
     # ent_coef: Union[List[float], float] = (0.02, 0.02, 0.015) # SimpleCrossing
-    # ent_coef: Union[List[float], float] = (0.05, 0.05, 0.2) # Unlock
+    # ent_coef: Union[List[float], float] = (0.05, 0.05, 0.05) # Unlock
     # ent_coef: Union[List[float], float] = (0.02, 0.03) # MultiRoom Didec
     # ent_coef: Union[List[float], float] = (0.01, 0.1) # MultiRoom Didec-reg
     # ent_coef: Union[List[float], float] = (0.2, 0.03) # MultiRoom Vanilla
@@ -174,7 +176,7 @@ class Args:
     """the number of iterations (computed in runtime)"""
     env_seed: int = -1
     """the seed of the environment (set in runtime)"""
-    seed: int = 13
+    seed: int = 37
     """experiment randomness seed (set in runtime)"""
     problem: str = ""
     """"""
@@ -243,21 +245,25 @@ def main(args: Args):
     # Environment creation
     problem = None
     options = None
+    is_test = False
     if args.method != "no_options":
         options, _ = load_options(args, logger)
+        is_test = True
     if "ComboGrid" in args.env_id:
         problem = args.problem
-    envs = gym.vector.SyncVectorEnv([get_single_environment_builder(args, args.env_seed, problem, is_test=False, options=options) for _ in range(args.num_envs)],
+        if args.env_seed == 12:
+            is_test = True
+    envs = gym.vector.SyncVectorEnv([get_single_environment_builder(args, args.env_seed, problem, is_test=is_test, options=options) for _ in range(args.num_envs)],
                                     autoreset_mode=gym.vector.AutoresetMode.SAME_STEP)
     
     # model_path = f'{args.models_path_prefix}/{args.exp_id}/seed={args.seed}/ppo_first_MODEL.pt'
     if args.sweep_run == 1:
-        model_path = f'{args.models_path_prefix}/{args.env_id}_width={args.game_width}_{args.option_mode}{"_"+args.mask_type if args.method != "no_options" else ""}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}.pt'
+        model_path = f'{args.models_path_prefix}/{args.env_id}_width={args.game_width}_{args.option_mode}{"_"+args.mask_type if args.option_mode == "didec" else ""}/seed={args.seed}/{args.env_id.lower()}-{COMBOGRID_PROBLEMS[args.env_seed] if args.env_id == "ComboGrid" else args.env_seed}-combo4.pt'
     else:
-        model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}_{args.option_mode}_{args.mask_type}_{args.reg_coef}/seed={args.seed}/{args.exp_id}.pt'
-        if os.path.isfile(model_path):
-            logger.info(f"Model already exists. Stopping training...")
-            exit()
+        model_path = f'binary/models_sweep_{args.env_id}_{args.env_seed}_{args.option_mode}{"_"+args.mask_type if args.option_mode == "didec" else ""}{"_"+str(args.reg_coef) if args.option_mode == "didec" else ""}/seed={args.seed}/{args.exp_id}-combo4.pt'
+    # if os.path.isfile(model_path):
+    #     logger.info(f"Model already exists. Stopping training...")
+    #     exit()
 
     train_ppo(envs=envs, 
               seed=args.env_seed, 
@@ -273,6 +279,14 @@ def main(args: Args):
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
+    
+    if isinstance(args.env_seeds, list):
+        # allow comma or space separated
+        parts = args.env_seeds[0].replace(" ", "").split(",")
+        args.env_seeds = tuple(int(p) for p in parts if p)
+    elif isinstance(args.env_seeds, str):
+        parts = args.env_seeds.replace(" ", "").split(",")
+        args.env_seeds = tuple(int(p) for p in parts if p)
 
     env_idx = args.seed % len(args.env_seeds)
     args.seed = int(args.seed // len(args.env_seeds))
@@ -302,104 +316,192 @@ if __name__ == "__main__":
     
     # Parameter specification for each problem
     if args.sweep_run == 1:
-        if args.method != "no_options":
-            if args.option_mode == "didec":
-                if args.env_id == "MiniGrid-MultiRoom-v0":
-                    best_hyperparams = {
-                        'internal': {
-                            'reg_coef': (0.25, 0.1),
-                            'learning_rate': (0.005, 0.01),
-                            'clipping_coef': (0.3, 0.3),
-                            'entropy_coef': (0.02, 0.05)
-                        },
-                        'both': {
-                            'reg_coef': (0.01, 0.0),
-                            'learning_rate': (0.005, 0.001),
-                            'clipping_coef': (0.3, 0.2),
-                            'entropy_coef': (0.01, 0.05)
-                        },
-                        'input': {
-                            'reg_coef': (0.25, 0.05),
-                            'learning_rate': (0.001, 0.005),
-                            'clipping_coef': (0.3, 0.3),
-                            'entropy_coef': (0.01, 0.05)
-                        }
-                    }
-                elif args.env_id == "MiniGrid-FourRooms-v0":
-                    best_hyperparams = {
-                        'internal': {
-                            'reg_coef': (0.05, 0.01),
-                            'learning_rate': (0.005, 0.005),
-                            'clipping_coef': (0.3, 0.3),
-                            'entropy_coef': (0.1, 0.02)
-                        },
-                        'both': {
-                            'reg_coef': (0.25, 0.25),
-                            'learning_rate': (0.01, 0.005),
-                            'clipping_coef': (0.3, 0.3),
-                            'entropy_coef': (0.02, 0.01)
-                        },
-                        'input': {
-                            'reg_coef': (0.01, 0.0),
-                            'learning_rate': (0.01, 0.01),
-                            'clipping_coef': (0.3, 0.3),
-                            'entropy_coef': (0.03, 0.01)
-                        }
-                    }
-
-                lrs = best_hyperparams[args.mask_type]['learning_rate']
-                clip_coef = best_hyperparams[args.mask_type]['clipping_coef']
-                ent_coef = best_hyperparams[args.mask_type]['entropy_coef']
-                reg_coef = best_hyperparams[args.mask_type]['reg_coef']
-        
-
-            else:
-                ent_coefs = {
-                    "MiniGrid-MultiRoom-v0": {
-                        "vanilla": (0.01, 0.01), # MultiRoom Vanilla
-                        "fine-tune": (0.03, 0.03), # MultiRoom Fine-tune
-                        "neural-augmented": (0.02, 0.01), # MultiRoom Neural Augmented
-                        "dec-whole": (0.03, 0.01) # MultiRoom Dec-whole
-                    },
-                    "MiniGrid-Unlock-v0": {
-                        "vanilla": (0.05, 0.05, 0.2)
-
-                    }
-                }
-
-                learning_rates = {
-                    "MiniGrid-MultiRoom-v0": {
-                        "vanilla": (0.001, 0.001), # MultiRoom Vanilla
-                        "fine-tune": (0.01, 0.01), # MultiRoom Fine-tune
-                        "neural-augmented": (0.005, 0.0005), # MultiRoom Neural Augmented
-                        "dec-whole": (0.0005, 0.0005) # MultiRoom Dec-whole
-                    },
-                    "MiniGrid-Unlock-v0": {
-                        "vanilla": (0.005, 0.005, 0.005)
-
-                    }
-                }
-                clip_coefs = {
-                    "MiniGrid-MultiRoom-v0": {
-                        "vanilla": (0.3, 0.3), # MultiRoom Vanilla
-                        "fine-tune": (0.3, 0.3), # MultiRoom Fine-tune
-                        "neural-augmented": (0.15, 0.15), # MultiRoom Neural Augmented
-                        "dec-whole": (0.1, 0.2) # MultiRoom Dec-whole
-                    },
-                    "MiniGrid-Unlock-v0": {
-                        "vanilla": (0.3, 0.2, 0.2)
-
-                    }
-                }
-            
-                lrs = learning_rates[args.env_id][args.option_mode]
-                clip_coef = clip_coefs[args.env_id][args.option_mode]
-                ent_coef = ent_coefs[args.env_id][args.option_mode]
-        else:    
+        if args.method == "no_options":
             lrs = args.learning_rate
             clip_coef = args.clip_coef
             ent_coef = args.ent_coef
             reg_coef = args.reg_coef
+        else:
+            with open(f"binary/configs/{args.env_id}_gw{args.game_width}_withwalls.json", "r") as f:
+                hyperparams = json.load(f)
+                reg_coef = (hyperparams[f"{args.option_mode}_{args.mask_type}"]["reg_coef"],)
+                clip_coef = (hyperparams[f"{args.option_mode}_{args.mask_type}"]["clipping_coef"],)
+                ent_coef = (hyperparams[f"{args.option_mode}_{args.mask_type}"]["entropy_coef"],)
+                lrs = (hyperparams[f"{args.option_mode}_{args.mask_type}"]["learning_rate"],)
+        # if args.method != "no_options":
+        #     if args.option_mode == "didec":
+        #         if args.env_id == "MiniGrid-MultiRoom-v0":
+        #             best_hyperparams = {
+        #                 'internal': {
+        #                     'reg_coef': (0.25, 0.1),
+        #                     'learning_rate': (0.005, 0.01),
+        #                     'clipping_coef': (0.3, 0.3),
+        #                     'entropy_coef': (0.02, 0.05)
+        #                 },
+        #                 'both': {
+        #                     'reg_coef': (0.01, 0.0),
+        #                     'learning_rate': (0.005, 0.001),
+        #                     'clipping_coef': (0.3, 0.2),
+        #                     'entropy_coef': (0.01, 0.05)
+        #                 },
+        #                 'input': {
+        #                     'reg_coef': (0.25, 0.05),
+        #                     'learning_rate': (0.001, 0.005),
+        #                     'clipping_coef': (0.3, 0.3),
+        #                     'entropy_coef': (0.01, 0.05)
+        #                 }
+        #             }
+        #         elif args.env_id == "MiniGrid-FourRooms-v0":
+        #             best_hyperparams = {
+        #                 'internal': {
+        #                     'reg_coef': (0.05, 0.01),
+        #                     'learning_rate': (0.005, 0.005),
+        #                     'clipping_coef': (0.3, 0.3),
+        #                     'entropy_coef': (0.1, 0.02)
+        #                 },
+        #                 'both': {
+        #                     'reg_coef': (0.25, 0.25),
+        #                     'learning_rate': (0.01, 0.005),
+        #                     'clipping_coef': (0.3, 0.3),
+        #                     'entropy_coef': (0.02, 0.01)
+        #                 },
+        #                 'input': {
+        #                     'reg_coef': (0.01, 0.0),
+        #                     'learning_rate': (0.01, 0.01),
+        #                     'clipping_coef': (0.3, 0.3),
+        #                     'entropy_coef': (0.03, 0.01)
+        #                 }
+        #             }
+        #         elif args.env_id == "ComboGrid":
+        #             best_hyperparams = {
+        #                 'internal': {
+        #                     'reg_coef': (0.25,),
+        #                     'learning_rate': (0.01,),
+        #                     'clipping_coef': (0.3,),
+        #                     'entropy_coef': (0.2,)
+        #                 },
+        #                 'both': {
+        #                     'reg_coef': (0.1,),
+        #                     'learning_rate': (0.01,),
+        #                     'clipping_coef': (0.3,),
+        #                     'entropy_coef': (0.02,)
+        #                 },
+        #                 'input': {
+        #                     'reg_coef': (0.05,),
+        #                     'learning_rate': (0.01,),
+        #                     'clipping_coef': (0.3,),
+        #                     'entropy_coef': (0.01,)
+        #                 }
+        #             }
+
+        #         lrs = best_hyperparams[args.mask_type]['learning_rate']
+        #         clip_coef = best_hyperparams[args.mask_type]['clipping_coef']
+        #         ent_coef = best_hyperparams[args.mask_type]['entropy_coef']
+        #         reg_coef = best_hyperparams[args.mask_type]['reg_coef']
+
+        #     elif args.option_mode == "dec-whole":
+        #         best_hyperparams = {
+        #                 'both': {
+        #                     'reg_coef': (0.0,),
+        #                     'learning_rate': (0.01,),
+        #                     'clipping_coef': (0.2,),
+        #                     'entropy_coef': (0.02,)
+        #                 }
+        #             }
+        #         lrs = best_hyperparams[args.mask_type]['learning_rate']
+        #         clip_coef = best_hyperparams[args.mask_type]['clipping_coef']
+        #         ent_coef = best_hyperparams[args.mask_type]['entropy_coef']
+        #         reg_coef = best_hyperparams[args.mask_type]['reg_coef']
+
+        #     elif args.option_mode == "neural-augmented":
+        #         best_hyperparams = {
+        #                 'both': {
+        #                     'reg_coef': (0.0,),
+        #                     'learning_rate': (0.01,),
+        #                     'clipping_coef': (0.3,),
+        #                     'entropy_coef': (0.2,)
+        #                 }
+        #             }
+        #         lrs = best_hyperparams[args.mask_type]['learning_rate']
+        #         clip_coef = best_hyperparams[args.mask_type]['clipping_coef']
+        #         ent_coef = best_hyperparams[args.mask_type]['entropy_coef']
+        #         reg_coef = best_hyperparams[args.mask_type]['reg_coef']
+
+        #     elif args.option_mode == "fine-tune":
+        #         best_hyperparams = {
+        #                 'both': {
+        #                     'reg_coef': (0.0,),
+        #                     'learning_rate': (0.005,),
+        #                     'clipping_coef': (0.3,),
+        #                     'entropy_coef': (0.01,)
+        #                 }
+        #             }
+        #         lrs = best_hyperparams[args.mask_type]['learning_rate']
+        #         clip_coef = best_hyperparams[args.mask_type]['clipping_coef']
+        #         ent_coef = best_hyperparams[args.mask_type]['entropy_coef']
+        #         reg_coef = best_hyperparams[args.mask_type]['reg_coef']
+
+        #     else:
+        #         ent_coefs = {
+        #             "MiniGrid-MultiRoom-v0": {
+        #                 "vanilla": (0.01, 0.01), # MultiRoom Vanilla
+        #                 "fine-tune": (0.03, 0.03), # MultiRoom Fine-tune
+        #                 "neural-augmented": (0.02, 0.01), # MultiRoom Neural Augmented
+        #                 "dec-whole": (0.03, 0.01) # MultiRoom Dec-whole
+        #             },
+        #             "MiniGrid-Unlock-v0": {
+        #                 "vanilla": (0.05, 0.05, 0.2)
+
+        #             }
+        #         }
+
+        #         learning_rates = {
+        #             "MiniGrid-MultiRoom-v0": {
+        #                 "vanilla": (0.001, 0.001), # MultiRoom Vanilla
+        #                 "fine-tune": (0.01, 0.01), # MultiRoom Fine-tune
+        #                 "neural-augmented": (0.005, 0.0005), # MultiRoom Neural Augmented
+        #                 "dec-whole": (0.0005, 0.0005) # MultiRoom Dec-whole
+        #             },
+        #             "MiniGrid-Unlock-v0": {
+        #                 "vanilla": (0.005, 0.005, 0.005)
+
+        #             }
+        #         }
+        #         clip_coefs = {
+        #             "MiniGrid-MultiRoom-v0": {
+        #                 "vanilla": (0.3, 0.3), # MultiRoom Vanilla
+        #                 "fine-tune": (0.3, 0.3), # MultiRoom Fine-tune
+        #                 "neural-augmented": (0.15, 0.15), # MultiRoom Neural Augmented
+        #                 "dec-whole": (0.1, 0.2) # MultiRoom Dec-whole
+        #             },
+        #             "MiniGrid-Unlock-v0": {
+        #                 "vanilla": (0.3, 0.2, 0.2)
+
+        #             }
+        #         }
+            
+        #         lrs = learning_rates[args.env_id][args.option_mode]
+        #         clip_coef = clip_coefs[args.env_id][args.option_mode]
+        #         ent_coef = ent_coefs[args.env_id][args.option_mode]
+        # else: 
+        #     if args.env_seeds[0] == 12 and args.env_id == "ComboGrid":
+        #         best_hyperparams = {
+        #                 'both': {
+        #                     'reg_coef': (0.0,),
+        #                     'learning_rate': (0.01,),
+        #                     'clipping_coef': (0.3,),
+        #                     'entropy_coef': (0.05,)
+        #                 }
+        #             }
+        #         lrs = best_hyperparams[args.mask_type]['learning_rate']
+        #         clip_coef = best_hyperparams[args.mask_type]['clipping_coef']
+        #         ent_coef = best_hyperparams[args.mask_type]['entropy_coef']
+        #         reg_coef = best_hyperparams[args.mask_type]['reg_coef']
+        #     else:
+        #         lrs = args.learning_rate
+        #         clip_coef = args.clip_coef
+        #         ent_coef = args.ent_coef
+        #         reg_coef = args.reg_coef
     else:
 #        print(args.learning_rate, args.clip_coef, args.ent_coef, args.reg_coef)
         lrs = args.learning_rate

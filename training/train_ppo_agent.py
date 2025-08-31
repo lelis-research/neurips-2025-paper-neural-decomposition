@@ -19,14 +19,14 @@ def try_agent_deterministicly(agent: PPOAgent, options, args, env_seed):
         problem = COMBO_PROBLEM_NAMES[env_seed]
     else:
         raise NotImplementedError
-    env = get_single_environment(args, seed=env_seed, problem=problem, is_test=True, options=options)
+    env = get_single_environment(args, seed=env_seed, problem=problem, is_test=False, options=options)
     trajectory, infos = agent.run(env, 500, deterministic=True)
     reward = infos["reward"]
     entropy = infos["entropy"]
     print(f"Trajectory length: {trajectory.get_length()}")
     print(infos)
     print(f"Steps: {infos['steps']}, Optimal trajectory length: {OPTIMAL_TRAJECTORY_LENGTHS[env_seed]}")
-    return reward == OPTIMAL_TEST_REWARD[env_seed] and entropy < 0.5
+    return infos['steps'] == ((args.game_width - 3) * 8) and entropy < 0.2
 
 
 def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, device, options=None, logger=None, writer=None, parameter_sweeps=False, deterministic=False):
@@ -35,7 +35,7 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
     if not seed:
         seed = args.env_seed
     
-    agent = PPOAgent(envs, hidden_size=hidden_size).to(device)
+    agent = PPOAgent(envs, hidden_size=hidden_size, test_model=False).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
 
     # ALGO Logic: Storage setup
@@ -124,16 +124,16 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
                         writer.add_scalar("Charts/episodic_return", avg_return, global_step)
                         writer.add_scalar("Charts/episodic_length", avg_length, global_step)
                     logger.info(f"global_step={global_step}, episodic_return={avg_return}, episodic_length={avg_length}, entropy={entropy.mean()}")
-                    # if parameter_sweeps and OPTIMAL_TEST_REWARD[seed] - avg_return < 10 and entropy.mean() < 0.15: # FIX: just works for ComboGrid
-                    #     logger.info("Trying deterministically ...")
-                    #     if try_agent_deterministicly(agent, options, args, seed):
-                    #         logger.info(f"Optimal trajectory found on step {global_step}")
-                    #         envs.close()
-                    #         # writer.close()
-                    #         os.makedirs(os.path.dirname(model_file_name), exist_ok=True)
-                    #         torch.save(agent.state_dict(), model_file_name) # overrides the file if already exists
-                    #         logger.info(f"Saved on {model_file_name}")
-                    #         return
+                    if parameter_sweeps and (((args.game_width - 3) * 8 - 2)* -1) - avg_return < 10 and entropy.mean() < 0.15: # FIX: just works for ComboGrid
+                        logger.info("Trying deterministically ...")
+                        if try_agent_deterministicly(agent, options, args, seed):
+                            logger.info(f"Optimal trajectory found on step {global_step}")
+                            envs.close()
+                            # writer.close()
+                            os.makedirs(os.path.dirname(model_file_name), exist_ok=True)
+                            torch.save(agent.state_dict(), model_file_name) # overrides the file if already exists
+                            logger.info(f"Saved on {model_file_name}")
+                            return
         # bootstrap value if not done
         with torch.no_grad():
             next_value = agent.get_value(bootstrap_next_obs).reshape(1, -1)
@@ -267,17 +267,18 @@ def train_ppo(envs: gym.vector.SyncVectorEnv, seed, args, model_file_name, devic
 
     envs.close()
     # writer.close()
-    os.makedirs(os.path.dirname(model_file_name), exist_ok=True)
-    if args.save_run_info == 1:
-        checkpoint = {
-                'state_dict': agent.state_dict(),
-                'steps': log_data["steps"],
-                'average_returns': log_data["returns"],
-                'args': args,
-            }
-    else:
-        checkpoint = agent.state_dict()
+    if not parameter_sweeps:
+        os.makedirs(os.path.dirname(model_file_name), exist_ok=True)
+        if args.save_run_info == 1:
+            checkpoint = {
+                    'state_dict': agent.state_dict(),
+                    'steps': log_data["steps"],
+                    'average_returns': log_data["returns"],
+                    'args': args,
+                }
+        else:
+            checkpoint = agent.state_dict()
 
-    torch.save(checkpoint, model_file_name) # overrides the file if already exists
-    logger.info(f"Saved on {model_file_name}")
+        torch.save(checkpoint, model_file_name) # overrides the file if already exists
+        logger.info(f"Saved on {model_file_name}")
 

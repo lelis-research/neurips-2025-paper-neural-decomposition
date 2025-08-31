@@ -107,11 +107,11 @@ class MiniGridWrap(gym.Env):
         reward_sum = 0
         if self.options and action >= self.n_discrete_actions:
             option = self.options[action - self.n_discrete_actions]
-            print(" | Action: ", action, end=" , ")
+            # print(" | Action: ", action, end=" , ")
             for idx in range(option.option_size):
                 option_action, _ = option.get_action_with_mask(torch.tensor(self.get_observation(), dtype=torch.float32).view(1, -1))
                 self.steps += 1
-                print(option_action, end=" ")
+                # print(option_action, end=" ")
                 _, temp_reward, terminated, truncated, _ = self.env.step(option_action)
                 reward_sum += self.custom_reward(terminated)
                 if terminated or truncated:

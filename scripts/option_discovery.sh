@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --cpus-per-task=15
+#SBATCH --cpus-per-task=30
 #SBATCH --mem-per-cpu=1G
-#SBATCH --time=02:30:00
+#SBATCH --time=00:30:00
 #SBATCH --output=selecting_options/%A-%a.out
-#SBATCH --account=rrg-lelis
+#SBATCH --account=aip-lelis
 #SBATCH --array=0-14 #1080
 
-source /home/iprnb/venvs/neural-policy-decomposition/bin/activate
+source /home/iprnb/venvs/neural-decomposition/bin/activate
 
 export FLEXIBLAS=imkl
 export OMP_NUM_THREADS=1
@@ -14,7 +14,7 @@ export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export PYTHONPATH=":$PYTHONPATH"
 
-seeds=(0 1 2)
+seeds=(0 2 3)
 reg_coefs=(0 0.01 0.05 0.1 0.25)
 
 num_seed=${#seeds[@]}
@@ -32,8 +32,8 @@ REG="${reg_coefs[${reg_index}]}"
 
 python3.11 ~/scratch/neurips-2025-paper-neural-decomposition/pipelines/option_discovery.py \
     --seed "${SD}"\
-    --game_width 9\
+    --game_width 6\
     --cpus $SLURM_CPUS_PER_TASK\
     --option_mode "didec"\
     --reg_coef "${REG}"\
-    --mask_type "both"
+    --mask_type "input"
