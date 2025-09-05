@@ -25,6 +25,7 @@ class Args:
     exp_name: str = "train_ppoAgent"
     """the name of this experiment"""
     env_id: str = "ComboGrid"
+    env_id: str = "ComboGrid"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0, MiniGrid-FourRooms-v0, MiniGrid-Unlock-v0, MiniGrid-MultiRoom-v0]
     """
@@ -255,6 +256,8 @@ def main(args: Args):
             is_test = True
     envs = gym.vector.SyncVectorEnv([get_single_environment_builder(args, args.env_seed, problem, is_test=is_test, options=options) for _ in range(args.num_envs)],
                                     autoreset_mode=gym.vector.AutoresetMode.SAME_STEP)
+    # envs = gym.vector.AsyncVectorEnv([get_single_environment_builder(args, args.env_seed, problem, is_test=False,) for _ in range(args.num_envs)],
+    #                                 autoreset_mode=gym.vector.AutoresetMode.SAME_STEP)
     
     # model_path = f'{args.models_path_prefix}/{args.exp_id}/seed={args.seed}/ppo_first_MODEL.pt'
     if args.sweep_run == 1:
@@ -265,13 +268,24 @@ def main(args: Args):
     #     logger.info(f"Model already exists. Stopping training...")
     #     exit()
 
-    train_ppo(envs=envs, 
-              seed=args.env_seed, 
-              args=args, 
-              model_file_name=model_path, 
-              device=device, 
-              logger=logger, 
-              writer=writer)
+    if isinstance(envs, gym.vector.SyncVectorEnv):
+        train_ppo(envs=envs, 
+                seed=args.env_seed, 
+                args=args, 
+                model_file_name=model_path, 
+                device=device, 
+                logger=logger, 
+                writer=writer,
+                parameter_sweeps=args.param_sweep)
+    elif isinstance(envs, gym.vector.AsyncVectorEnv):
+        train_ppo_async(envs=envs, 
+                seed=args.env_seed, 
+                args=args, 
+                model_file_name=model_path, 
+                device=device, 
+                logger=logger, 
+                writer=writer,
+                parameter_sweeps=args.param_sweep)
     if args.track:
         wandb.finish()
     # wandb.finish()

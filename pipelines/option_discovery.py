@@ -110,8 +110,9 @@ class Args:
     """It's either `softmax` or `quantize`"""
     selection_type: str = "local_search"
     """It's either `local_search` or `greedy`"""
-    cache_path: str = ""
+    binary_base_path: str = ""
     """Path to the directory where the options are saved. If empty, it will be replaced based on the current `exp_id`"""
+    
     # reg_coef: float = 0.0
     # reg_coef: float = 110.03 # Combogrid 4 environments
     reg_coef: float = 0.01
