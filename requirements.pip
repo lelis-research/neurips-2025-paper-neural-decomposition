@@ -1,0 +1,13 @@
+torch
+numpy
+gymnasium>=0.28
+minigrid
+nle>=1.0.0
+minihack>=1.0.0
+tqdm
+tyro
+wandb
+matplotlib
+scipy
+pandas
+tensorboard

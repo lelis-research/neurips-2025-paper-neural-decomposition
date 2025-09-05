@@ -8,7 +8,7 @@ import tyro
 import numpy as np
 import gymnasium as gym
 from utils import utils
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Optional
 from dataclasses import dataclass
 from torch.utils.tensorboard import SummaryWriter
 from environments.environments_combogrid_gym import make_env as make_env_combogrid
@@ -24,15 +24,15 @@ class Args:
     """The ID of the finished experiment; to be filled in run time"""
     exp_name: str = "train_ppoAgent"
     """the name of this experiment"""
-    env_id: str = "ComboGrid"
-    env_id: str = "ComboGrid"
+    env_id: str = "MiniHack-Corridor-R2-v0"
     """the id of the environment corresponding to the trained agent
-    choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0, MiniGrid-FourRooms-v0, MiniGrid-Unlock-v0, MiniGrid-MultiRoom-v0]
+    choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0, MiniGrid-FourRooms-v0, MiniGrid-Unlock-v0, MiniGrid-MultiRoom-v0, MiniHack-Corridor-R2-v0]
     """
     method: str = "no_options"
     option_mode: str = "vanilla"
     # env_seeds: Union[List[int], str] = (0,1,2) # SimpleCrossing
-    env_seeds: Union[List, str, Tuple] = (0,1,2,3) # ComboGrid
+    # env_seeds: Union[List, str, Tuple] = (0,1,2,3) # ComboGrid
+    env_seeds: Union[List[int], Tuple[int, ...], str] = (0, 1, 2, 3)  # MiniHack-Corridor-R2-v0
     # env_seeds: Union[List, str, Tuple] = (12,) #ComboGrid Test
     # env_seeds: Union[List[int], str] = (8,51) # FourRooms
     # env_seeds: Union[List[int], str] = (1,3,17) # Unlock
@@ -50,7 +50,7 @@ class Args:
     """if toggled, this experiment will be tracked with Tensorboard SummaryWriter"""
     wandb_project_name: str = "BASELINE0_Combogrid"
     """the wandb's project name"""
-    wandb_entity: str = None
+    wandb_entity: Optional[str] = None
     """the entity (team) of wandb's project"""
     capture_video: bool = False
     """whether to capture videos of the agent performances (check out `videos` folder)"""
@@ -58,14 +58,14 @@ class Args:
     """"Not used in this experiment"""
     save_run_info: int = 0
     """"""
-    reg_coef: Union[List[float], float] = (0.1,)
+    reg_coef: Union[Tuple[float, ...], float] = (0.1,)
     """"""
     mask_type: str = "both"
     
     # hyperparameter arguments
     game_width: int = 8
     """the length of the combo/mini-grid square"""
-    hidden_size: int = 64
+    hidden_size: int = 256
     # hidden_size: int = 6
     """"""
     l1_lambda: float = 0
@@ -164,7 +164,7 @@ class Args:
     """coefficient of the value function"""
     max_grad_norm: float = 0.5
     """the maximum norm for the gradient clipping"""
-    target_kl: float = None
+    target_kl: Optional[float] = None
     """the target KL divergence threshold"""
     sweep_run: int = 1
 
@@ -254,10 +254,23 @@ def main(args: Args):
         problem = args.problem
         if args.env_seed == 12:
             is_test = True
-    envs = gym.vector.SyncVectorEnv([get_single_environment_builder(args, args.env_seed, problem, is_test=is_test, options=options) for _ in range(args.num_envs)],
-                                    autoreset_mode=gym.vector.AutoresetMode.SAME_STEP)
-    # envs = gym.vector.AsyncVectorEnv([get_single_environment_builder(args, args.env_seed, problem, is_test=False,) for _ in range(args.num_envs)],
-    #                                 autoreset_mode=gym.vector.AutoresetMode.SAME_STEP)
+    # Vectorized envs with auto-reset; handle Gymnasium version compatibility
+    env_fns = [get_single_environment_builder(args, args.env_seed, problem, is_test=is_test, options=options) for _ in range(args.num_envs)]
+    
+    logger.info(f"Creating {args.num_envs} parallel environments for {args.env_id} with seeds {args.env_seeds}")
+    try:
+        envs = gym.vector.SyncVectorEnv(env_fns)
+    except TypeError:
+        # Older Gymnasium versions without `autoreset` keyword
+        envs = gym.vector.SyncVectorEnv(env_fns)
+
+    logger.info(f"Environments {args.env_id} with seeds {args.env_seeds} created")
+
+    # For AsyncVectorEnv, similarly:
+    # try:
+    #     envs = gym.vector.AsyncVectorEnv(env_fns, autoreset=True)
+    # except TypeError:
+    #     envs = gym.vector.AsyncVectorEnv(env_fns)
     
     # model_path = f'{args.models_path_prefix}/{args.exp_id}/seed={args.seed}/ppo_first_MODEL.pt'
     if args.sweep_run == 1:
@@ -276,7 +289,7 @@ def main(args: Args):
                 device=device, 
                 logger=logger, 
                 writer=writer,
-                parameter_sweeps=args.param_sweep)
+                parameter_sweeps=args.sweep_run == 1)
     elif isinstance(envs, gym.vector.AsyncVectorEnv):
         train_ppo_async(envs=envs, 
                 seed=args.env_seed, 
@@ -285,7 +298,7 @@ def main(args: Args):
                 device=device, 
                 logger=logger, 
                 writer=writer,
-                parameter_sweeps=args.param_sweep)
+                parameter_sweeps=args.sweep_run == 1)
     if args.track:
         wandb.finish()
     # wandb.finish()

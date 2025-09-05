@@ -35,3 +35,5 @@ param_sweep_raw
 Results_*
 job.sh
 automated.py
+*.db
+*.slurm
