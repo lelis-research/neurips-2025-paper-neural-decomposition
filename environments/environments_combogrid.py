@@ -44,21 +44,28 @@ OPTIMAL_TEST_REWARD = {
         13: 20
     }
 
-DIRECTIONS = {(0,0,1): "U",
-              (0,1,2): "D",
-              (2,1,0): "L",
-              (1,0,2): "R"}
+# DIRECTIONS = {(0,0,1): "U",
+#               (0,1,2): "D",
+#               (2,1,0): "L",
+#               (1,0,2): "R"}
+
+DIRECTIONS = {(0,0,1,1): "U",
+              (0,1,2,0): "D",
+              (2,1,0,2): "L",
+              (1,0,2,1): "R"}
 
 class Problem:
     def __init__(self, rows, columns, problem_str):
         self.rows = rows
         self.columns = columns
-        self.walls = []
+        self.walls = set()
+        self.problem_str = problem_str
 
         problem_str_decopled = problem_str.split("|")
         locations_str = problem_str_decopled[0]
-        if len(problem_str_decopled) > 1:
-            self.setup_walls(problem_str_decopled[1])
+        if len(list(DIRECTIONS.keys())[0]) > 3 and problem_str != PROBLEM_NAMES[12]:
+            self.setup_walls()
+
         self.initial, self.goals = self._parse_problem(locations_str)
         self.init_goals = copy.deepcopy(self.goals)
         
@@ -74,8 +81,12 @@ class Problem:
         v_loc, h_loc = pos_str[0], pos_str[1]
         if v_loc == 'T':
             row = 0
+            if len(list(DIRECTIONS.keys())[0]) > 3 and self.problem_str != PROBLEM_NAMES[12]:
+                row = 1
         elif v_loc == 'B':
             row = self.rows - 1
+            if len(list(DIRECTIONS.keys())[0]) > 3 and self.problem_str != PROBLEM_NAMES[12]:
+                row = self.rows - 2
         elif v_loc == 'M':
             row = math.floor(self.rows / 2)
         else:
@@ -83,8 +94,12 @@ class Problem:
         
         if h_loc == 'L':
             col = 0
+            if len(list(DIRECTIONS.keys())[0]) > 3 and self.problem_str != PROBLEM_NAMES[12]:
+                col = 1
         elif h_loc == 'R':
             col = self.columns - 1
+            if len(list(DIRECTIONS.keys())[0]) > 3 and self.problem_str != PROBLEM_NAMES[12]:
+                col = self.columns - 2
         elif h_loc == 'M':
             col = math.floor(self.columns / 2)
         else:
@@ -92,12 +107,18 @@ class Problem:
         
         return (row, col)
     
-    def setup_walls(self, walls_str):
-        if walls_str == "hallways":
-            for i in range(self.rows):
-                for j in range(self.columns):
-                    if i != math.floor(self.rows / 2) and j != math.floor(self.columns / 2):
-                        self.walls.append((i, j))
+    def setup_walls(self):
+        for i in range(self.rows):
+            self.walls.add((i, 0))
+            self.walls.add((0, i))
+            self.walls.add((i, self.rows - 1))
+            self.walls.add((self.rows - 1, i))
+        # wall in the middle of the grid
+        for i in range(2, self.rows - 2):
+            for j in range(1, int((self.rows - 1) / 2)):
+                self.walls.add((i, j))
+                self.walls.add((i, j + int(self.rows / 2)))
+
 
     def remove_goal(self, loc) -> bool:
         """
@@ -151,13 +172,19 @@ class Game:
         2, 1, 0 -> left (2)
         1, 0, 2 -> right (3)
         """
-        self._pattern_length = 3
+        # self._pattern_length = 3
+        self._pattern_length = 4
 
         self._action_pattern = {}
-        self._action_pattern[(0, 0, 1)] = 0
-        self._action_pattern[(0, 1, 2)] = 1
-        self._action_pattern[(2, 1, 0)] = 2
-        self._action_pattern[(1, 0, 2)] = 3
+        # self._action_pattern[(0, 0, 1)] = 0
+        # self._action_pattern[(0, 1, 2)] = 1
+        # self._action_pattern[(2, 1, 0)] = 2
+        # self._action_pattern[(1, 0, 2)] = 3
+        self._action_pattern[(0, 0, 1, 1)] = 0
+        self._action_pattern[(0, 1, 2, 0)] = 1
+        self._action_pattern[(2, 1, 0, 2)] = 2
+        self._action_pattern[(1, 0, 2, 1)] = 3
+
 
     def reset(self, init_loc=None):
         self._matrix_unit = np.zeros((self._rows, self._columns))
@@ -216,7 +243,8 @@ class Game:
         one_hot_matrix_state = np.zeros((self._pattern_length, self._pattern_length), dtype=int)
         for i, v in enumerate(self._state):
             one_hot_matrix_state[v][i] = 1
-        return np.concatenate((self._matrix_unit.ravel(), one_hot_matrix_state.ravel(), self._matrix_goal.ravel()))
+        return np.concatenate((self._matrix_unit.ravel(), one_hot_matrix_state.ravel(), self._matrix_goal.ravel(), self._matrix_structure.ravel()))
+        #, self._matrix_structure.ravel()
     
     def is_over(self):
         is_goal = self._matrix_goal[self._x][self._y] == 1
@@ -249,24 +277,28 @@ class Game:
                         self._matrix_unit[self._x][self._y] = 0
                         self._x -= 1
                         self._matrix_unit[self._x][self._y] = 1
+                        # print(self.__repr__())
                 # moving down
                 if self._action_pattern[action_tuple] == 1:
                     if self._x + 1 < self._matrix_unit.shape[0] and self._matrix_structure[self._x + 1][self._y] == 0:
                         self._matrix_unit[self._x][self._y] = 0
                         self._x += 1
                         self._matrix_unit[self._x][self._y] = 1
+                        # print(self.__repr__())
                 # moving left
                 if self._action_pattern[action_tuple] == 2:
                     if self._y - 1 >= 0 and self._matrix_structure[self._x][self._y - 1] == 0:
                         self._matrix_unit[self._x][self._y] = 0
                         self._y -= 1
                         self._matrix_unit[self._x][self._y] = 1
+                        # print(self.__repr__())
                 # moving right
                 if self._action_pattern[action_tuple] == 3:
                     if self._y + 1 < self._matrix_unit.shape[1] and self._matrix_structure[self._x][self._y + 1] == 0:
                         self._matrix_unit[self._x][self._y] = 0
                         self._y += 1
                         self._matrix_unit[self._x][self._y] = 1
+                        # print(self.__repr__())
             self._state = []
 
 class basic_actions:

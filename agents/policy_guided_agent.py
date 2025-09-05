@@ -164,7 +164,7 @@ def sparse_init(tensor, sparsity, type='uniform'):
 
 
 class PPOAgent(nn.Module):
-    def __init__(self, envs, hidden_size=6, sparse_init=False, discrete_masks=True):
+    def __init__(self, envs, hidden_size=6, sparse_init=False, discrete_masks=True, test_model=False):
         super().__init__()
         # TODO: remove envs from parameters; it's redundant
         if isinstance(envs, ComboGym):
@@ -196,11 +196,22 @@ class PPOAgent(nn.Module):
                 nn.Tanh(),
                 layer_init_func(nn.Linear(64, 1)),
             )
-        self.actor = nn.Sequential(
+        if test_model:
+            self.actor = nn.Sequential(
             layer_init_func(nn.Linear(observation_space_size, hidden_size)),
+            nn.ReLU(),
+            layer_init_func(nn.Linear(hidden_size, hidden_size)),
+            nn.ReLU(),
+            layer_init_func(nn.Linear(hidden_size, hidden_size)),
             nn.ReLU(),
             layer_init_func(nn.Linear(hidden_size, action_space_size)),
         )
+        else:
+            self.actor = nn.Sequential(
+                layer_init_func(nn.Linear(observation_space_size, hidden_size)),
+                nn.ReLU(),
+                layer_init_func(nn.Linear(hidden_size, action_space_size)),
+            )
 
         # Option attributes
         self.mask = None
@@ -222,7 +233,7 @@ class PPOAgent(nn.Module):
             if not deterministic:
                 action = probs.sample()
             else:
-                action = probs.probs.max(dim=0)[1]
+                action = logits.argmax(dim=-1)
         return action, probs.log_prob(action), probs.entropy(), self.critic(x), logits
     
     def to_option(self, mask, option_size, problem):
@@ -453,6 +464,8 @@ class PPOAgent(nn.Module):
 
     def get_action_with_mask(self, x_tensor, mask=None):
         if mask == None:
+            if self.mask is None:
+                return (self.get_action_and_value(x_tensor)[0], [])
             mask = self.mask
         if self.mask_type == "internal":
             if self.mask_transform_type == "softmax":

@@ -1,19 +1,39 @@
 #!/bin/bash
-#SBATCH --cpus-per-task=48   # maximum CPU cores per GPU request: 6 on Cedar, 16 on Graham.
+#SBATCH --cpus-per-task=30
 #SBATCH --mem-per-cpu=1G
-#SBATCH --time=0-4:00      # time (DD-HH:MM)
-#SBATCH --output=%j-%N.out  # %N for node name, %j for jobID
-#SBATCH --account=rrg-lelis
-#SBATCH --array=0
+#SBATCH --time=00:30:00
+#SBATCH --output=selecting_options/%A-%a.out
+#SBATCH --account=aip-lelis
+#SBATCH --array=0-14 #1080
 
-cd /home/rezaabdz/projects/def-lelis/rezaabdz/neurips-2025-paper-neural-decomposition
+source /home/iprnb/venvs/neural-decomposition/bin/activate
 
-module load flexiblas
-export FLEXIBLAS=blis2
+export FLEXIBLAS=imkl
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export PYTHONPATH=":$PYTHONPATH"
 
-source /home/rezaabdz/scratch/envs/venv/bin/activate # Assuming we have all our environments in  `../envs/`
+seeds=(0 2 3)
+reg_coefs=(0 0.01 0.05 0.1 0.25)
 
-OMP_NUM_THREADS=1 python -m pipelines.option_discovery --cpus=$SLURM_CPUS_PER_TASK --seed=$SLURM_ARRAY_TASK_ID \
-    --mask_type="input" \
-    --cache_path="/home/rezaabdz/scratch/binary/cache/" \
-    --game_width=6 --hidden_size=64
+num_seed=${#seeds[@]}
+num_reg_coefs=${#reg_coefs[@]}
+
+idx=$(( $SLURM_ARRAY_TASK_ID + 0 ))
+
+reg_index=$(( idx % num_reg_coefs ))
+idx=$(( idx / num_reg_coefs ))
+
+sd_index=$(( idx % num_seed ))
+
+SD="${seeds[${sd_index}]}"
+REG="${reg_coefs[${reg_index}]}"
+
+python3.11 ~/scratch/neurips-2025-paper-neural-decomposition/pipelines/option_discovery.py \
+    --seed "${SD}"\
+    --game_width 6\
+    --cpus $SLURM_CPUS_PER_TASK\
+    --option_mode "didec"\
+    --reg_coef "${REG}"\
+    --mask_type "input"

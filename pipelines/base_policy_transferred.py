@@ -31,15 +31,27 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 class Args:
     exp_name: str = "extract_basePolicyTransferred"
     """the name of this experiment"""
-    env_seeds: Union[List, str, Tuple] = (0,1,2,3)
+    # env_seeds: Union[List, str, Tuple] = (0,1,2,3)
     # env_seeds: Union[List, str, Tuple] = (0,1,2)
+    env_seeds: Union[List, str, Tuple] = (1,3,17)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
+    # model_paths: List[str] = (
+    #     'combogrid-TL-BR',
+    #     'combogrid-TR-BL',
+    #     'combogrid-BR-TL',
+    #     'combogrid-BL-TR',
+    # )
+
+    # model_paths: List[str] = (
+    #     'minigrid-simplecrossings9n1-v0-0',
+    #     'minigrid-simplecrossings9n1-v0-1',
+    #     'minigrid-simplecrossings9n1-v0-2'
+    # )
     model_paths: List[str] = (
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd0_TL-BR',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd1_TR-BL',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd2_BR-TL',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd3_BL-TR',
-    )
+            'minigrid-unlock-v0-1',
+            'minigrid-unlock-v0-3',
+            'minigrid-unlock-v0-17'
+        )
 
     # These attributes will be filled in the runtime
     exp_id: str = ""
@@ -48,7 +60,7 @@ class Args:
     """the name of the problems the agents were trained on; To be filled in runtime"""
 
     # Algorithm specific arguments
-    env_id: str = "ComboGrid"
+    env_id: str = "MiniGrid-Unlock-v0"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
@@ -56,11 +68,12 @@ class Args:
     """"The number of CPUTs used in this experiment."""
     
     # hyperparameters
-    game_width: int = 5
+    game_width: int = 9
     """the length of the combo/mini grid square"""
     hidden_size: int = 64
     """"""
     mask_transform_type: str = "softmax"
+    option_mode: str = "neural-augmented"
 
     # Script arguments
     seed: int = 0
@@ -108,7 +121,7 @@ def process_args() -> Args:
     
     if args.env_id == "ComboGrid":
         args.problems = [COMBO_PROBLEM_NAMES[seed] for seed in args.env_seeds]
-    elif args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
+    elif args.env_id == "MiniGrid-SimpleCrossingS9N1-v0" or "MiniGrid-Unlock-v0":
         args.problems = [args.env_id + f"_{seed}" for seed in args.env_seeds]
         
     return args
@@ -124,7 +137,7 @@ def regenerate_trajectories(args: Args, verbose=False, logger=None):
     trajectories = {}
     
     for seed, problem, model_directory in zip(args.env_seeds, args.problems, args.model_paths):
-        model_path = f'binary/models/{model_directory}/seed={args.seed}/ppo_first_MODEL.pt'
+        model_path = f'binary/models/{args.env_id}_width={args.game_width}_vanilla/seed={args.seed}/{model_directory}-combo4.pt'
         env = get_single_environment(args, seed=seed)
         
         if verbose:
@@ -152,7 +165,7 @@ def save_options(options: List[PPOAgent], trajectories: dict, args: Args, logger
         trajectories (Dict[str, Trajectory]): The trajectories corresponding to the these options
         save_dir (str): The directory where the options will be saved.
     """
-    save_dir = f"binary/options/{args.exp_id}/seed={args.seed}"
+    save_dir = f"binary/options/{args.env_id}_width={args.game_width}_{args.option_mode}/seed={args.seed}"
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     else:
@@ -267,7 +280,7 @@ class WholeDecOption:
         for primary_env_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
             env = get_single_environment(self.args, seed=primary_env_seed)
             option = PPOAgent(env, hidden_size=self.args.hidden_size)
-            option.load_state_dict(torch.load(os.path.join("binary/models", primary_model_directory, f"seed={self.args.seed}", "ppo_first_MODEL.pt")))
+            option.load_state_dict(torch.load(os.path.join("binary/models", f"{self.args.env_id}_width={self.args.game_width}_vanilla" ,f"seed={self.args.seed}", f"{primary_model_directory}-combo4.pt")))
             mask = torch.zeros(3, self.args.hidden_size)
             mask[-1] = 1
             option.to_option(mask, 1, primary_problem)  
@@ -290,15 +303,15 @@ class WholeDecOption:
         self.levin_loss.print_output_subpolicy_trajectory(selected_options, trajectories, logger=self.logger)
         utils.logger_flush(self.logger)
 
-        self.logger.info("Testing on each grid cell")
-        for seed, problem in zip(self.args.env_seeds, self.args.problems):
-            self.logger.info(f"Testing on each cell..., {problem}")
-            self.levin_loss.evaluate_on_each_cell(options=selected_options, 
-                                    trajectories=trajectories,
-                                    problem_test=problem, 
-                                    args=self.args, 
-                                    seed=seed, 
-                                    logger=self.logger)
+        # self.logger.info("Testing on each grid cell")
+        # for seed, problem in zip(self.args.env_seeds, self.args.problems):
+        #     self.logger.info(f"Testing on each cell..., {problem}")
+        #     self.levin_loss.evaluate_on_each_cell(options=selected_options, 
+        #                             trajectories=trajectories,
+        #                             problem_test=problem, 
+        #                             args=self.args, 
+        #                             seed=seed, 
+        #                             logger=self.logger)
 
         utils.logger_flush(self.logger)
 
