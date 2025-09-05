@@ -19,10 +19,12 @@ SEEDS = {
     "TR-ML": 10,
     "BR-ML": 11,
 
-    "MM-MR-ML-BM-TM": 12,
+    "BL-MR-ML-BM-TM": 12,
+    "MM-MR-ML-BM-TM": 15,
     "BL-MR-BM": 13,
 
     "MM-MR-ML|hallways": 14,
+
 
     "TL-BR|block": 20,
     "TR-BL|block": 21, 
@@ -31,6 +33,7 @@ SEEDS = {
 }
 
 PROBLEM_NAMES = {value:key for key, value in SEEDS.items()}
+TEST_SEEDS = [12, 13, 14, 15]
 
 # These are for 5*5 grid
 OPTIMAL_TRAJECTORY_LENGTHS = {

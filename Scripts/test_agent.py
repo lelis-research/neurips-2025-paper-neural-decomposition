@@ -42,12 +42,12 @@ def test_agent(seed, args):
         # print("Loading NStep DQN")
         # agent = NStepDQNAgent.load(agent_path)
     except Exception as e1:
-        print(f"PPOAgent loading failed with error: {e1}")
+        print(f"DGN loading failed with error: {e1}")
         try:
-            print("Tryig PPOAgentOption Loading")
-            agent = PPOAgentOption.load(agent_path)
+            print("Tryig PPOAgent Loading")
+            agent = PPOAgent.load(agent_path)
         except Exception as e2:
-            print(f"PPOAgentOption.load also failed with error: {e2}")
+            print(f"PPOAgent.load also failed with error: {e2}")
             try: 
                 print("Tryig A2CAgent Loading")
                 agent = A2CAgent.load(agent_path)

@@ -15,7 +15,6 @@ OUTPUT_BASE_DIR = os.environ.get("OUTPUT_BASE_DIR", f"./")
 ENV_NAME = os.environ.get("ENV_NAME", "ComboGrid")
 AGENT_CLASS = os.environ.get("AGENT_CLASS", "A2CAgentOption")
 
-
 @dataclass
 class arguments(parent_arguments):
     
@@ -32,23 +31,18 @@ class arguments(parent_arguments):
 
     # ----- tune experiment settings -----
 
-    tuning_nametag:           str              = f"gw{GAME_WIDTH}_h{HIDDEN_SIZE}_{TMP_OPT}_{MASK_TYPE}" # Mask_Network, Mask_Input, Mask_Both
-    num_trials:               int              = 10   
-    steps_per_trial:          int              = 100_000
+    tuning_nametag:           str              = f"baseline_{TMP_OPT}" # Mask_Network, Mask_Input, Mask_Both
+    num_trials:               int              = 1
+    steps_per_trial:          int              = 150_000
     param_ranges                               = {
-                                                        "step_size":[
-                                                                        1e-6,
-                                                                        3e-6,
-                                                                        1e-5,
-                                                                        3e-5,
-                                                                        5e-5,
-                                                                        1e-4,
-                                                                        2e-4,
-                                                                        3e-4,
-                                                                        1e-3,
-                                                                        3e-3
-                                                                    ],
+                                                "step_size": [0.005, 0.001, 0.003, 0.0005, 0.0001, 0.00005],
+                                                "entropy_coef": [0.0, 0.05, 0.1, 0.15, 0.2],  # Encourages exploration
+                                                "clip_ratio": [0.1, 0.15, 0.2, 0.25, 0.3],  # PPO clip parameter
+                                                # "mask_type": ["network"],
+                                                "mask_type": ["network", "input", "both"],
                                                     }
+    tuning_parallel_method:   str              = "job-based" # "job-based", "process-based", "thread-based"
+    tuning_job_idx:         int              = int(os.environ.get("SLURM_ARRAY_TASK_ID", -1))
     tuning_env_name:          str              = ENV_NAME
     tuning_env_params                          = {"env_seed": ENV_SEED, "step_reward": 0, "goal_reward": 10, "game_width": GAME_WIDTH}
     tuning_env_wrappers                        = default_env_wrappers(tuning_env_name)[0]
@@ -56,13 +50,13 @@ class arguments(parent_arguments):
     tuning_env_max_steps:     int              = 500
     tuning_seeds                               = []
     exhaustive_search:        bool             = True
-    num_grid_points:          int              = 10
+    num_grid_points:          int              = 1
     option_path_tuning                         = [
                                                     f"Options_{TMP_OPT}_{ENV_NAME}_Seed_{seed}_{MASK_TYPE}/selected_options_5.pt" if TMP_OPT != "Transfer"
                                                     else f"Options_{TMP_OPT}_{ENV_NAME}_Seed_{seed}_{MASK_TYPE}/selected_options.pt"
-                                                    for seed in [1,2,3]
+                                                    for seed in [0,2,3]
                                                 ]
-    tuning_storage:           str              = f"sqlite:///optuna_{tuning_nametag}.db"
+    tuning_storage:           str              = f"optuna.db"
     n_trials_per_job:         int              = 10
 
     

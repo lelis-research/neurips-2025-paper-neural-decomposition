@@ -46,6 +46,8 @@ class A2CAgent:
         # Learning rates
         self.step_size = kwargs.get("step_size", 7e-4)
 
+        print(f"Initialized A2C Agent with gamma={self.gamma}, lamda={self.lamda}, step_size={self.step_size}, rollout_steps={self.rollout_steps}")
+
     def act(self, observation, greedy=False):
         state = torch.tensor(observation, dtype=torch.float32, device=self.device).unsqueeze(0)
         with torch.no_grad():
@@ -107,6 +109,8 @@ class A2CAgent:
         actor_loss = - (log_probs * advantages).sum()
 
         loss = critic_loss + actor_loss
+
+        print(f"Loss: {loss.item():.4f}, Critic Loss: {critic_loss.item():.4f}, Actor Loss: {actor_loss.item():.4f}")
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()

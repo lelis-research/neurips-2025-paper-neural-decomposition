@@ -43,7 +43,7 @@ def generate_subtrajectories(traj, min_len, max_len):
         traj (list): List of (state, action) pairs.
         min_len (int): Minimum length of sub-trajectory.
         max_len (int): Maximum length of sub-trajectory.
-        
+    
     Returns:
         List of sub-trajectories (each a list of (state, action) pairs).
     """
@@ -95,6 +95,8 @@ def learn_mask(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e-3, ma
         if pbar is not None:
             pbar.set_postfix(loss=total_loss.item())
             pbar.update(1)
+        if epoch % 100 == 0:
+            print("epoch:", epoch, "total_loss.item()", total_loss.item())
     
     #test the mask for the sub_traj
     for state_np, action_np in sub_traj:
@@ -172,6 +174,8 @@ def fine_tune_policy(agent, sub_traj, num_epochs=100, lr=1e-2, pbar=None, tol=1e
         if pbar is not None:
             pbar.set_postfix(loss=total_loss)
             pbar.update(1)
+
+    print("total_loss.item()", total_loss)
 
     # 4) Quick validation: ensure learned policy reproduces sub_traj within tol
     for state_np, action_np in sub_traj:
