@@ -32,3 +32,6 @@ wandb
 */.ipynb_checkpoints
 TODOs.txt
 param_sweep_raw
+Results_*
+job.sh
+automated.py
