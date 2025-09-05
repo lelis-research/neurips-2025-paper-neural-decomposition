@@ -1,51 +1,75 @@
 #!/bin/bash
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=1G
-#SBATCH --time=0-1:30
-#SBATCH --output=%j-%N.out
-#SBATCH --account=rrg-lelis
-#SBATCH --array=0-149  # 2 lr × 5 clip × 5 ent × 3 seeds = 150 jobs
+#SBATCH --time=02:30:00
+#SBATCH --output=neural-augmented-model-sweep/%A-%a.out
+#SBATCH --account=aip-lelis
+#SBATCH --array=420-508 #2700
 
-cd /home/rezaabdz/projects/def-lelis/rezaabdz/neurips-2025-paper-neural-decomposition
+source /home/iprnb/venvs/neural-decomposition/bin/activate
 
-module load flexiblas
-export FLEXIBLAS=blis2
+export FLEXIBLAS=imkl
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export PYTHONPATH=":$PYTHONPATH"
 
-source /home/rezaabdz/scratch/envs/venv/bin/activate
 
-# Final parameter ranges
-learning_rates=(0.0005 0.001)              # 2
-clip_coefs=(0.1 0.15 0.2 0.3 0.4)          # 5
-ent_coefs=(0.01 0.05 0.1 0.15 0.2)         # 5
+# seeds=(6 7 8 12 13 14 15 16 17) #9
+seeds=(0 1 3) #3
+learning_rates=(0.01 0.005 0.001 0.0005 0.00005) #5
+clip_coef=(0.01 0.05 0.1 0.15 0.2 0.3) #6
+ent_coefs=(0.01 0.02 0.03 0.05 0.1 0.2) #6
+num_steps=(0.0)
 
-num_seeds=3
-total_experiments=$((2 * 5 * 5))  # 50
 
-global_idx=$SLURM_ARRAY_TASK_ID
-exp_idx=$((global_idx / num_seeds))  # 0–49
-seed=$((global_idx % num_seeds))     # 0–2
+num_seed=${#seeds[@]}
+num_lr=${#learning_rates[@]}
+num_ent_coef=${#ent_coefs[@]}
+num_clip_coef=${#clip_coef[@]}
+num_s=${#num_steps[@]}
 
-# Indexing
-lr_idx=$((exp_idx / 25))             # 0–1
-cc_idx=$(((exp_idx % 25) / 5))       # 0–4
-ec_idx=$((exp_idx % 5))              # 0–4
+#idx=$SLURM_ARRAY_TASK_ID
+idx=$(( $SLURM_ARRAY_TASK_ID + 0 ))
 
-lr=${learning_rates[$lr_idx]}
-clip=${clip_coefs[$cc_idx]}
-ent=${ent_coefs[$ec_idx]}
 
-echo "Running job $global_idx (exp=$exp_idx, seed=$seed) with:"
-echo "  Learning rate: $lr"
-echo "  Clip coef: $clip"
-echo "  Entropy coef: $ent"
-echo "  Seed: $seed"
+# Get index for learning rate
+lr_index=$(( idx % num_lr ))
+idx=$(( idx / num_lr ))
 
-OMP_NUM_THREADS=1 python -m pipelines.train_ppo \
-  --seed=$seed \
-  --env_seeds=0 \
-  --game_width=7 --total_timesteps=1250000 --hidden_size=6 \
-  --learning_rate=$lr \
-  --clip_coef=$clip \
-  --ent_coef=$ent \
-  --models_path_prefix="binary/models/parameter_sweep" \
-  --param_sweep
+# Get index for entropy coef
+ent_index=$(( idx % num_ent_coef ))
+idx=$(( idx / num_ent_coef ))
+
+# Get index for clip coef
+clip_index=$(( idx % num_clip_coef ))
+idx=$(( idx / num_clip_coef ))
+
+num_index=$(( idx % num_s ))
+idx=$(( idx / num_s ))
+
+
+# Get index for seed
+sd_index=$(( idx % num_seed ))
+
+SD="${seeds[${sd_index}]}"
+LR="${learning_rates[${lr_index}]}"
+ENT="${ent_coefs[${ent_index}]}"
+CLIP="${clip_coef[${clip_index}]}"
+NUM="${num_steps[${num_index}]}"
+
+OMP_NUM_THREADS=1 python3.11 ~/scratch/neurips-2025-paper-neural-decomposition/pipelines/train_ppo.py \
+    --seed "${SD}" \
+    --learning_rate "${LR}"\
+    --ent_coef "${ENT}"\
+    --num_steps 2000\
+    --clip_coef "${CLIP}"\
+    --env_id "ComboGrid"\
+    --game_width 10\
+    --total_timesteps 1000000\
+    --save_run_info 1\
+    --method "options"\
+    --option_mode "dec-whole"\
+    --reg_coef "${NUM}"\
+    --mask_type "both"\
+    --sweep_run 0

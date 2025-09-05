@@ -7,12 +7,13 @@ from typing import List, Any
 from gymnasium.envs.registration import register
 
 class ComboGym(gym.Env):
-    def __init__(self, rows=3, columns=3, problem="TL-BR", options=None, reward_per_step=-1, reward_goal=1):
+    def __init__(self, rows=3, columns=3, problem="TL-BR", options=None, reward_per_step=-1, reward_goal=1, max_steps=500):
         self._game = Game(rows, columns, problem)
         self._rows = rows
         self._columns = columns
         self._problem = problem
         self.render_mode = None
+        self.max_steps = max_steps
         self.observation_space = gym.spaces.Box(low=0, high=1, shape=(len(self._game.get_observation()), ), dtype=np.float64)
         self.n_discrete_actions = 3
         self.action_space = gym.spaces.Discrete(self.n_discrete_actions)
@@ -42,13 +43,14 @@ class ComboGym(gym.Env):
     
     def step(self, action:int):
         truncated = False
+        performed_actions = []
         def process_action(action: int):
             nonlocal truncated
             self._game.apply_action(action)
             self.n_steps += 1
             terminated, is_goal = self._game.is_over()
             reward = self.reward_goal if is_goal else self.reward_per_step 
-            if self.n_steps == 500:
+            if self.n_steps == self.max_steps:
                 truncated = True
             return self.get_observation(), reward, terminated, truncated, {"steps": self.n_steps, "action_size": 1}
     
@@ -62,10 +64,11 @@ class ComboGym(gym.Env):
                 else:
                     option_action = option.get_action_and_value(x_tensor, deterministic=True)[0]
                 obs, reward, terminated, truncated, _ = process_action(option_action)
+                performed_actions.append(option_action)
                 reward_sum += reward
                 if terminated or truncated:
-                    return obs, reward_sum, terminated, truncated, {"steps": self.n_steps, "action_size": idx + 1}
-            return obs, reward_sum, terminated, truncated, {"steps": self.n_steps, "action_size": idx + 1}
+                    return obs, reward_sum, terminated, truncated, {"steps": self.n_steps, "action_size": idx + 1, "performed_actions": performed_actions}
+            return obs, reward_sum, terminated, truncated, {"steps": self.n_steps, "action_size": idx + 1, "performed_actions": performed_actions}
         else:
             return process_action(action)
     
@@ -75,7 +78,7 @@ class ComboGym(gym.Env):
         return self._game.is_over()[0]
     
     def get_observation_space(self):
-        return self._rows * self._columns * 2 + 9
+        return len(self.get_observation())
     
     def get_action_space(self):
         return self.action_space.n

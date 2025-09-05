@@ -5,7 +5,7 @@ import pickle
 import random
 import traceback
 
-from ordered_set import OrderedSet
+# from ordered_set import OrderedSet
 from environments.environments_combogrid import DIRECTIONS, PROBLEM_NAMES as COMBO_PROBLEM_NAMES
 from environments.environments_combogrid_gym import ComboGym
 from environments.environments_minigrid import get_training_tasks_simplecross
@@ -33,7 +33,9 @@ class Args:
     # exp_name: str = "extract_learnOptions_randomInit_discreteMasks"
     # exp_name: str = "extract_learnOptions_randomInit_pitisFunction"
     """the name of this experiment"""
-    env_seeds: Union[List, str, Tuple] = (0,1,2,3)
+    # env_seeds: Union[List, str, Tuple] = (0,1,2,3)
+    # env_seeds: Union[List, str, Tuple] = (0,1,2)
+    env_seeds: Union[List, str, Tuple] = (1,3,17)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
     # model_paths: List[str] = (
     #     'train_ppoAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
@@ -41,22 +43,27 @@ class Args:
     #     'train_ppoAgent_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2'
     # )
     # model_paths: List[str] = (
-    #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.0005_clip0.25_ent0.1_envsd0',
-    #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.001_clip0.2_ent0.1_envsd1',
-    #     'train_ppoAgent_randomInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h6_l10_lr0.001_clip0.2_ent0.1_envsd2'
+    #     'combogrid-TL-BR',
+    #     'combogrid-TR-BL',
+    #     'combogrid-BR-TL',
+    #     'combogrid-BL-TR'
     # )
     # model_paths: List[str] = (
     #     'train_ppoAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.0005_clip0.25_ent0.1_envsd0',
     #     'train_ppoAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd1',
     #     'train_ppoAgent_sparseInit_MiniGrid-SimpleCrossingS9N1-v0_gw5_h64_l10_lr0.001_clip0.2_ent0.1_envsd2',
     #     )
-    model_paths: List[str] = (
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd0_TL-BR',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd1_TR-BL',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd2_BR-TL',
-        'train_ppoAgent_ComboGrid_gw5_h64_l10_lr0.00025_clip0.2_ent0.01_envsd3_BL-TR',
-    )
+    # model_paths: List[str] = (
+    #     'minigrid-simplecrossings9n1-v0-0',
+    #     'minigrid-simplecrossings9n1-v0-1',
+    #     'minigrid-simplecrossings9n1-v0-2'
+    # )
 
+    model_paths: List[str] = (
+            'minigrid-unlock-v0-1',
+            'minigrid-unlock-v0-3',
+            'minigrid-unlock-v0-17'
+        )
     # These attributes will be filled in the runtime
     exp_id: str = ""
     """The ID of the finished experiment; to be filled in run time"""
@@ -64,7 +71,7 @@ class Args:
     """the name of the problems the agents were trained on; To be filled in runtime"""
 
     # Algorithm specific arguments
-    env_id: str = "ComboGrid"
+    env_id: str = "MiniGrid-Unlock-v0"
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
@@ -72,7 +79,7 @@ class Args:
     """"The number of CPUTs used in this experiment."""
     
     # hyperparameters
-    game_width: int = 5
+    game_width: int = 9
     """the length of the combo/mini grid square"""
     hidden_size: int = 64
     """"""
@@ -91,9 +98,10 @@ class Args:
     """Path to the directory where the options are saved"""
     reg_coef: float = 0.0
     # reg_coef: float = 110.03
-    filtering_inapplicable: bool = False
+    filtering_inapplicable: bool = True
     # max_num_options: int = 10
     max_num_options: int = 5
+    option_mode:str = "fine-tune"
 
     # Script arguments
     seed: int = 0
@@ -144,7 +152,7 @@ def process_args() -> Args:
     
     if args.env_id == "ComboGrid":
         args.problems = [COMBO_PROBLEM_NAMES[seed] for seed in args.env_seeds]
-    elif args.env_id == "MiniGrid-SimpleCrossingS9N1-v0":
+    elif args.env_id == "MiniGrid-SimpleCrossingS9N1-v0" or "MiniGrid-Unlock-v0":
         args.problems = [args.env_id + f"_{seed}" for seed in args.env_seeds]
         
     return args
@@ -160,11 +168,11 @@ class FineTuning:
         self.selection_type = args.selection_type
         if args.cache_path == "":
             args.cache_path = "binary/cache/"
-            self.option_candidates_path = os.path.join(args.cache_path, args.exp_id, f"seed={args.seed}", "data.pkl")
-            self.option_cache_path = os.path.join(args.cache_path, args.exp_id, f"seed={args.seed}", "option_cache.pkl")
+            self.option_candidates_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_fine-tune", f"seed={args.seed}", "data_wall.pkl")
+            self.option_cache_path = os.path.join(args.cache_path, f"{args.env_id}_width={args.game_width}_fine-tune", f"seed={args.seed}", "option_cache_wall.pkl")
         else:
-            self.option_candidates_path = os.path.join(args.cache_path, f"seed={args.seed}", "data.pkl")
-            self.option_cache_path = os.path.join(args.cache_path, f"seed={args.seed}", "option_cache.pkl")
+            self.option_candidates_path = os.path.join(args.cache_path, f"seed={args.seed}", "data_wall.pkl")
+            self.option_cache_path = os.path.join(args.cache_path, f"seed={args.seed}", "option_cache_wall.pkl")
 
         print(f"Option candidates path: {self.option_candidates_path}")
         print(f"exists:{os.path.exists(self.option_candidates_path)}")
@@ -236,7 +244,7 @@ class FineTuning:
                 for primary_seed, primary_problem, primary_model_directory in zip(self.args.env_seeds, self.args.problems, self.args.model_paths):
                     if primary_problem == target_problem:
                         continue
-                    model_path = f'binary/models/{primary_model_directory}/seed={self.args.seed}/ppo_first_MODEL.pt'
+                    model_path = f'binary/models/{self.args.env_id}_width={self.args.game_width}_vanilla/seed={self.args.seed}/{primary_model_directory}-combo4.pt'
                     primary_env = get_single_environment(self.args, seed=primary_seed)
                     primary_agent = PPOAgent(primary_env, hidden_size=self.args.hidden_size)
                     primary_agent.load_state_dict(torch.load(model_path))
@@ -291,7 +299,10 @@ class FineTuning:
                 utils.logger_flush(self.logger)
             self.logger.debug("\n")
             self.logger.info("Saving parameters ... ")
-            os.makedirs(os.path.dirname(self.option_candidates_path))
+            try:
+                os.makedirs(os.path.dirname(self.option_candidates_path))
+            except:
+                pass
             with open(self.option_candidates_path, 'wb') as f:
                 pickle.dump({'option_candidates': option_candidates, 'trajectories': trajectories}, f, protocol=pickle.HIGHEST_PROTOCOL)
         else:
@@ -463,7 +474,10 @@ class FineTuning:
             not_selected_options = all_option_refs - selected_options
             weights = self._compute_sample_weight(not_selected_options, possible_sequences, all_options)
             num_neighbours = min(max_num_neighbours, len(not_selected_options))
-            sample_options = random_generator.choice(list(not_selected_options), p=weights, size=num_neighbours, replace=False).tolist()
+            if num_neighbours > 0:
+                sample_options = random_generator.choice(list(not_selected_options), p=weights, size=num_neighbours, replace=False).tolist()
+            else:
+                sample_options = []
             # assert len(sample_options) == (len(all_options) - len(selected_options)) == len(not_selected_options), f"Sampled options {len(sample_options)} should be equal to all options {len(all_options)} len of selected ones: {len(selected_options)}, len of not selected ones: {len(not_selected_options)}"
 
             neighbours = []

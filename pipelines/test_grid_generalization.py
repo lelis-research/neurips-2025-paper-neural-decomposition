@@ -5,7 +5,9 @@ from typing import Union, List, Tuple
 from pipelines.losses import LevinLossActorCritic
 from pipelines.option_discovery import load_options
 from dataclasses import dataclass
-from environments.environments_combogrid import PROBLEM_NAMES as COMMBOGRID_NAMES
+from environments.environments_combogrid import PROBLEM_NAMES as COMMBOGRID_NAMES, DIRECTIONS
+from environments.utils import get_single_environment
+import torch
 
 
 @dataclass
@@ -19,13 +21,13 @@ class Args:
     """the id of the environment corresponding to the trained agent
     choices from [ComboGrid, MiniGrid-SimpleCrossingS9N1-v0]
     """
-    game_width: int = 5
+    game_width: int = 10
     """the length of the combo/mini grid square"""
     hidden_size: int = 64
     """"""
     problems: List[str] = tuple()
     """"""
-    env_seeds: Union[Tuple[int, ...], str] = (0,1,2,3)
+    env_seeds: Union[Tuple[int, ...], str] = (12,)
     """seeds used to generate the trained models. It can also specify a closed interval using a string of format 'start,end'."""
 
     # model_paths: List[str] = (
@@ -36,12 +38,15 @@ class Args:
     # )
     
     # script arguments
-    seed: int = 0
+    seed: int = 54
     """run seed"""
     log_path: str = "outputs/logs/"
     """The name of the log file"""
     log_level: str = "INFO"
     """The logging level"""
+    option_mode = "neural-augmented"
+    mask_type = "both"
+    reg_coef = "0.0"
 
 
 def main(args: Args):
@@ -49,46 +54,35 @@ def main(args: Args):
     logger, args.log_path = utils.get_logger("test_grid_generalization_logger", args.log_level, log_path)
     
     options, trajectories = load_options(args, logger)
-    mask_type = options[0].mask_type
-    assert all(option.mask_type == mask_type for option in options)
-    mask_transform_type = options[0].mask_transform_type
-    assert all(option.mask_transform_type == mask_transform_type for option in options)
     
-    loss = LevinLossActorCritic(logger, mask_type=mask_type, mask_transform_type=mask_transform_type)
+    env = get_single_environment(args, args.seed, args.problems[0], True, options)
     
-    def get_levin_loss(options, trajectories):
-        cost = 0
-        for problem, trajectory in trajectories.items():
-            cost += loss.compute_loss_cached(options, 
-                                            trajectory, 
-                                            problem_str=problem, 
-                                            number_actions=3,
-                                            cache_enabled=False)[0]
-        return cost
-    
-    levin_loss = get_levin_loss(options, trajectories)
-    
-    import copy
-    logger.info(f"Levin loss: {levin_loss}")
-    for i in range(len(options)):
-        options_cpy = copy.deepcopy(options)
-        options_cpy = options_cpy[:i] + options_cpy[i+1:]
-        levin_loss = get_levin_loss(options_cpy, trajectories)
-        logger.info(f"Levin loss without option #{i}: {levin_loss}")
-    
-    # logger.info(f"Logs saved on {args.log_path}")
+    total_str = ""
+    for action in range(len(options)):
+        total_str += f"Option #{action}: \n\n"
+        for i in range(10):
+            for j in range(10):
+                action_str = ""
+                env.reset(init_loc=(i,j))
+                _,_,_,_,info = env.step(3+action)
+                actions = info["performed_actions"]
+                x = 0
+                while x < len(actions):
+                    if tuple(actions[x:x+4]) in DIRECTIONS:
+                        action_str += DIRECTIONS[tuple(actions[x:x+4])]
+                        action_str += " "
+                        x += 4
+                    else:
+                        action_str += f"{actions[x]} "
+                        x += 1
 
-    # logger.info("Testing on each grid cell")
-    # for seed, problem in zip(args.env_seeds, args.problems):
-    #     logger.info(f"Testing on each cell..., {problem}")
-    #     loss.evaluate_on_each_cell(options=options, 
-    #                                trajectories=trajectories,
-    #                                problem_test=problem, 
-    #                                args=args, 
-    #                                seed=seed, 
-    #                                logger=logger)
+                total_str += action_str.center(20)
+            total_str += "\n"
+        total_str += "-"*60
+    with open("options_neural_aug.txt", "w") as f:
+        f.write(total_str)
+            
 
-    # utils.logger_flush(logger)
 
 
 if __name__ == "__main__":
